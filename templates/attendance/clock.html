@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Clock In/Out - Barangay Management System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Time Clock</h1>
+        <span>Manual entry for attendance</span>
+    </div>
+</div>
+
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <div class="card-header text-center">
+        <h2 id="liveTime" style="font-size: 36px; font-weight: 800; color: var(--primary);">00:00:00</h2>
+        <span>{{ current_time|date:"l, F d, Y" }}</span>
+    </div>
+    <div class="card-body" style="padding: 30px;">
+        <form method="POST">
+            {% csrf_token %}
+            <div class="form-group" style="margin-bottom: 25px;">
+                <label>Select Official/Staff*</label>
+                <select name="official" class="form-control" style="height: 50px; font-size: 16px;" required>
+                    <option value="">Select Name...</option>
+                    {% for official in officials %}
+                    <option value="{{ official.pk }}">{{ official.resident.full_name }} ({{ official.get_position_display }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="action-buttons" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <button type="submit" name="action" value="in" class="btn btn-primary"
+                    style="height: 80px; font-size: 20px; flex-direction: column;">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>CLOCK IN</span>
+                </button>
+                <button type="submit" name="action" value="out" class="btn btn-secondary"
+                    style="height: 80px; font-size: 20px; flex-direction: column;">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>CLOCK OUT</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 30px;">
+    <div class="card-header">
+        <h3>Recent Clock Entries</h3>
+    </div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Official</th>
+                    <th>Action</th>
+                    <th>Time</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in today_logs.values %}
+                <tr>
+                    <td>{{ log.official.resident.full_name }}</td>
+                    <td>
+                        {% if log.time_out %}
+                        <span class="status-badge badge-active">Completed</span>
+                        {% else %}
+                        <span class="status-badge badge-pending">On Duty</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        IN: {{ log.time_in|time:"h:i A" }}
+                        {% if log.time_out %} | OUT: {{ log.time_out|time:"h:i A" }}{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function updateLiveTime() {
+        const now = new Date();
+        document.getElementById('liveTime').textContent = now.toLocaleTimeString('en-US', { hour12: false });
+    }
+    setInterval(updateLiveTime, 1000);
+    updateLiveTime();
+</script>
+{% endblock %}

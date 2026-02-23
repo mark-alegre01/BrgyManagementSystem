@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Households - Barangay Management System{% endblock %}
+
+{% block breadcrumb %}
+<span><i class="fas fa-home"></i> / Households</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Household Records</h1>
+        <span>Manage and view all registered households</span>
+    </div>
+    <div class="header-actions">
+        <a href="{% url 'residents:household_add' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Household
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Household No.</th>
+                    <th>Address</th>
+                    <th>Purok</th>
+                    <th>Members</th>
+                    <th>Head of Family</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for household in households %}
+                <tr>
+                    <td><strong>#{{ household.household_no }}</strong></td>
+                    <td>{{ household.address }}</td>
+                    <td>{{ household.purok }}</td>
+                    <td>
+                        <span class="member-count">
+                            <i class="fas fa-users"></i> {{ household.member_count }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if household.head %}
+                        {{ household.head.full_name }}
+                        {% else %}
+                        <span class="text-muted">Not Set</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group">
+                            <a href="{% url 'residents:household_view' household.pk %}" class="btn btn-outline btn-icon"
+                                title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">No households found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if households.has_other_pages %}
+    <div class="pagination">
+        <!-- Pagination logic -->
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .member-count {
+        background: rgba(var(--primary-rgb), 0.1);
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 13px;
+    }
+
+    .member-count i {
+        margin-right: 4px;
+        color: var(--primary);
+    }
+</style>
+{% endblock %}

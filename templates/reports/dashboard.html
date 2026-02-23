@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports - Barangay Management System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Monthly Reports Summary</h1>
+        <span>Overview for {% now "F Y" %}</span>
+    </div>
+    <div class="header-actions">
+        <button class="btn btn-outline" onclick="window.print()">
+            <i class="fas fa-print"></i> Print Report
+        </button>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-info">
+            <span class="label">Total Population</span>
+            <span class="value">{{ total_population }}</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <span class="label">Certificates Issued (Month)</span>
+            <span class="value">{{ certs_this_month }}</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-info">
+            <span class="label">Total Fees Collected</span>
+            <span class="value">₱{{ total_revenue|floatformat:2 }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <div class="card">
+        <div class="card-header">
+            <h3>Certificate Breakdown</h3>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cert_breakdown %}
+                    <tr>
+                        <td>{{ item.type }}</td>
+                        <td>{{ item.count }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" class="text-center">No certificates issued this month.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Legislative & Staff Summary</h3>
+        </div>
+        <div class="card-body" style="padding: 20px;">
+            <p><strong>Active Ordinances:</strong> {{ active_ordinances }}</p>
+            <p><strong>Total Ordinances:</strong> {{ total_ordinances }}</p>
+            <p style="margin-top: 15px;"><strong>Active Officials:</strong> {{ active_officials }}</p>
+            <p><strong>Attendance Recorded Today:</strong> {{ attendance_today }} entries</p>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 30px;">
+    <div class="card-header">
+        <h3>Demographic Distribution</h3>
+    </div>
+    <div class="card-body" style="display: flex; gap: 40px; padding: 20px;">
+        <div class="demo-item">
+            <span class="label">Male:</span>
+            <strong>{{ male_count }}</strong>
+        </div>
+        <div class="demo-item">
+            <span class="label">Female:</span>
+            <strong>{{ female_count }}</strong>
+        </div>
+        <div class="demo-item">
+            <span class="label">Registered Voters:</span>
+            <strong>{{ voters }}</strong>
+        </div>
+    </div>
+</div>
+
+<style>
+    .demo-item {
+        font-size: 16px;
+    }
+
+    .demo-item .label {
+        color: var(--text-muted);
+        margin-right: 10px;
+    }
+
+    @media print {
+
+        .sidebar,
+        .top-navbar,
+        .header-actions {
+            display: none;
+        }
+
+        .main-content {
+            margin-left: 0;
+        }
+
+        .page-content {
+            padding: 0;
+        }
+
+        .card {
+            border: none;
+        }
+    }
+</style>
+{% endblock %}

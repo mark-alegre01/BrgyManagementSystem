@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Census - Barangay Management System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Barangay Census & Demographics</h1>
+        <span>Statistical overview of the population</span>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon icon-blue">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-info">
+            <span class="value">{{ total_population }}</span>
+            <span class="label">Total Population</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-green">
+            <i class="fas fa-vote-yea"></i>
+        </div>
+        <div class="stat-info">
+            <span class="value">{{ voters }}</span>
+            <span class="label">Registered Voters</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-yellow">
+            <i class="fas fa-blind"></i>
+        </div>
+        <div class="stat-info">
+            <span class="value">{{ senior }}</span>
+            <span class="label">Senior Citizens</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-red">
+            <i class="fas fa-wheelchair"></i>
+        </div>
+        <div class="stat-info">
+            <span class="value">{{ pwd }}</span>
+            <span class="label">PWDs</span>
+        </div>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <div class="card">
+        <div class="card-header">
+            <h3>Age Distribution</h3>
+        </div>
+        <div class="card-body" style="padding: 20px;">
+            <canvas id="ageChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Purok Distribution</h3>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Purok/Zone</th>
+                        <th>Population</th>
+                        <th>Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in purok_stats %}
+                    <tr>
+                        <td>{{ p.purok|default:"Undeclared" }}</td>
+                        <td>{{ p.count }}</td>
+                        <td>
+                            {% widthratio p.count total_population 100 %}%
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 30px;">
+    <div class="card-header">
+        <h3>Gender & Sector Breakdown</h3>
+    </div>
+    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); padding: 20px;">
+        <div class="stat-info">
+            <span class="label">Male</span>
+            <span class="value" style="color: #4f46e5;">{{ male_count }}</span>
+        </div>
+        <div class="stat-info">
+            <span class="label">Female</span>
+            <span class="value" style="color: #ec4899;">{{ female_count }}</span>
+        </div>
+        <div class="stat-info">
+            <span class="label">4Ps Members</span>
+            <span class="value">{{ fourps }}</span>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    const ageCtx = document.getElementById('ageChart').getContext('2d');
+    new Chart(ageCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ age_group_labels| safe }},
+        datasets: [{
+            label: 'Population Count',
+            data: {{ age_group_values| safe }},
+        backgroundColor: 'rgba(79, 70, 229, 0.6)',
+        borderColor: '#4f46e5',
+        borderWidth: 1
+            }]
+        },
+        options: {
+        responsive: true,
+        scales: {
+            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
+            x: { grid: { display: false } }
+        },
+        plugins: {
+            legend: { display: false }
+        }
+    }
+    });
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Household - Barangay Management System{% endblock %}
+
+{% block breadcrumb %}
+<span><a href="{% url 'residents:household_list' %}">Households</a> / {% if editing %}Edit{% else %}Add{% endif %}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>{% if editing %}Edit Household{% else %}Create New Household{% endif %}</h1>
+        <span>Fill in the household details below</span>
+    </div>
+    <div class="header-actions">
+        <a href="{% url 'residents:household_list' %}" class="btn btn-outline">Cancel</a>
+    </div>
+</div>
+
+<div class="card" style="max-width: 800px; margin: 0 auto;">
+    <form method="POST" class="modern-form">
+        {% csrf_token %}
+        <div class="form-section">
+            <div class="form-row">
+                <div class="form-group col-12">
+                    <label>Household Number*</label>
+                    <input type="text" name="household_no" value="{{ household.household_no }}" class="form-control"
+                        required placeholder="e.g. HH-2024-001">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-12">
+                    <label>Purok / Zone*</label>
+                    <input type="text" name="purok" value="{{ household.purok }}" class="form-control" required
+                        placeholder="Enter purok name">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group col-12">
+                    <label>Full Address*</label>
+                    <textarea name="address" class="form-control" rows="3" required
+                        placeholder="Enter complete address">{{ household.address }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-footer">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="fas fa-save"></i> Save Household
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+    .modern-form {
+        padding: 30px;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+
+    .col-12 {
+        flex: 0 0 100%;
+    }
+</style>
+{% endblock %}

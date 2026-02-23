@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+
+{% block title %}DTR Details - {{ official.resident.full_name }}{% endblock %}
+
+{% block breadcrumb %}
+<span><a href="{% url 'attendance:dashboard' %}">Attendance</a> / <a href="{% url 'attendance:dtr' %}">DTR Summary</a> /
+    {{ official.resident.full_name }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Detailed DTR</h1>
+        <span>Attendance log for {{ official.resident.full_name }} ({{ month }}/{{ year }})</span>
+    </div>
+    <div class="header-actions">
+        <a href="{% url 'attendance:dtr_print' official.pk %}?month={{ month }}&year={{ year }}" target="_blank"
+            class="btn btn-secondary">
+            <i class="fas fa-print"></i> Print DTR
+        </a>
+        <a href="{% url 'attendance:dtr' %}?month={{ month }}&year={{ year }}" class="btn btn-outline">
+            <i class="fas fa-chevron-left"></i> Back to Summary
+        </a>
+    </div>
+</div>
+
+<div class="row" style="display: flex; gap: 25px; margin-bottom: 25px;">
+    <div class="col" style="flex: 1;">
+        <div class="card bg-primary text-white p-4 text-center">
+            <h4 class="mb-1">Total Hours</h4>
+            <div class="display-4 font-weight-bold">{{ total_hours }}</div>
+            <span class="small opacity-75">for the month of {{ month|date:"F"|default:month }} {{ year }}</span>
+        </div>
+    </div>
+    <div class="col" style="flex: 1;">
+        <div class="card p-4 text-center">
+            <h4 class="text-muted mb-1">Days Present</h4>
+            <div class="display-4 font-weight-bold">{{ logs.count }}</div>
+            <span class="small text-muted">active duty days</span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Time In</th>
+                    <th>Time Out</th>
+                    <th>Status</th>
+                    <th>Method</th>
+                    <th>Hours</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td><strong>{{ log.date|date:"M d, Y" }}</strong> <span class="text-muted small">({{
+                            log.date|date:"l" }})</span></td>
+                    <td>{{ log.time_in|time:"h:i A"|default:"---" }}</td>
+                    <td>{{ log.time_out|time:"h:i A"|default:"---" }}</td>
+                    <td>
+                        <span
+                            class="badge {% if log.status == 'present' %}badge-success{% elif log.status == 'late' %}badge-warning{% else %}badge-danger{% endif %}">
+                            {{ log.get_status_display }}
+                        </span>
+                    </td>
+                    <td class="text-capitalize">{{ log.method }}</td>
+                    <td><strong>{{ log.hours_worked|floatformat:2 }}</strong></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center">No logs found for this official in the selected period.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .bg-primary {
+        background: var(--primary) !important;
+        color: white !important;
+    }
+
+    .display-4 {
+        font-size: 2.5rem;
+        line-height: 1.2;
+    }
+
+    .opacity-75 {
+        opacity: 0.75;
+    }
+
+    .badge-success {
+        background: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+    }
+
+    .badge-warning {
+        background: rgba(245, 158, 11, 0.1);
+        color: #f59e0b;
+    }
+
+    .badge-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+    }
+</style>
+{% endblock %}
