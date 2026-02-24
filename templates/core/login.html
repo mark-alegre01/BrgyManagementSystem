@@ -550,7 +550,7 @@
 
                     contents.forEach(content => {
                         content.classList.remove('active');
-                        if (content.id === targetTab + '-content') {
+                        if (content.id == = targetTab + '-content') {
                             content.classList.add('active');
                         }
                     });
@@ -568,7 +568,7 @@
                     let value = e.target.value.replace(/[^0-9]/g, '');
                     let formatted = '';
                     for (let i = 0; i < value.length && i < 13; i++) {
-                        if (i === 4 || i === 9) {
+                        if (i == = 4 || i == = 9) {
                             formatted += '-';
                         }
                         formatted += value[i];
