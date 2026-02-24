@@ -257,25 +257,37 @@
 
     .info-item {
         display: flex;
+        align-items: center;
         gap: 15px;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
     }
 
     .info-item i {
-        font-size: 18px;
+        font-size: 20px;
         color: var(--primary);
-        width: 25px;
+        width: 32px;
+        height: 32px;
+        background: rgba(79, 70, 229, 0.1);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
     }
 
     .info-item label {
         display: block;
         font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
         color: var(--text-muted);
+        margin-bottom: 2px;
     }
 
     .info-item span {
-        font-size: 14px;
-        font-weight: 500;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-main);
     }
 
     .detail-grid {
