@@ -99,8 +99,7 @@
                         <select name="household" class="form-control">
                             <option value="">No Household Assigned</option>
                             {% for household in households %}
-                            <option value="{{ household.pk }}" {% if resident.household.pk == household.pk %}selected{%
-                                endif %}>
+                            <option value="{{ household.pk }}" {% if resident.household.pk == household.pk %}selected{% endif %}>
                                 {{ household.household_no }} - {{ household.purok }}
                             </option>
                             {% endfor %}
@@ -108,8 +107,7 @@
                     </div>
                     <div class="form-group col-6 checkbox-inline">
                         <label class="checkbox-container">
-                            <input type="checkbox" name="is_household_head" {% if resident.is_household_head %}checked{%
-                                endif %}>
+                            <input type="checkbox" name="is_household_head" {% if resident.is_household_head %}checked{% endif %}>
                             <span>Is Household Head</span>
                         </label>
                     </div>
@@ -117,8 +115,7 @@
 
                 <div class="form-row checkbox-row">
                     <label class="checkbox-container">
-                        <input type="checkbox" name="is_registered_voter" {% if resident.is_registered_voter %}checked{%
-                            endif %}>
+                        <input type="checkbox" name="is_registered_voter" {% if resident.is_registered_voter %}checked{% endif %}>
                         <span>Registered Voter</span>
                     </label>
                     <label class="checkbox-container">
@@ -126,8 +123,7 @@
                         <span>PWD</span>
                     </label>
                     <label class="checkbox-container">
-                        <input type="checkbox" name="is_senior_citizen" {% if resident.is_senior_citizen %}checked{%
-                            endif %}>
+                        <input type="checkbox" name="is_senior_citizen" {% if resident.is_senior_citizen %}checked{% endif %}>
                         <span>Senior Citizen</span>
                     </label>
                     <label class="checkbox-container">
