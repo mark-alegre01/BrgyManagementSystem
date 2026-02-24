@@ -379,6 +379,10 @@ body {
     margin-bottom: 30px;
 }
 
+.card-body {
+    padding: 24px;
+}
+
 .card-header {
     padding: 20px 24px;
     border-bottom: 1px solid var(--border);
@@ -735,6 +739,7 @@ tr:last-child td {
 .text-center {
     text-align: center;
 }
+
 /* Modern Form Controls */
 .form-group {
     margin-bottom: 20px;
@@ -784,7 +789,7 @@ tr:last-child td {
 
 select.form-control {
     appearance: none;
-    background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 16px center;
     background-size: 18px;
@@ -807,7 +812,7 @@ textarea.form-control {
     color: var(--text-main);
 }
 
-.checkbox-container input[type=\"checkbox\"] {
+.checkbox-container input[type="checkbox"] {
     width: 20px;
     height: 20px;
     border-radius: 6px;
@@ -819,12 +824,12 @@ textarea.form-control {
     transition: var(--transition);
 }
 
-.checkbox-container input[type=\"checkbox\"]:checked {
+.checkbox-container input[type="checkbox"]:checked {
     background: var(--primary);
     border-color: var(--primary);
 }
 
-.checkbox-container input[type=\"checkbox\"]:checked::after {
+.checkbox-container input[type="checkbox"]:checked::after {
     content: '✓';
     position: absolute;
     color: white;
@@ -834,6 +839,6 @@ textarea.form-control {
     transform: translate(-50%, -50%);
 }
 
-.checkbox-container:hover input[type=\"checkbox\"] {
+.checkbox-container:hover input[type="checkbox"] {
     border-color: var(--primary);
 }

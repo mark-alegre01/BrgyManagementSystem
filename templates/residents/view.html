@@ -83,7 +83,8 @@
                 <div class="detail-grid">
                     <div class="detail-item">
                         <label>Full Name</label>
-                        <span>{{ resident.last_name }}, {{ resident.first_name }} {{ resident.middle_name }}{% if resident.suffix %} {{ resident.suffix }}{% endif %}</span>
+                        <span>{{ resident.last_name }}, {{ resident.first_name }} {{ resident.middle_name }}{% if
+                            resident.suffix %} {{ resident.suffix }}{% endif %}</span>
                     </div>
                     <div class="detail-item">
                         <label>Gender</label>
@@ -293,8 +294,8 @@
 
     .detail-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 35px 25px;
     }
 
     .detail-item label {
@@ -306,7 +307,10 @@
 
     .detail-item span {
         font-size: 15px;
-        font-weight: 500;
+        font-weight: 600;
+        color: var(--text-main);
+        display: block;
+        margin-top: 2px;
     }
 
     .col-span-2 {
@@ -314,7 +318,7 @@
     }
 
     .mt-4 {
-        margin-top: 25px;
+        margin-top: 30px;
     }
 
     @media (max-width: 992px) {
