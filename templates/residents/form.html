@@ -51,15 +51,16 @@
                     <div class="form-group col-4">
                         <label>Gender*</label>
                         <select name="gender" class="form-control" required>
-                            <option value="M" {% if resident.gender == 'M' %}selected{% endif %}>Male</option>
-                            <option value="F" {% if resident.gender == 'F' %}selected{% endif %}>Female</option>
+                            <option value="M" {% if resident.gender=='M' %}selected{% endif %}>Male</option>
+                            <option value="F" {% if resident.gender=='F' %}selected{% endif %}>Female</option>
                         </select>
                     </div>
                     <div class="form-group col-4">
                         <label>Civil Status*</label>
                         <select name="civil_status" class="form-control" required>
                             {% for code, label in resident.CIVIL_STATUS_CHOICES %}
-                            <option value="{{ code }}" {% if resident.civil_status == code %}selected{% endif %}>{{  label  }}</option>
+                            <option value="{{ code }}" {% if resident.civil_status==code %}selected{% endif %}>{{ label
+                                }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -76,6 +77,17 @@
                         <input type="text" name="purok" value="{{ resident.purok }}" class="form-control">
                     </div>
                 </div>
+
+                <div class="form-row">
+                    <div class="form-group col-6">
+                        <label>Religion</label>
+                        <input type="text" name="religion" value="{{ resident.religion }}" class="form-control">
+                    </div>
+                    <div class="form-group col-6">
+                        <label>Occupation</label>
+                        <input type="text" name="occupation" value="{{ resident.occupation }}" class="form-control">
+                    </div>
+                </div>
             </div>
 
             <!-- Household & Classification -->
@@ -87,7 +99,8 @@
                         <select name="household" class="form-control">
                             <option value="">No Household Assigned</option>
                             {% for household in households %}
-                            <option value="{{ household.pk }}" {% if resident.household.pk == household.pk %}selected{%  endif  %}>
+                            <option value="{{ household.pk }}" {% if resident.household.pk==household.pk %}selected{%
+                                endif %}>
                                 {{ household.household_no }} - {{ household.purok }}
                             </option>
                             {% endfor %}
@@ -95,7 +108,8 @@
                     </div>
                     <div class="form-group col-6 checkbox-inline">
                         <label class="checkbox-container">
-                            <input type="checkbox" name="is_household_head" {% if resident.is_household_head %}checked{%  endif  %}>
+                            <input type="checkbox" name="is_household_head" {% if resident.is_household_head %}checked{%
+                                endif %}>
                             <span>Is Household Head</span>
                         </label>
                     </div>
@@ -103,7 +117,8 @@
 
                 <div class="form-row checkbox-row">
                     <label class="checkbox-container">
-                        <input type="checkbox" name="is_registered_voter" {% if resident.is_registered_voter %}checked{%  endif  %}>
+                        <input type="checkbox" name="is_registered_voter" {% if resident.is_registered_voter %}checked{%
+                            endif %}>
                         <span>Registered Voter</span>
                     </label>
                     <label class="checkbox-container">
@@ -111,7 +126,8 @@
                         <span>PWD</span>
                     </label>
                     <label class="checkbox-container">
-                        <input type="checkbox" name="is_senior_citizen" {% if resident.is_senior_citizen %}checked{%  endif  %}>
+                        <input type="checkbox" name="is_senior_citizen" {% if resident.is_senior_citizen %}checked{%
+                            endif %}>
                         <span>Senior Citizen</span>
                     </label>
                     <label class="checkbox-container">
