@@ -3,7 +3,8 @@
 {% block title %}Manage Household - Barangay Management System{% endblock %}
 
 {% block breadcrumb %}
-<span><a href="{% url 'residents:household_list' %}">Households</a> / {% if editing %}Edit{% else %}Add{% endif %}</span>
+<span><a href="{% url 'residents:household_list' %}">Households</a> / {% if editing %}Edit{% else %}Add{% endif
+    %}</span>
 {% endblock %}
 
 {% block content %}
@@ -55,16 +56,6 @@
 <style>
     .modern-form {
         padding: 30px;
-    }
-
-    .form-group {
-        margin-bottom: 20px;
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 8px;
-        font-weight: 500;
     }
 
     .col-12 {
