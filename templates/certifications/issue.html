@@ -4,139 +4,139 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">
-        <h1>Issue New Certificate</h1>
-        <span>Select certificate type and fill in the details</span>
-    </div>
+  <div class="page-title">
+    <h1>Issue New Certificate</h1>
+    <span>Select certificate type and fill in the details</span>
+  </div>
 </div>
 
 <div class="card">
-    <form method="POST" class="modern-form">
-        {% csrf_token %}
-        <div class="form-grid">
-            <div class="form-section">
-                <h3>Certificate Details</h3>
-                <div class="form-row">
-                    <div class="form-group col-6">
-                        <label>Certificate Type*</label>
-                        <select name="cert_type" id="cert_type" class="form-control" required>
-                            <option value="">Select Type...</option>
-                            {% for code, label in cert_types %}
-                            <option value="{{ code }}">{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="form-group col-6">
-                        <label>Purpose*</label>
-                        <input type="text" name="purpose" class="form-control"
-                            placeholder="e.g. For employment, ID, etc." required>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group col-12">
-                        <label>Resident*</label>
-                        <select name="resident" class="form-control" required>
-                            <option value="">Search and select resident...</option>
-                            {% for r in residents %}
-                            <option value="{{ r.pk }}">{{ r.last_name }}, {{ r.first_name }} - {{ r.purok }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted">Showing 50 most recent residents. Use search above if not
-                            listed.</small>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Business Permit Fields (hidden by default) -->
-            <div class="form-section" id="business_fields" style="display: none;">
-                <h3>Business Information</h3>
-                <div class="form-row">
-                    <div class="form-group col-6">
-                        <label>Business Name</label>
-                        <input type="text" name="business_name" class="form-control">
-                    </div>
-                    <div class="form-group col-6">
-                        <label>Business Type</label>
-                        <input type="text" name="business_type" class="form-control" placeholder="e.g. Sari-sari Store">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group col-12">
-                        <label>Business Address</label>
-                        <input type="text" name="business_address" class="form-control">
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-section">
-                <h3>Payment Details</h3>
-                <div class="form-row">
-                    <div class="form-group col-6">
-                        <label>OR Number</label>
-                        <input type="text" name="or_number" class="form-control">
-                    </div>
-                    <div class="form-group col-6">
-                        <label>Amount Paid (₱)</label>
-                        <input type="number" step="0.01" name="amount_paid" class="form-control" value="0.00">
-                    </div>
-                </div>
-            </div>
+  <form method="POST" class="modern-form">
+    {% csrf_token %}
+    <div class="form-grid">
+      <div class="form-section">
+        <h3>Certificate Details</h3>
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label>Certificate Type*</label>
+            <select name="cert_type" id="cert_type" class="form-control" required>
+              <option value="">Select Type...</option>
+              {% for code, label in cert_types %}
+              <option value="{{ code }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group col-6">
+            <label>Purpose*</label>
+            <input type="text" name="purpose" class="form-control"
+              placeholder="e.g. For employment, ID, etc." required>
+          </div>
         </div>
 
-        <div class="form-footer">
-            <button type="submit" class="btn btn-primary btn-lg">
-                <i class="fas fa-check-circle"></i> Generate & Issue
-            </button>
+        <div class="form-row">
+          <div class="form-group col-12">
+            <label>Resident*</label>
+            <select name="resident" class="form-control" required>
+              <option value="">Search and select resident...</option>
+              {% for r in residents %}
+              <option value="{{ r.pk }}">{{ r.last_name }}, {{ r.first_name }} - {{ r.purok }}</option>
+              {% endfor %}
+            </select>
+            <small class="text-muted">Showing 50 most recent residents. Use search above if not
+              listed.</small>
+          </div>
         </div>
-    </form>
+      </div>
+
+      <!-- Business Permit Fields (hidden by default) -->
+      <div class="form-section" id="business_fields" style="display: none;">
+        <h3>Business Information</h3>
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label>Business Name</label>
+            <input type="text" name="business_name" class="form-control">
+          </div>
+          <div class="form-group col-6">
+            <label>Business Type</label>
+            <input type="text" name="business_type" class="form-control" placeholder="e.g. Sari-sari Store">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group col-12">
+            <label>Business Address</label>
+            <input type="text" name="business_address" class="form-control">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Payment Details</h3>
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label>OR Number</label>
+            <input type="text" name="or_number" class="form-control">
+          </div>
+          <div class="form-group col-6">
+            <label>Amount Paid (₱)</label>
+            <input type="number" step="0.01" name="amount_paid" class="form-control" value="0.00">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <button type="submit" class="btn btn-primary btn-lg">
+        <i class="fas fa-check-circle"></i> Generate & Issue
+      </button>
+    </div>
+  </form>
 </div>
 
 <script>
-    document.getElementById('cert_type').addEventListener('change', function () {
-        const businessFields = document.getElementById('business_fields');
-        if (this.value == = 'business_permit') {
-            businessFields.style.display = 'block';
-        } else {
-            businessFields.style.display = 'none';
-        }
-    });
+  document.getElementById('cert_type').addEventListener('change', function () {
+    const businessFields = document.getElementById('business_fields');
+    if (this.value == = 'business_permit') {
+      businessFields.style.display = 'block';
+    } else {
+      businessFields.style.display = 'none';
+    }
+  });
 </script>
 <style>
-    .modern-form {
-        padding: 30px;
-    }
+  .modern-form {
+    padding: 30px;
+  }
 
-    .form-section {
-        margin-bottom: 25px;
-    }
+  .form-section {
+    margin-bottom: 25px;
+  }
 
-    .form-section h3 {
-        font-size: 14px;
-        color: var(--primary);
-        margin-bottom: 15px;
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 8px;
-    }
+  .form-section h3 {
+    font-size: 14px;
+    color: var(--primary);
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
 
-    .form-row {
-        display: flex;
-        gap: 20px;
-        margin-bottom: 15px;
-    }
+  .form-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+  }
 
-    .col-6 {
-        flex: 1;
-    }
+  .col-6 {
+    flex: 1;
+  }
 
-    .col-12 {
-        width: 100%;
-    }
+  .col-12 {
+    width: 100%;
+  }
 
-    .form-footer {
-        border-top: 1px solid var(--border);
-        padding-top: 20px;
-        text-align: right;
-    }
+  .form-footer {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    text-align: right;
+  }
 </style>
 {% endblock %}

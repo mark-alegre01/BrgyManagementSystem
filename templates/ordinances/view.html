@@ -8,135 +8,135 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">
-        <h1>Ordinance Details</h1>
-        <span>Information for Ordinance #: {{ ordinance.ordinance_number }}</span>
-    </div>
-    <div class="header-actions">
-        <a href="{% url 'ordinances:edit' ordinance.pk %}" class="btn btn-primary">
-            <i class="fas fa-edit"></i> Edit Ordinance
-        </a>
-        {% if ordinance.document_file %}
-        <a href="{% url 'ordinances:download' ordinance.pk %}" class="btn btn-secondary">
-            <i class="fas fa-download"></i> Download Document
-        </a>
-        {% endif %}
-        <a href="{% url 'ordinances:list' %}" class="btn btn-outline">
-            <i class="fas fa-chevron-left"></i> Back to List
-        </a>
-    </div>
+  <div class="page-title">
+    <h1>Ordinance Details</h1>
+    <span>Information for Ordinance #: {{ ordinance.ordinance_number }}</span>
+  </div>
+  <div class="header-actions">
+    <a href="{% url 'ordinances:edit' ordinance.pk %}" class="btn btn-primary">
+      <i class="fas fa-edit"></i> Edit Ordinance
+    </a>
+    {% if ordinance.document_file %}
+    <a href="{% url 'ordinances:download' ordinance.pk %}" class="btn btn-secondary">
+      <i class="fas fa-download"></i> Download Document
+    </a>
+    {% endif %}
+    <a href="{% url 'ordinances:list' %}" class="btn btn-outline">
+      <i class="fas fa-chevron-left"></i> Back to List
+    </a>
+  </div>
 </div>
 
 <div class="card">
-    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-        <h2 class="mb-0">{{ ordinance.title }}</h2>
-        <span class="badge {% if ordinance.status == 'active' %}badge-success{% else %}badge-warning{% endif %}">
-            {{ ordinance.get_status_display }}
-        </span>
-    </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-8">
-                <div class="detail-section mb-4">
-                    <h3>Description</h3>
-                    <p class="lead text-muted">{{ ordinance.description|linebreaks|default:"No description provided." }}
-                    </p>
-                </div>
-
-                <div class="detail-section mb-4">
-                    <h3>Remarks</h3>
-                    <p>{{ ordinance.remarks|default:"---" }}</p>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="detail-card card p-3 bg-light border-0">
-                    <h3 class="h5 mb-3 border-bottom pb-2">MetaData</h3>
-                    <div class="meta-item mb-2">
-                        <label class="text-muted d-block small uppercase font-weight-bold">ORDINANCE NUMBER</label>
-                        <span>{{ ordinance.ordinance_number }}</span>
-                    </div>
-                    <div class="meta-item mb-2">
-                        <label class="text-muted d-block small uppercase font-weight-bold">AUTHOR</label>
-                        <span>{{ ordinance.author }}</span>
-                    </div>
-                    {% if ordinance.sponsor %}
-                    <div class="meta-item mb-2">
-                        <label class="text-muted d-block small uppercase font-weight-bold">SPONSOR</label>
-                        <span>{{ ordinance.sponsor }}</span>
-                    </div>
-                    {% endif %}
-                    <div class="meta-item mb-2">
-                        <label class="text-muted d-block small uppercase font-weight-bold">CATEGORY</label>
-                        <span>{{ ordinance.get_category_display }}</span>
-                    </div>
-                    <div class="meta-item mb-2">
-                        <label class="text-muted d-block small uppercase font-weight-bold">DATE ENACTED</label>
-                        <span>{{ ordinance.date_enacted|date:"F d, Y" }}</span>
-                    </div>
-                    {% if ordinance.date_effectivity %}
-                    <div class="meta-item mb-2">
-                        <label class="text-muted d-block small uppercase font-weight-bold">DATE OF EFFECTIVITY</label>
-                        <span>{{ ordinance.date_effectivity|date:"F d, Y" }}</span>
-                    </div>
-                    {% endif %}
-                </div>
-
-                <div class="mt-4">
-                    <a href="{% url 'ordinances:delete' ordinance.pk %}" class="btn btn-outline-danger btn-block">
-                        <i class="fas fa-trash"></i> Delete Ordinance Record
-                    </a>
-                </div>
-            </div>
+  <div class="card-header bg-light d-flex justify-content-between align-items-center">
+    <h2 class="mb-0">{{ ordinance.title }}</h2>
+    <span class="badge {% if ordinance.status == 'active' %}badge-success{% else %}badge-warning{% endif %}">
+      {{ ordinance.get_status_display }}
+    </span>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-8">
+        <div class="detail-section mb-4">
+          <h3>Description</h3>
+          <p class="lead text-muted">{{ ordinance.description|linebreaks|default:"No description provided." }}
+          </p>
         </div>
+
+        <div class="detail-section mb-4">
+          <h3>Remarks</h3>
+          <p>{{ ordinance.remarks|default:"---" }}</p>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="detail-card card p-3 bg-light border-0">
+          <h3 class="h5 mb-3 border-bottom pb-2">MetaData</h3>
+          <div class="meta-item mb-2">
+            <label class="text-muted d-block small uppercase font-weight-bold">ORDINANCE NUMBER</label>
+            <span>{{ ordinance.ordinance_number }}</span>
+          </div>
+          <div class="meta-item mb-2">
+            <label class="text-muted d-block small uppercase font-weight-bold">AUTHOR</label>
+            <span>{{ ordinance.author }}</span>
+          </div>
+          {% if ordinance.sponsor %}
+          <div class="meta-item mb-2">
+            <label class="text-muted d-block small uppercase font-weight-bold">SPONSOR</label>
+            <span>{{ ordinance.sponsor }}</span>
+          </div>
+          {% endif %}
+          <div class="meta-item mb-2">
+            <label class="text-muted d-block small uppercase font-weight-bold">CATEGORY</label>
+            <span>{{ ordinance.get_category_display }}</span>
+          </div>
+          <div class="meta-item mb-2">
+            <label class="text-muted d-block small uppercase font-weight-bold">DATE ENACTED</label>
+            <span>{{ ordinance.date_enacted|date:"F d, Y" }}</span>
+          </div>
+          {% if ordinance.date_effectivity %}
+          <div class="meta-item mb-2">
+            <label class="text-muted d-block small uppercase font-weight-bold">DATE OF EFFECTIVITY</label>
+            <span>{{ ordinance.date_effectivity|date:"F d, Y" }}</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="mt-4">
+          <a href="{% url 'ordinances:delete' ordinance.pk %}" class="btn btn-outline-danger btn-block">
+            <i class="fas fa-trash"></i> Delete Ordinance Record
+          </a>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
 
 <style>
-    .badge {
-        padding: 6px 12px;
-        border-radius: 4px;
-        font-weight: 600;
-    }
+  .badge {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
 
-    .badge-success {
-        background: rgba(16, 185, 129, 0.1);
-        color: #10b981;
-    }
+  .badge-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
 
-    .badge-warning {
-        background: rgba(245, 158, 11, 0.1);
-        color: #f59e0b;
-    }
+  .badge-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
 
-    .detail-section h3 {
-        font-size: 16px;
-        color: var(--primary);
-        margin-bottom: 15px;
-        border-bottom: 2px solid var(--border);
-        padding-bottom: 5px;
-    }
+  .detail-section h3 {
+    font-size: 16px;
+    color: var(--primary);
+    margin-bottom: 15px;
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 5px;
+  }
 
-    .meta-item label {
-        letter-spacing: 0.5px;
-    }
+  .meta-item label {
+    letter-spacing: 0.5px;
+  }
 
-    .uppercase {
-        text-transform: uppercase;
-    }
+  .uppercase {
+    text-transform: uppercase;
+  }
 
-    .btn-block {
-        display: block;
-        width: 100%;
-    }
+  .btn-block {
+    display: block;
+    width: 100%;
+  }
 
-    .btn-outline-danger {
-        color: var(--danger);
-        border-color: var(--danger);
-    }
+  .btn-outline-danger {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
 
-    .btn-outline-danger:hover {
-        background: var(--danger);
-        color: white;
-    }
+  .btn-outline-danger:hover {
+    background: var(--danger);
+    color: white;
+  }
 </style>
 {% endblock %}

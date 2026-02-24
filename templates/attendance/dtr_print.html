@@ -2,184 +2,184 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <title>DTR - {{ official.resident.full_name }} ({{ month }}/{{ year }})</title>
-    <style>
-        body {
-            font-family: 'Courier New', Courier, monospace;
-            padding: 40px;
-            color: #000;
-            line-height: 1.4;
-        }
+  <meta charset="UTF-8">
+  <title>DTR - {{ official.resident.full_name }} ({{ month }}/{{ year }})</title>
+  <style>
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      padding: 40px;
+      color: #000;
+      line-height: 1.4;
+    }
 
-        .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #000;
-            padding-bottom: 20px;
-        }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #000;
+      padding-bottom: 20px;
+    }
 
-        .header h1 {
-            margin: 0;
-            text-transform: uppercase;
-            font-size: 24px;
-        }
+    .header h1 {
+      margin: 0;
+      text-transform: uppercase;
+      font-size: 24px;
+    }
 
-        .header p {
-            margin: 5px 0 0;
-        }
+    .header p {
+      margin: 5px 0 0;
+    }
 
-        .info-grid {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 30px;
-        }
+    .info-grid {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 30px;
+    }
 
-        .info-col {
-            flex: 1;
-        }
+    .info-col {
+      flex: 1;
+    }
 
-        .info-item {
-            margin-bottom: 10px;
-        }
+    .info-item {
+      margin-bottom: 10px;
+    }
 
-        .label {
-            font-weight: bold;
-            font-size: 12px;
-            margin-bottom: 2px;
-        }
+    .label {
+      font-weight: bold;
+      font-size: 12px;
+      margin-bottom: 2px;
+    }
 
-        .value {
-            font-size: 16px;
-            border-bottom: 1px solid #000;
-            display: inline-block;
-            min-width: 200px;
-        }
+    .value {
+      font-size: 16px;
+      border-bottom: 1px solid #000;
+      display: inline-block;
+      min-width: 200px;
+    }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
 
-        th,
-        td {
-            border: 1px solid #000;
-            padding: 10px;
-            text-align: center;
-            font-size: 14px;
-        }
+    th,
+    td {
+      border: 1px solid #000;
+      padding: 10px;
+      text-align: center;
+      font-size: 14px;
+    }
 
-        th {
-            background-color: #f2f2f2;
-        }
+    th {
+      background-color: #f2f2f2;
+    }
 
-        .footer {
-            margin-top: 50px;
-            display: flex;
-            justify-content: space-between;
-        }
+    .footer {
+      margin-top: 50px;
+      display: flex;
+      justify-content: space-between;
+    }
 
-        .sig-box {
-            text-align: center;
-            width: 250px;
-        }
+    .sig-box {
+      text-align: center;
+      width: 250px;
+    }
 
-        .sig-line {
-            border-top: 1px solid #000;
-            margin-top: 40px;
-            padding-top: 5px;
-            font-weight: bold;
-        }
+    .sig-line {
+      border-top: 1px solid #000;
+      margin-top: 40px;
+      padding-top: 5px;
+      font-weight: bold;
+    }
 
-        @media print {
-            .no-print {
-                display: none;
-            }
+    @media print {
+      .no-print {
+        display: none;
+      }
 
-            body {
-                padding: 0;
-            }
-        }
-    </style>
+      body {
+        padding: 0;
+      }
+    }
+  </style>
 </head>
 
 <body onload="{% if not request.GET.no_print %}window.print(){% endif %}">
-    <div class="header">
-        <h1>Republic of the Philippines</h1>
-        <p>Province of Example | Municipality of Example</p>
-        <p><strong>BARANGAY MANAGEMENT SYSTEM</strong></p>
-        <h2>DAILY TIME RECORD</h2>
-    </div>
+  <div class="header">
+    <h1>Republic of the Philippines</h1>
+    <p>Province of Example | Municipality of Example</p>
+    <p><strong>BARANGAY MANAGEMENT SYSTEM</strong></p>
+    <h2>DAILY TIME RECORD</h2>
+  </div>
 
-    <div class="info-grid">
-        <div class="info-col">
-            <div class="info-item">
-                <div class="label">NAME:</div>
-                <div class="value">{{ official.resident.full_name|upper }}</div>
-            </div>
-            <div class="info-item">
-                <div class="label">POSITION:</div>
-                <div class="value">{{ official.get_position_display|upper }}</div>
-            </div>
-        </div>
-        <div class="info-col" style="text-align: right;">
-            <div class="info-item">
-                <div class="label">FOR THE MONTH OF:</div>
-                <div class="value">{{ month }} / {{ year }}</div>
-            </div>
-            <div class="info-item">
-                <div class="label">TOTAL HOURS:</div>
-                <div class="value">{{ total_hours|floatformat:2 }} HOURS</div>
-            </div>
-        </div>
+  <div class="info-grid">
+    <div class="info-col">
+      <div class="info-item">
+        <div class="label">NAME:</div>
+        <div class="value">{{ official.resident.full_name|upper }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">POSITION:</div>
+        <div class="value">{{ official.get_position_display|upper }}</div>
+      </div>
     </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th rowspan="2">DAY</th>
-                <th colspan="2">AM</th>
-                <th colspan="2">PM</th>
-                <th rowspan="2">HOURS</th>
-                <th rowspan="2">REMARKS</th>
-            </tr>
-            <tr>
-                <th>IN</th>
-                <th>OUT</th>
-                <th>IN</th>
-                <th>OUT</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in logs %}
-            <tr>
-                <td>{{ log.date|date:"d" }}</td>
-                <td>{% if log.time_in|time:"H" < "12" %}{{ log.time_in|time:"h:i A" }}{% else %}---{% endif %}</td>
-                <td>{% if log.time_out|time:"H" < "12" %}{{ log.time_out|time:"h:i A" }}{% else %}---{% endif %}</td>
-                <td>{% if log.time_in|time:"H" >= "12" %}{{ log.time_in|time:"h:i A" }}{% else %}---{% endif %}</td>
-                <td>{% if log.time_out|time:"H" >= "12" %}{{ log.time_out|time:"h:i A" }}{% else %}---{% endif %}</td>
-                <td>{{ log.hours_worked|floatformat:2 }}</td>
-                <td>{{ log.get_status_display }}</td>
-            </tr>
-            {% endfor %}
-            <!-- This is a simplified print DTR, in reality it should list all 31 days -->
-        </tbody>
-    </table>
-
-    <div class="footer">
-        <div class="sig-box">
-            <div class="sig-line">Official's Signature</div>
-        </div>
-        <div class="sig-box">
-            <div class="sig-line">Barangay Captain / Head</div>
-        </div>
+    <div class="info-col" style="text-align: right;">
+      <div class="info-item">
+        <div class="label">FOR THE MONTH OF:</div>
+        <div class="value">{{ month }} / {{ year }}</div>
+      </div>
+      <div class="info-item">
+        <div class="label">TOTAL HOURS:</div>
+        <div class="value">{{ total_hours|floatformat:2 }} HOURS</div>
+      </div>
     </div>
+  </div>
 
-    <div class="no-print" style="margin-top: 30px; text-align: center;">
-        <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer;">Print Again</button>
-        <button onclick="window.close()" style="padding: 10px 20px; cursor: pointer;">Close Window</button>
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2">DAY</th>
+        <th colspan="2">AM</th>
+        <th colspan="2">PM</th>
+        <th rowspan="2">HOURS</th>
+        <th rowspan="2">REMARKS</th>
+      </tr>
+      <tr>
+        <th>IN</th>
+        <th>OUT</th>
+        <th>IN</th>
+        <th>OUT</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log.date|date:"d" }}</td>
+        <td>{% if log.time_in|time:"H" < "12" %}{{ log.time_in|time:"h:i A" }}{% else %}---{% endif %}</td>
+        <td>{% if log.time_out|time:"H" < "12" %}{{ log.time_out|time:"h:i A" }}{% else %}---{% endif %}</td>
+        <td>{% if log.time_in|time:"H" >= "12" %}{{ log.time_in|time:"h:i A" }}{% else %}---{% endif %}</td>
+        <td>{% if log.time_out|time:"H" >= "12" %}{{ log.time_out|time:"h:i A" }}{% else %}---{% endif %}</td>
+        <td>{{ log.hours_worked|floatformat:2 }}</td>
+        <td>{{ log.get_status_display }}</td>
+      </tr>
+      {% endfor %}
+      <!-- This is a simplified print DTR, in reality it should list all 31 days -->
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <div class="sig-box">
+      <div class="sig-line">Official's Signature</div>
     </div>
+    <div class="sig-box">
+      <div class="sig-line">Barangay Captain / Head</div>
+    </div>
+  </div>
+
+  <div class="no-print" style="margin-top: 30px; text-align: center;">
+    <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer;">Print Again</button>
+    <button onclick="window.close()" style="padding: 10px 20px; cursor: pointer;">Close Window</button>
+  </div>
 </body>
 
 </html>

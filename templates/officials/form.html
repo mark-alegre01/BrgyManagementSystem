@@ -4,134 +4,134 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">
-        <h1>{% if editing %}Edit Official Record{% else %}Appoint New Official{% endif %}</h1>
-        <span>Manage barangay staff and officials</span>
-    </div>
+  <div class="page-title">
+    <h1>{% if editing %}Edit Official Record{% else %}Appoint New Official{% endif %}</h1>
+    <span>Manage barangay staff and officials</span>
+  </div>
 </div>
 
 <div class="card">
-    <form method="POST" class="modern-form">
-        {% csrf_token %}
-        <div class="form-grid">
-            <div class="form-section">
-                <h3>Appointment Details</h3>
-                <div class="form-row">
-                    <div class="form-group col-6">
-                        <label>Resident*</label>
-                        {% if editing %}
-                        <input type="text" value="{{ official.resident.full_name }}" class="form-control" disabled>
-                        <input type="hidden" name="resident" value="{{ official.resident.pk }}">
-                        {% else %}
-                        <select name="resident" class="form-control" required>
-                            <option value="">Select Resident...</option>
-                            {% for r in residents %}
-                            <option value="{{ r.pk }}">{{ r.full_name }} ({{ r.purok }})</option>
-                            {% endfor %}
-                        </select>
-                        {% endif %}
-                    </div>
-                    <div class="form-group col-6">
-                        <label>Position*</label>
-                        <select name="position" class="form-control" required>
-                            {% for code, label in positions %}
-                            <option value="{{ code }}" {% if official.position == code %}selected{% endif %}>{{ label }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group col-6">
-                        <label>Committee/Assignment</label>
-                        <input type="text" name="committee" value="{{ official.committee }}" class="form-control"
-                            placeholder="e.g. Health, Finance">
-                    </div>
-                    <div class="form-group col-6">
-                        <label>Employee ID</label>
-                        <input type="text" name="employee_id" value="{{ official.employee_id }}" class="form-control">
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-section">
-                <h3>Term & Compensation</h3>
-                <div class="form-row">
-                    <div class="form-group col-4">
-                        <label>Term Start*</label>
-                        <input type="date" name="term_start" value="{{ official.term_start|date:'Y-m-d' }}"
-                            class="form-control" required>
-                    </div>
-                    <div class="form-group col-4">
-                        <label>Term End</label>
-                        <input type="date" name="term_end" value="{{ official.term_end|date:'Y-m-d' }}"
-                            class="form-control">
-                    </div>
-                    <div class="form-group col-4">
-                        <label>Salary/Honorarium</label>
-                        <input type="number" step="0.01" name="salary" value="{{ official.salary|default:0 }}"
-                            class="form-control">
-                    </div>
-                </div>
-                {% if editing %}
-                <div class="form-row">
-                    <div class="form-group col-6">
-                        <label>Status*</label>
-                        <select name="status" class="form-control">
-                            <option value="active" {% if official.status == 'active' %}selected{% endif %}>Active</option>
-                            <option value="inactive" {% if official.status == 'inactive' %}selected{% endif %}>Inactive
-                            </option>
-                        </select>
-                    </div>
-                </div>
-                {% endif %}
-            </div>
+  <form method="POST" class="modern-form">
+    {% csrf_token %}
+    <div class="form-grid">
+      <div class="form-section">
+        <h3>Appointment Details</h3>
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label>Resident*</label>
+            {% if editing %}
+            <input type="text" value="{{ official.resident.full_name }}" class="form-control" disabled>
+            <input type="hidden" name="resident" value="{{ official.resident.pk }}">
+            {% else %}
+            <select name="resident" class="form-control" required>
+              <option value="">Select Resident...</option>
+              {% for r in residents %}
+              <option value="{{ r.pk }}">{{ r.full_name }} ({{ r.purok }})</option>
+              {% endfor %}
+            </select>
+            {% endif %}
+          </div>
+          <div class="form-group col-6">
+            <label>Position*</label>
+            <select name="position" class="form-control" required>
+              {% for code, label in positions %}
+              <option value="{{ code }}" {% if official.position == code %}selected{% endif %}>{{ label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
 
-        <div class="form-footer">
-            <button type="submit" class="btn btn-primary btn-lg">
-                <i class="fas fa-save"></i> Save Appointment
-            </button>
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label>Committee/Assignment</label>
+            <input type="text" name="committee" value="{{ official.committee }}" class="form-control"
+              placeholder="e.g. Health, Finance">
+          </div>
+          <div class="form-group col-6">
+            <label>Employee ID</label>
+            <input type="text" name="employee_id" value="{{ official.employee_id }}" class="form-control">
+          </div>
         </div>
-    </form>
+      </div>
+
+      <div class="form-section">
+        <h3>Term & Compensation</h3>
+        <div class="form-row">
+          <div class="form-group col-4">
+            <label>Term Start*</label>
+            <input type="date" name="term_start" value="{{ official.term_start|date:'Y-m-d' }}"
+              class="form-control" required>
+          </div>
+          <div class="form-group col-4">
+            <label>Term End</label>
+            <input type="date" name="term_end" value="{{ official.term_end|date:'Y-m-d' }}"
+              class="form-control">
+          </div>
+          <div class="form-group col-4">
+            <label>Salary/Honorarium</label>
+            <input type="number" step="0.01" name="salary" value="{{ official.salary|default:0 }}"
+              class="form-control">
+          </div>
+        </div>
+        {% if editing %}
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label>Status*</label>
+            <select name="status" class="form-control">
+              <option value="active" {% if official.status == 'active' %}selected{% endif %}>Active</option>
+              <option value="inactive" {% if official.status == 'inactive' %}selected{% endif %}>Inactive
+              </option>
+            </select>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <button type="submit" class="btn btn-primary btn-lg">
+        <i class="fas fa-save"></i> Save Appointment
+      </button>
+    </div>
+  </form>
 </div>
 
 <style>
-    .modern-form {
-        padding: 30px;
-    }
+  .modern-form {
+    padding: 30px;
+  }
 
-    .form-section {
-        margin-bottom: 25px;
-    }
+  .form-section {
+    margin-bottom: 25px;
+  }
 
-    .form-section h3 {
-        font-size: 14px;
-        color: var(--primary);
-        margin-bottom: 15px;
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 8px;
-    }
+  .form-section h3 {
+    font-size: 14px;
+    color: var(--primary);
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
 
-    .form-row {
-        display: flex;
-        gap: 20px;
-        margin-bottom: 15px;
-    }
+  .form-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+  }
 
-    .col-6 {
-        flex: 1;
-    }
+  .col-6 {
+    flex: 1;
+  }
 
-    .col-4 {
-        flex: 1;
-    }
+  .col-4 {
+    flex: 1;
+  }
 
-    .form-footer {
-        border-top: 1px solid var(--border);
-        padding-top: 20px;
-        text-align: right;
-    }
+  .form-footer {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    text-align: right;
+  }
 </style>
 {% endblock %}

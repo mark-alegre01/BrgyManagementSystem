@@ -8,121 +8,121 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">
-        <h1>Attendance & DTR</h1>
-        <span>Real-time monitoring and Daily Time Records</span>
-    </div>
-    <div class="header-actions">
-        <a href="{% url 'attendance:clock' %}" class="btn btn-primary">
-            <i class="fas fa-clock"></i> Manual Clock In/Out
-        </a>
-        <a href="{% url 'attendance:enroll' %}" class="btn btn-secondary">
-            <i class="fas fa-user-plus"></i> Enroll Face
-        </a>
-    </div>
+  <div class="page-title">
+    <h1>Attendance & DTR</h1>
+    <span>Real-time monitoring and Daily Time Records</span>
+  </div>
+  <div class="header-actions">
+    <a href="{% url 'attendance:clock' %}" class="btn btn-primary">
+      <i class="fas fa-clock"></i> Manual Clock In/Out
+    </a>
+    <a href="{% url 'attendance:enroll' %}" class="btn btn-secondary">
+      <i class="fas fa-user-plus"></i> Enroll Face
+    </a>
+  </div>
 </div>
 
 <div class="stats-grid">
-    <div class="stat-card">
-        <div class="stat-icon icon-blue">
-            <i class="fas fa-user-check"></i>
-        </div>
-        <div class="stat-info">
-            <span class="value">{{ present_count }}</span>
-            <span class="label">Present Today</span>
-        </div>
+  <div class="stat-card">
+    <div class="stat-icon icon-blue">
+      <i class="fas fa-user-check"></i>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon icon-yellow">
-            <i class="fas fa-user-clock"></i>
-        </div>
-        <div class="stat-info">
-            <span class="value">{{ late_count }}</span>
-            <span class="label">Late Arrivals</span>
-        </div>
+    <div class="stat-info">
+      <span class="value">{{ present_count }}</span>
+      <span class="label">Present Today</span>
     </div>
-    <div class="stat-card">
-        <div class="stat-icon icon-red">
-            <i class="fas fa-user-times"></i>
-        </div>
-        <div class="stat-info">
-            <span class="value">{{ absent_count }}</span>
-            <span class="label">Absent</span>
-        </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon icon-yellow">
+      <i class="fas fa-user-clock"></i>
     </div>
+    <div class="stat-info">
+      <span class="value">{{ late_count }}</span>
+      <span class="label">Late Arrivals</span>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon icon-red">
+      <i class="fas fa-user-times"></i>
+    </div>
+    <div class="stat-info">
+      <span class="value">{{ absent_count }}</span>
+      <span class="label">Absent</span>
+    </div>
+  </div>
 </div>
 
 <div class="card">
-    <div class="card-header">
-        <h3>Today's Attendance Log</h3>
-        <span>{{ today_logs|length }} entries recorded</span>
-    </div>
-    <div class="table-responsive">
-        <table>
-            <thead>
-                <tr>
-                    <th>Official/Staff</th>
-                    <th>Position</th>
-                    <th>Time In</th>
-                    <th>Time Out</th>
-                    <th>Method</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for log in today_logs %}
-                <tr>
-                    <td><strong>{{ log.official.resident.full_name }}</strong></td>
-                    <td>{{ log.official.get_position_display }}</td>
-                    <td>{{ log.time_in|time:"h:i A"|default:"-" }}</td>
-                    <td>{{ log.time_out|time:"h:i A"|default:"-" }}</td>
-                    <td><span class="badge-outline">{{ log.get_method_display }}</span></td>
-                    <td>
-                        <span
-                            class="status-badge {% if log.status == 'present' %}badge-active{% elif log.status == 'late' %}badge-pending{% else %}badge-inactive{% endif %}">
-                            {{ log.get_status_display }}
-                        </span>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" class="text-center">No attendance records for today yet.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  <div class="card-header">
+    <h3>Today's Attendance Log</h3>
+    <span>{{ today_logs|length }} entries recorded</span>
+  </div>
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Official/Staff</th>
+          <th>Position</th>
+          <th>Time In</th>
+          <th>Time Out</th>
+          <th>Method</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in today_logs %}
+        <tr>
+          <td><strong>{{ log.official.resident.full_name }}</strong></td>
+          <td>{{ log.official.get_position_display }}</td>
+          <td>{{ log.time_in|time:"h:i A"|default:"-" }}</td>
+          <td>{{ log.time_out|time:"h:i A"|default:"-" }}</td>
+          <td><span class="badge-outline">{{ log.get_method_display }}</span></td>
+          <td>
+            <span
+              class="status-badge {% if log.status == 'present' %}badge-active{% elif log.status == 'late' %}badge-pending{% else %}badge-inactive{% endif %}">
+              {{ log.get_status_display }}
+            </span>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center">No attendance records for today yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <div class="card">
-    <div class="card-header">
-        <h3 class="text-danger">Absent Officials Today</h3>
-    </div>
-    <div class="table-responsive">
-        <table>
-            <tbody>
-                {% for official in absent_officials %}
-                <tr>
-                    <td>{{ official.resident.full_name }}</td>
-                    <td>{{ official.get_position_display }}</td>
-                    <td><span class="status-badge badge-inactive">Absent</span></td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td class="text-center">All officials are present or accounted for.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  <div class="card-header">
+    <h3 class="text-danger">Absent Officials Today</h3>
+  </div>
+  <div class="table-responsive">
+    <table>
+      <tbody>
+        {% for official in absent_officials %}
+        <tr>
+          <td>{{ official.resident.full_name }}</td>
+          <td>{{ official.get_position_display }}</td>
+          <td><span class="status-badge badge-inactive">Absent</span></td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td class="text-center">All officials are present or accounted for.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <style>
-    .badge-outline {
-        padding: 2px 8px;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        font-size: 11px;
-    }
+  .badge-outline {
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 11px;
+  }
 </style>
 {% endblock %}

@@ -8,114 +8,114 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">
-        <h1>Age Group Breakdown</h1>
-        <span>Detailed population statistics by age and gender</span>
-    </div>
-    <div class="header-actions">
-        <a href="{% url 'census:dashboard' %}" class="btn btn-outline">
-            <i class="fas fa-chevron-left"></i> Back to Dashboard
-        </a>
-    </div>
+  <div class="page-title">
+    <h1>Age Group Breakdown</h1>
+    <span>Detailed population statistics by age and gender</span>
+  </div>
+  <div class="header-actions">
+    <a href="{% url 'census:dashboard' %}" class="btn btn-outline">
+      <i class="fas fa-chevron-left"></i> Back to Dashboard
+    </a>
+  </div>
 </div>
 
 <div class="card">
-    <div class="table-responsive">
-        <table>
-            <thead>
-                <tr>
-                    <th>Age Group</th>
-                    <th>Male</th>
-                    <th>Female</th>
-                    <th>Total Population</th>
-                    <th>Percentage</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for group in age_groups %}
-                <tr>
-                    <td><strong>{{ group.name }}</strong></td>
-                    <td>{{ group.male }}</td>
-                    <td>{{ group.female }}</td>
-                    <td><strong>{{ group.total }}</strong></td>
-                    <td>
-                        <div class="percentage-track">
-                            <!-- Percentage width calculated via template logic would be better but let's keep it simple -->
-                            <span>{% widthratio group.total total_population 100 %}%</span>
-                        </div>
-                    </td>
-                    <td>
-                        <button class="btn btn-outline btn-icon" onclick="toggleDetails('{{ group.name|slugify }}')">
-                            <i class="fas fa-list"></i>
-                        </button>
-                    </td>
-                </tr>
-                <tr id="details-{{ group.name|slugify }}" class="member-details-row" style="display: none;">
-                    <td colspan="6">
-                        <div class="details-content p-3 bg-light">
-                            <h4 class="mb-3">Resident List ({{ group.name }})</h4>
-                            <div class="tag-cloud">
-                                {% for r in group.residents %}
-                                <a href="{% url 'residents:view' r.pk %}" class="resident-tag">
-                                    {{ r.full_name }} ({{ r.gender }}/{{ r.age }})
-                                </a>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </td>
-                </tr>
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Age Group</th>
+          <th>Male</th>
+          <th>Female</th>
+          <th>Total Population</th>
+          <th>Percentage</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for group in age_groups %}
+        <tr>
+          <td><strong>{{ group.name }}</strong></td>
+          <td>{{ group.male }}</td>
+          <td>{{ group.female }}</td>
+          <td><strong>{{ group.total }}</strong></td>
+          <td>
+            <div class="percentage-track">
+              <!-- Percentage width calculated via template logic would be better but let's keep it simple -->
+              <span>{% widthratio group.total total_population 100 %}%</span>
+            </div>
+          </td>
+          <td>
+            <button class="btn btn-outline btn-icon" onclick="toggleDetails('{{ group.name|slugify }}')">
+              <i class="fas fa-list"></i>
+            </button>
+          </td>
+        </tr>
+        <tr id="details-{{ group.name|slugify }}" class="member-details-row" style="display: none;">
+          <td colspan="6">
+            <div class="details-content p-3 bg-light">
+              <h4 class="mb-3">Resident List ({{ group.name }})</h4>
+              <div class="tag-cloud">
+                {% for r in group.residents %}
+                <a href="{% url 'residents:view' r.pk %}" class="resident-tag">
+                  {{ r.full_name }} ({{ r.gender }}/{{ r.age }})
+                </a>
                 {% endfor %}
-            </tbody>
-        </table>
-    </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <script>
-    function toggleDetails(groupId) {
-        const row = document.getElementById('details-' + groupId);
-        if (row.style.display == = 'none') {
-            row.style.display = 'table-row';
-        } else {
-            row.style.display = 'none';
-        }
+  function toggleDetails(groupId) {
+    const row = document.getElementById('details-' + groupId);
+    if (row.style.display == = 'none') {
+      row.style.display = 'table-row';
+    } else {
+      row.style.display = 'none';
     }
+  }
 </script>
 
 <style>
-    .percentage-track {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--primary);
-    }
+  .percentage-track {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+  }
 
-    .member-details-row {
-        background: var(--bg-card);
-    }
+  .member-details-row {
+    background: var(--bg-card);
+  }
 
-    .tag-cloud {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
+  .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
 
-    .resident-tag {
-        padding: 4px 10px;
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        font-size: 12px;
-        color: var(--text-main);
-        text-decoration: none;
-    }
+  .resident-tag {
+    padding: 4px 10px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--text-main);
+    text-decoration: none;
+  }
 
-    .resident-tag:hover {
-        border-color: var(--primary);
-        color: var(--primary);
-    }
+  .resident-tag:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
 
-    .bg-light {
-        background: rgba(0, 0, 0, 0.02);
-    }
+  .bg-light {
+    background: rgba(0, 0, 0, 0.02);
+  }
 </style>
 {% endblock %}

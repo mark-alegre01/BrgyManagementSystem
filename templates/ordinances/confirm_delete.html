@@ -4,37 +4,37 @@
 
 {% block content %}
 <div class="card" style="max-width: 500px; margin: 100px auto; text-align: center; padding: 40px;">
-    <div class="alert-icon" style="font-size: 60px; color: var(--danger); margin-bottom: 20px;">
-        <i class="fas fa-exclamation-circle"></i>
-    </div>
-    <h2>Delete Ordinance?</h2>
-    <p style="margin: 20px 0; color: var(--text-muted);">
-        Are you sure you want to permanently delete <strong>Ordinance #{{ ordinance.ordinance_number }}</strong>:
-        <em>"{{ ordinance.title }}"</em>? This action cannot be undone.
-    </p>
+  <div class="alert-icon" style="font-size: 60px; color: var(--danger); margin-bottom: 20px;">
+    <i class="fas fa-exclamation-circle"></i>
+  </div>
+  <h2>Delete Ordinance?</h2>
+  <p style="margin: 20px 0; color: var(--text-muted);">
+    Are you sure you want to permanently delete <strong>Ordinance #{{ ordinance.ordinance_number }}</strong>:
+    <em>"{{ ordinance.title }}"</em>? This action cannot be undone.
+  </p>
 
-    <form method="POST">
-        {% csrf_token %}
-        <div class="action-buttons" style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
-            <button type="submit" class="btn btn-danger btn-lg">
-                <i class="fas fa-trash"></i> Yes, Delete
-            </button>
-            <a href="{% url 'ordinances:view' ordinance.pk %}" class="btn btn-outline btn-lg">
-                Cancel
-            </a>
-        </div>
-    </form>
+  <form method="POST">
+    {% csrf_token %}
+    <div class="action-buttons" style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+      <button type="submit" class="btn btn-danger btn-lg">
+        <i class="fas fa-trash"></i> Yes, Delete
+      </button>
+      <a href="{% url 'ordinances:view' ordinance.pk %}" class="btn btn-outline btn-lg">
+        Cancel
+      </a>
+    </div>
+  </form>
 </div>
 
 <style>
-    .btn-danger {
-        background: var(--danger);
-        color: white;
-        border: none;
-    }
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+    border: none;
+  }
 
-    .btn-danger:hover {
-        background: #dc2626;
-    }
+  .btn-danger:hover {
+    background: #dc2626;
+  }
 </style>
 {% endblock %}

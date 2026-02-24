@@ -3,494 +3,494 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Barangay Management System</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <style>
-        body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            margin: 0;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Barangay Management System</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      margin: 0;
+    }
 
-        .login-card {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 40px;
-            width: 100%;
-            max-width: 420px;
-            text-align: center;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
+    .login-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
 
-        .login-logo-container {
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 20px;
-            background: white;
-            border-radius: 50%;
-            padding: 5px;
-            box-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
+    .login-logo-container {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 20px;
+      background: white;
+      border-radius: 50%;
+      padding: 5px;
+      box-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
 
-        .login-logo-img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
+    .login-logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
 
-        .login-card h2 {
-            font-size: 28px;
-            margin-bottom: 8px;
-            color: white;
-        }
+    .login-card h2 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: white;
+    }
 
-        .login-card p {
-            color: var(--text-muted);
-            margin-bottom: 30px;
-        }
+    .login-card p {
+      color: var(--text-muted);
+      margin-bottom: 30px;
+    }
 
-        .login-tabs {
-            display: flex;
-            background: rgba(15, 23, 42, 0.5);
-            border-radius: 12px;
-            padding: 4px;
-            margin-bottom: 24px;
-            border: 1px solid var(--border);
-        }
+    .login-tabs {
+      display: flex;
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 24px;
+      border: 1px solid var(--border);
+    }
 
-        .login-tab {
-            flex: 1;
-            padding: 12px 16px;
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            border-radius: 10px;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
+    .login-tab {
+      flex: 1;
+      padding: 12px 16px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 10px;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
 
-        .login-tab:hover {
-            color: white;
-        }
+    .login-tab:hover {
+      color: white;
+    }
 
-        .login-tab.active {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
-        }
+    .login-tab.active {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+    }
 
-        .login-tab i {
-            font-size: 16px;
-        }
+    .login-tab i {
+      font-size: 16px;
+    }
 
-        .login-content {
-            display: none;
-        }
+    .login-content {
+      display: none;
+    }
 
-        .login-content.active {
-            display: block;
-        }
+    .login-content.active {
+      display: block;
+    }
 
-        .login-btn {
-            width: 100%;
-            padding: 14px;
-            margin-top: 10px;
-            font-size: 16px;
-        }
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
 
-        .alert {
-            margin-bottom: 20px;
-            font-size: 14px;
-            padding: 12px;
-            border-radius: 10px;
-        }
+    .alert {
+      margin-bottom: 20px;
+      font-size: 14px;
+      padding: 12px;
+      border-radius: 10px;
+    }
 
-        .alert-error {
-            background: rgba(239, 68, 68, 0.15);
-            color: #fca5a5;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
+    .alert-error {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
 
-        .alert-success {
-            background: rgba(16, 185, 129, 0.15);
-            color: #6ee7b7;
-            border: 1px solid rgba(16, 185, 129, 0.3);
-        }
+    .alert-success {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
 
-        .divider {
-            display: flex;
-            align-items: center;
-            margin: 24px 0;
-            color: var(--text-muted);
-            font-size: 13px;
-        }
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 24px 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
 
-        .divider::before,
-        .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--border);
-        }
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
 
-        .divider span {
-            padding: 0 16px;
-        }
+    .divider span {
+      padding: 0 16px;
+    }
 
-        .qr-scanner-container {
-            background: rgba(15, 23, 42, 0.5);
-            border: 2px dashed var(--border);
-            border-radius: 16px;
-            padding: 30px 20px;
-            margin-bottom: 20px;
-            position: relative;
-            overflow: hidden;
-        }
+    .qr-scanner-container {
+      background: rgba(15, 23, 42, 0.5);
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 30px 20px;
+      margin-bottom: 20px;
+      position: relative;
+      overflow: hidden;
+    }
 
-        .qr-scanner-placeholder {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 16px;
-        }
+    .qr-scanner-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
 
-        .qr-camera-view {
-            width: 100%;
-            max-width: 200px;
-            height: 200px;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-            border: 3px solid var(--primary);
-        }
+    .qr-camera-view {
+      width: 100%;
+      max-width: 200px;
+      height: 200px;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      border: 3px solid var(--primary);
+    }
 
-        .qr-camera-view::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background:
-                linear-gradient(90deg, transparent 49%, rgba(79, 70, 229, 0.3) 50%, transparent 51%),
-                linear-gradient(0deg, transparent 49%, rgba(79, 70, 229, 0.3) 50%, transparent 51%);
-            background-size: 20px 20px;
-        }
+    .qr-camera-view::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background:
+        linear-gradient(90deg, transparent 49%, rgba(79, 70, 229, 0.3) 50%, transparent 51%),
+        linear-gradient(0deg, transparent 49%, rgba(79, 70, 229, 0.3) 50%, transparent 51%);
+      background-size: 20px 20px;
+    }
 
-        .qr-camera-view .scan-line {
-            position: absolute;
-            width: 80%;
-            height: 3px;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent);
-            animation: scan 2s ease-in-out infinite;
-            box-shadow: 0 0 10px var(--primary);
-        }
+    .qr-camera-view .scan-line {
+      position: absolute;
+      width: 80%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--primary), transparent);
+      animation: scan 2s ease-in-out infinite;
+      box-shadow: 0 0 10px var(--primary);
+    }
 
-        @keyframes scan {
+    @keyframes scan {
 
-            0%,
-            100% {
-                top: 20%;
-            }
+      0%,
+      100% {
+        top: 20%;
+      }
 
-            50% {
-                top: 80%;
-            }
-        }
+      50% {
+        top: 80%;
+      }
+    }
 
-        .qr-camera-icon {
-            font-size: 60px;
-            color: var(--primary);
-            z-index: 1;
-        }
+    .qr-camera-icon {
+      font-size: 60px;
+      color: var(--primary);
+      z-index: 1;
+    }
 
-        .qr-instructions {
-            color: var(--text-muted);
-            font-size: 14px;
-            text-align: center;
-        }
+    .qr-instructions {
+      color: var(--text-muted);
+      font-size: 14px;
+      text-align: center;
+    }
 
-        .qr-instructions strong {
-            color: white;
-        }
+    .qr-instructions strong {
+      color: white;
+    }
 
-        .philsys-branding {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            margin-bottom: 20px;
-            padding: 12px;
-            background: rgba(79, 70, 229, 0.1);
-            border-radius: 10px;
-            border: 1px solid rgba(79, 70, 229, 0.2);
-        }
+    .philsys-branding {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding: 12px;
+      background: rgba(79, 70, 229, 0.1);
+      border-radius: 10px;
+      border: 1px solid rgba(79, 70, 229, 0.2);
+    }
 
-        .philsys-logo {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: 700;
-            font-size: 18px;
-        }
+    .philsys-logo {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 18px;
+    }
 
-        .philsys-text {
-            text-align: left;
-        }
+    .philsys-text {
+      text-align: left;
+    }
 
-        .philsys-text span {
-            display: block;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
+    .philsys-text span {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
 
-        .philsys-text strong {
-            color: white;
-            font-size: 14px;
-        }
+    .philsys-text strong {
+      color: white;
+      font-size: 14px;
+    }
 
-        .psn-input-group {
-            position: relative;
-        }
+    .psn-input-group {
+      position: relative;
+    }
 
-        .psn-input-group .form-control {
-            padding-left: 44px;
-            font-family: 'Courier New', monospace;
-            letter-spacing: 2px;
-            font-size: 18px;
-            text-transform: uppercase;
-        }
+    .psn-input-group .form-control {
+      padding-left: 44px;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 2px;
+      font-size: 18px;
+      text-transform: uppercase;
+    }
 
-        .psn-input-icon {
-            position: absolute;
-            left: 14px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-muted);
-            font-size: 16px;
-        }
+    .psn-input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 16px;
+    }
 
-        .login-with-qr-btn {
-            width: 100%;
-            margin-bottom: 16px;
-        }
+    .login-with-qr-btn {
+      width: 100%;
+      margin-bottom: 16px;
+    }
 
-        .manual-entry-toggle {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            color: var(--text-muted);
-            font-size: 14px;
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 8px;
-            transition: var(--transition);
-        }
+    .manual-entry-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 14px;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 8px;
+      transition: var(--transition);
+    }
 
-        .manual-entry-toggle:hover {
-            color: white;
-            background: rgba(255, 255, 255, 0.05);
-        }
+    .manual-entry-toggle:hover {
+      color: white;
+      background: rgba(255, 255, 255, 0.05);
+    }
 
-        .manual-entry-toggle i {
-            transition: var(--transition);
-        }
+    .manual-entry-toggle i {
+      transition: var(--transition);
+    }
 
-        .manual-entry-toggle.collapsed i {
-            transform: rotate(-90deg);
-        }
+    .manual-entry-toggle.collapsed i {
+      transform: rotate(-90deg);
+    }
 
-        .manual-entry-content {
-            display: none;
-            margin-top: 16px;
-            padding-top: 16px;
-            border-top: 1px solid var(--border);
-        }
+    .manual-entry-content {
+      display: none;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
 
-        .manual-entry-content.show {
-            display: block;
-        }
-    </style>
+    .manual-entry-content.show {
+      display: block;
+    }
+  </style>
 </head>
 
 <body>
-    <div class="login-card">
-        <div class="login-logo-container">
-            <img src="{% static 'images/logo.png' %}" alt="Logo" class="login-logo-img">
-        </div>
-        <h2>SICO-SICO</h2>
-        <p>Barangay Management System</p>
+  <div class="login-card">
+    <div class="login-logo-container">
+      <img src="{% static 'images/logo.png' %}" alt="Logo" class="login-logo-img">
+    </div>
+    <h2>SICO-SICO</h2>
+    <p>Barangay Management System</p>
 
-        {% if messages %}
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">
-            {{ message }}
-        </div>
-        {% endfor %}
-        {% endif %}
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">
+      {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
 
-        <div class="login-tabs">
-            <button type="button" class="login-tab active" data-tab="credentials">
-                <i class="fas fa-user-lock"></i>
-                <span>Username/Password</span>
-            </button>
-            <button type="button" class="login-tab" data-tab="philsys">
-                <i class="fas fa-id-card"></i>
-                <span>PhilSys ID</span>
-            </button>
-        </div>
-
-        <div id="credentials-content" class="login-content active">
-            <form method="POST">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" name="username" class="form-control" placeholder="Enter username" required
-                        autofocus>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" name="password" class="form-control" placeholder="Enter password" required>
-                </div>
-                <button type="submit" class="btn btn-primary login-btn">
-                    <i class="fas fa-sign-in-alt"></i>
-                    Log In
-                </button>
-            </form>
-        </div>
-
-        <div id="philsys-content" class="login-content">
-            <div class="philsys-branding">
-                <div class="philsys-logo">
-                    <i class="fas fa-passport"></i>
-                </div>
-                <div class="philsys-text">
-                    <span>Philippine Identification System</span>
-                    <strong>PhilSys Authentication</strong>
-                </div>
-            </div>
-
-            <div class="qr-scanner-container">
-                <div class="qr-scanner-placeholder">
-                    <div class="qr-camera-view">
-                        <i class="fas fa-qrcode qr-camera-icon"></i>
-                        <div class="scan-line"></div>
-                    </div>
-                    <p class="qr-instructions">
-                        <strong>Scan QR Code</strong><br>
-                        Position the PhilSys QR code within the frame
-                    </p>
-                </div>
-            </div>
-
-            <button type="button" class="btn btn-secondary login-with-qr-btn">
-                <i class="fas fa-camera"></i>
-                Scan PhilSys QR
-            </button>
-
-            <div class="divider">
-                <span>or</span>
-            </div>
-
-            <div class="manual-entry-toggle" id="manual-entry-toggle">
-                <i class="fas fa-chevron-down"></i>
-                <span>Enter PhilSys Number manually</span>
-            </div>
-
-            <div class="manual-entry-content" id="manual-entry-content">
-                <form method="POST">
-                    {% csrf_token %}
-                    <input type="hidden" name="login_method" value="philsys">
-                    <div class="form-group">
-                        <label>PhilSys Number (PSN)</label>
-                        <div class="psn-input-group">
-                            <i class="fas fa-hashtag psn-input-icon"></i>
-                            <input type="text" name="psn" class="form-control" placeholder="XXXX-XXXXX-XXXX"
-                                maxlength="15">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary login-btn">
-                        <i class="fas fa-sign-in-alt"></i>
-                        Authenticate with PhilSys
-                    </button>
-                </form>
-            </div>
-        </div>
+    <div class="login-tabs">
+      <button type="button" class="login-tab active" data-tab="credentials">
+        <i class="fas fa-user-lock"></i>
+        <span>Username/Password</span>
+      </button>
+      <button type="button" class="login-tab" data-tab="philsys">
+        <i class="fas fa-id-card"></i>
+        <span>PhilSys ID</span>
+      </button>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const tabs = document.querySelectorAll('.login-tab');
-            const contents = document.querySelectorAll('.login-content');
-            const manualToggle = document.getElementById('manual-entry-toggle');
-            const manualContent = document.getElementById('manual-entry-content');
+    <div id="credentials-content" class="login-content active">
+      <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" name="username" class="form-control" placeholder="Enter username" required
+            autofocus>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+        </div>
+        <button type="submit" class="btn btn-primary login-btn">
+          <i class="fas fa-sign-in-alt"></i>
+          Log In
+        </button>
+      </form>
+    </div>
 
-            tabs.forEach(tab => {
-                tab.addEventListener('click', function () {
-                    const targetTab = this.getAttribute('data-tab');
+    <div id="philsys-content" class="login-content">
+      <div class="philsys-branding">
+        <div class="philsys-logo">
+          <i class="fas fa-passport"></i>
+        </div>
+        <div class="philsys-text">
+          <span>Philippine Identification System</span>
+          <strong>PhilSys Authentication</strong>
+        </div>
+      </div>
 
-                    tabs.forEach(t => t.classList.remove('active'));
-                    this.classList.add('active');
+      <div class="qr-scanner-container">
+        <div class="qr-scanner-placeholder">
+          <div class="qr-camera-view">
+            <i class="fas fa-qrcode qr-camera-icon"></i>
+            <div class="scan-line"></div>
+          </div>
+          <p class="qr-instructions">
+            <strong>Scan QR Code</strong><br>
+            Position the PhilSys QR code within the frame
+          </p>
+        </div>
+      </div>
 
-                    contents.forEach(content => {
-                        content.classList.remove('active');
-                        if (content.id == = targetTab + '-content') {
-                            content.classList.add('active');
-                        }
-                    });
-                });
-            });
+      <button type="button" class="btn btn-secondary login-with-qr-btn">
+        <i class="fas fa-camera"></i>
+        Scan PhilSys QR
+      </button>
 
-            manualToggle.addEventListener('click', function () {
-                this.classList.toggle('collapsed');
-                manualContent.classList.toggle('show');
-            });
+      <div class="divider">
+        <span>or</span>
+      </div>
 
-            const psnInput = document.querySelector('input[name="psn"]');
-            if (psnInput) {
-                psnInput.addEventListener('input', function (e) {
-                    let value = e.target.value.replace(/[^0-9]/g, '');
-                    let formatted = '';
-                    for (let i = 0; i < value.length && i < 13; i++) {
-                        if (i == = 4 || i == = 9) {
-                            formatted += '-';
-                        }
-                        formatted += value[i];
-                    }
-                    e.target.value = formatted;
-                });
+      <div class="manual-entry-toggle" id="manual-entry-toggle">
+        <i class="fas fa-chevron-down"></i>
+        <span>Enter PhilSys Number manually</span>
+      </div>
+
+      <div class="manual-entry-content" id="manual-entry-content">
+        <form method="POST">
+          {% csrf_token %}
+          <input type="hidden" name="login_method" value="philsys">
+          <div class="form-group">
+            <label>PhilSys Number (PSN)</label>
+            <div class="psn-input-group">
+              <i class="fas fa-hashtag psn-input-icon"></i>
+              <input type="text" name="psn" class="form-control" placeholder="XXXX-XXXXX-XXXX"
+                maxlength="15">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary login-btn">
+            <i class="fas fa-sign-in-alt"></i>
+            Authenticate with PhilSys
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const tabs = document.querySelectorAll('.login-tab');
+      const contents = document.querySelectorAll('.login-content');
+      const manualToggle = document.getElementById('manual-entry-toggle');
+      const manualContent = document.getElementById('manual-entry-content');
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', function () {
+          const targetTab = this.getAttribute('data-tab');
+
+          tabs.forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+
+          contents.forEach(content => {
+            content.classList.remove('active');
+            if (content.id == = targetTab + '-content') {
+              content.classList.add('active');
             }
+          });
         });
-    </script>
+      });
+
+      manualToggle.addEventListener('click', function () {
+        this.classList.toggle('collapsed');
+        manualContent.classList.toggle('show');
+      });
+
+      const psnInput = document.querySelector('input[name="psn"]');
+      if (psnInput) {
+        psnInput.addEventListener('input', function (e) {
+          let value = e.target.value.replace(/[^0-9]/g, '');
+          let formatted = '';
+          for (let i = 0; i < value.length && i < 13; i++) {
+            if (i == = 4 || i == = 9) {
+              formatted += '-';
+            }
+            formatted += value[i];
+          }
+          e.target.value = formatted;
+        });
+      }
+    });
+  </script>
 </body>
 
 </html>

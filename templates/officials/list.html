@@ -4,80 +4,80 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">
-        <h1>Barangay Officials & Staff</h1>
-        <span>Manage positions and terms of service</span>
-    </div>
-    <div class="header-actions">
-        <a href="{% url 'officials:add' %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Add Official
-        </a>
-    </div>
+  <div class="page-title">
+    <h1>Barangay Officials & Staff</h1>
+    <span>Manage positions and terms of service</span>
+  </div>
+  <div class="header-actions">
+    <a href="{% url 'officials:add' %}" class="btn btn-primary">
+      <i class="fas fa-plus"></i> Add Official
+    </a>
+  </div>
 </div>
 
 <div class="card">
-    <div class="card-header">
-        <div class="filter-group">
-            <a href="?status=active"
-                class="btn btn-sm {% if selected_status == 'active' %}btn-primary{% else %}btn-outline{% endif %}">Active</a>
-            <a href="?status=inactive"
-                class="btn btn-sm {% if selected_status == 'inactive' %}btn-primary{% else %}btn-outline{% endif %}">Inactive</a>
-        </div>
+  <div class="card-header">
+    <div class="filter-group">
+      <a href="?status=active"
+        class="btn btn-sm {% if selected_status == 'active' %}btn-primary{% else %}btn-outline{% endif %}">Active</a>
+      <a href="?status=inactive"
+        class="btn btn-sm {% if selected_status == 'inactive' %}btn-primary{% else %}btn-outline{% endif %}">Inactive</a>
     </div>
-    <div class="table-responsive">
-        <table>
-            <thead>
-                <tr>
-                    <th>Official</th>
-                    <th>Position</th>
-                    <th>Term Start</th>
-                    <th>Term End</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for official in officials %}
-                <tr>
-                    <td>
-                        <div class="resident-item">
-                            <strong>{{ official.resident.full_name }}</strong>
-                            <span>{{ official.employee_id|default:"No ID" }}</span>
-                        </div>
-                    </td>
-                    <td>{{ official.get_position_display }}</td>
-                    <td>{{ official.term_start|date:"M d, Y" }}</td>
-                    <td>{{ official.term_end|date:"M d, Y"|default:"Present" }}</td>
-                    <td>
-                        <span
-                            class="status-badge {% if official.status == 'active' %}badge-active{% else %}badge-inactive{% endif %}">
-                            {{ official.get_status_display }}
-                        </span>
-                    </td>
-                    <td>
-                        <div class="btn-group">
-                            <a href="{% url 'officials:edit' official.pk %}" class="btn btn-outline btn-icon"><i
-                                    class="fas fa-edit"></i></a>
-                            <a href="{% url 'attendance:dtr_detail' official.pk %}" class="btn btn-outline btn-icon"
-                                title="DTR"><i class="fas fa-calendar-alt"></i></a>
-                        </div>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="6" class="text-center">No officials found.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  </div>
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Official</th>
+          <th>Position</th>
+          <th>Term Start</th>
+          <th>Term End</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for official in officials %}
+        <tr>
+          <td>
+            <div class="resident-item">
+              <strong>{{ official.resident.full_name }}</strong>
+              <span>{{ official.employee_id|default:"No ID" }}</span>
+            </div>
+          </td>
+          <td>{{ official.get_position_display }}</td>
+          <td>{{ official.term_start|date:"M d, Y" }}</td>
+          <td>{{ official.term_end|date:"M d, Y"|default:"Present" }}</td>
+          <td>
+            <span
+              class="status-badge {% if official.status == 'active' %}badge-active{% else %}badge-inactive{% endif %}">
+              {{ official.get_status_display }}
+            </span>
+          </td>
+          <td>
+            <div class="btn-group">
+              <a href="{% url 'officials:edit' official.pk %}" class="btn btn-outline btn-icon"><i
+                  class="fas fa-edit"></i></a>
+              <a href="{% url 'attendance:dtr_detail' official.pk %}" class="btn btn-outline btn-icon"
+                title="DTR"><i class="fas fa-calendar-alt"></i></a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center">No officials found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <style>
-    .resident-item span {
-        display: block;
-        font-size: 11px;
-        color: var(--text-muted);
-    }
+  .resident-item span {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
 </style>
 {% endblock %}

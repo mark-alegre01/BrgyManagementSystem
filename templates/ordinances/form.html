@@ -4,142 +4,142 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">
-        <h1>{% if editing %}Edit Ordinance{% else %}New Ordinance{% endif %}</h1>
-        <span>Official legislative record entry</span>
-    </div>
+  <div class="page-title">
+    <h1>{% if editing %}Edit Ordinance{% else %}New Ordinance{% endif %}</h1>
+    <span>Official legislative record entry</span>
+  </div>
 </div>
 
 <div class="card">
-    <form method="POST" enctype="multipart/form-data" class="modern-form">
-        {% csrf_token %}
-        <div class="form-grid">
-            <div class="form-section">
-                <h3>Ordinance Information</h3>
-                <div class="form-row">
-                    <div class="form-group col-4">
-                        <label>Ordinance Number*</label>
-                        <input type="text" name="ordinance_number" value="{{ ordinance.ordinance_number }}"
-                            class="form-control" placeholder="e.g. 2024-001" required>
-                    </div>
-                    <div class="form-group col-8">
-                        <label>Title*</label>
-                        <input type="text" name="title" value="{{ ordinance.title }}" class="form-control" required>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group col-12">
-                        <label>Description/Summary</label>
-                        <textarea name="description" class="form-control"
-                            rows="3">{{ ordinance.description }}</textarea>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group col-4">
-                        <label>Author/Proponent*</label>
-                        <input type="text" name="author" value="{{ ordinance.author }}" class="form-control" required>
-                    </div>
-                    <div class="form-group col-4">
-                        <label>Sponsor</label>
-                        <input type="text" name="sponsor" value="{{ ordinance.sponsor }}" class="form-control">
-                    </div>
-                    <div class="form-group col-4">
-                        <label>Category*</label>
-                        <select name="category" class="form-control" required>
-                            {% for code, label in categories %}
-                            <option value="{{ code }}" {% if ordinance.category == code %}selected{% endif %}>{{ label }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-section">
-                <h3>Timeline & Status</h3>
-                <div class="form-row">
-                    <div class="form-group col-4">
-                        <label>Date Enacted*</label>
-                        <input type="date" name="date_enacted" value="{{ ordinance.date_enacted|date:'Y-m-d' }}"
-                            class="form-control" required>
-                    </div>
-                    <div class="form-group col-4">
-                        <label>Effectivity Date</label>
-                        <input type="date" name="date_effectivity" value="{{ ordinance.date_effectivity|date:'Y-m-d' }}"
-                            class="form-control">
-                    </div>
-                    <div class="form-group col-4">
-                        <label>Status*</label>
-                        <select name="status" class="form-control" required>
-                            {% for code, label in statuses %}
-                            <option value="{{ code }}" {% if ordinance.status == code %}selected{% endif %}>{{ label }}
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group col-6">
-                        <label>Document File (PDF/DOC)</label>
-                        <input type="file" name="document_file" class="form-control">
-                    </div>
-                </div>
-            </div>
+  <form method="POST" enctype="multipart/form-data" class="modern-form">
+    {% csrf_token %}
+    <div class="form-grid">
+      <div class="form-section">
+        <h3>Ordinance Information</h3>
+        <div class="form-row">
+          <div class="form-group col-4">
+            <label>Ordinance Number*</label>
+            <input type="text" name="ordinance_number" value="{{ ordinance.ordinance_number }}"
+              class="form-control" placeholder="e.g. 2024-001" required>
+          </div>
+          <div class="form-group col-8">
+            <label>Title*</label>
+            <input type="text" name="title" value="{{ ordinance.title }}" class="form-control" required>
+          </div>
         </div>
 
-        <div class="form-footer">
-            <button type="submit" class="btn btn-primary btn-lg">
-                <i class="fas fa-save"></i> Save Ordinance
-            </button>
+        <div class="form-row">
+          <div class="form-group col-12">
+            <label>Description/Summary</label>
+            <textarea name="description" class="form-control"
+              rows="3">{{ ordinance.description }}</textarea>
+          </div>
         </div>
-    </form>
+
+        <div class="form-row">
+          <div class="form-group col-4">
+            <label>Author/Proponent*</label>
+            <input type="text" name="author" value="{{ ordinance.author }}" class="form-control" required>
+          </div>
+          <div class="form-group col-4">
+            <label>Sponsor</label>
+            <input type="text" name="sponsor" value="{{ ordinance.sponsor }}" class="form-control">
+          </div>
+          <div class="form-group col-4">
+            <label>Category*</label>
+            <select name="category" class="form-control" required>
+              {% for code, label in categories %}
+              <option value="{{ code }}" {% if ordinance.category == code %}selected{% endif %}>{{ label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <h3>Timeline & Status</h3>
+        <div class="form-row">
+          <div class="form-group col-4">
+            <label>Date Enacted*</label>
+            <input type="date" name="date_enacted" value="{{ ordinance.date_enacted|date:'Y-m-d' }}"
+              class="form-control" required>
+          </div>
+          <div class="form-group col-4">
+            <label>Effectivity Date</label>
+            <input type="date" name="date_effectivity" value="{{ ordinance.date_effectivity|date:'Y-m-d' }}"
+              class="form-control">
+          </div>
+          <div class="form-group col-4">
+            <label>Status*</label>
+            <select name="status" class="form-control" required>
+              {% for code, label in statuses %}
+              <option value="{{ code }}" {% if ordinance.status == code %}selected{% endif %}>{{ label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label>Document File (PDF/DOC)</label>
+            <input type="file" name="document_file" class="form-control">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-footer">
+      <button type="submit" class="btn btn-primary btn-lg">
+        <i class="fas fa-save"></i> Save Ordinance
+      </button>
+    </div>
+  </form>
 </div>
 
 <style>
-    .modern-form {
-        padding: 30px;
-    }
+  .modern-form {
+    padding: 30px;
+  }
 
-    .form-section {
-        margin-bottom: 25px;
-    }
+  .form-section {
+    margin-bottom: 25px;
+  }
 
-    .form-section h3 {
-        font-size: 14px;
-        color: var(--primary);
-        margin-bottom: 15px;
-        border-bottom: 1px solid var(--border);
-        padding-bottom: 8px;
-    }
+  .form-section h3 {
+    font-size: 14px;
+    color: var(--primary);
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+  }
 
-    .form-row {
-        display: flex;
-        gap: 20px;
-        margin-bottom: 15px;
-    }
+  .form-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+  }
 
-    .col-4 {
-        flex: 1;
-    }
+  .col-4 {
+    flex: 1;
+  }
 
-    .col-6 {
-        flex: 0 0 calc(50% - 10px);
-    }
+  .col-6 {
+    flex: 0 0 calc(50% - 10px);
+  }
 
-    .col-8 {
-        flex: 2;
-    }
+  .col-8 {
+    flex: 2;
+  }
 
-    .col-12 {
-        width: 100%;
-    }
+  .col-12 {
+    width: 100%;
+  }
 
-    .form-footer {
-        border-top: 1px solid var(--border);
-        padding-top: 20px;
-        text-align: right;
-    }
+  .form-footer {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    text-align: right;
+  }
 </style>
 {% endblock %}

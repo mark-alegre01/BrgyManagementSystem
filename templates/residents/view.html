@@ -8,323 +8,322 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">
-        <h1>Resident Details</h1>
-        <span>Profile information for {{ resident.full_name }}</span>
-    </div>
-    <div class="header-actions">
-        <a href="{% url 'residents:edit' resident.pk %}" class="btn btn-primary">
-            <i class="fas fa-edit"></i> Edit Profile
-        </a>
-        <a href="{% url 'residents:list' %}" class="btn btn-outline">
-            <i class="fas fa-chevron-left"></i> Back to List
-        </a>
-    </div>
+  <div class="page-title">
+    <h1>Resident Details</h1>
+    <span>Profile information for {{ resident.full_name }}</span>
+  </div>
+  <div class="header-actions">
+    <a href="{% url 'residents:edit' resident.pk %}" class="btn btn-primary">
+      <i class="fas fa-edit"></i> Edit Profile
+    </a>
+    <a href="{% url 'residents:list' %}" class="btn btn-outline">
+      <i class="fas fa-chevron-left"></i> Back to List
+    </a>
+  </div>
 </div>
 
 <div class="profile-grid">
-    <div class="profile-sidebar">
-        <div class="card profile-card">
-            <div class="profile-photo">
-                {% if resident.photo %}
-                <img src="{{ resident.photo.url }}" alt="{{ resident.full_name }}">
-                {% else %}
-                <div class="photo-placeholder">
-                    <i class="fas fa-user"></i>
-                </div>
-                {% endif %}
-            </div>
-            <div class="profile-info">
-                <h2>{{ resident.full_name }}</h2>
-                <span class="resident-id">ID: #{{ resident.pk|stringformat:"05d" }}</span>
-                <div class="status-tags">
-                    {% if resident.is_registered_voter %}
-                    <span class="badge badge-success">Voter</span>
-                    {% endif %}
-                    {% if resident.is_pwd %}
-                    <span class="badge badge-warning">PWD</span>
-                    {% endif %}
-                    {% if resident.is_4ps_member %}
-                    <span class="badge badge-info">4Ps</span>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="card mt-4">
-            <div class="card-header">
-                <h3>Contact Information</h3>
-            </div>
-            <div class="card-body">
-                <div class="info-item">
-                    <i class="fas fa-phone"></i>
-                    <div>
-                        <label>Phone</label>
-                        <span>{{ resident.contact_number|default:"Not provided" }}</span>
-                    </div>
-                </div>
-                <div class="info-item">
-                    <i class="fas fa-envelope"></i>
-                    <div>
-                        <label>Email</label>
-                        <span>{{ resident.email|default:"Not provided" }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="profile-main">
-        <div class="card">
-            <div class="card-header">
-                <h3>Personal Information</h3>
-            </div>
-            <div class="card-body">
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <label>Full Name</label>
-                        <span>{{ resident.last_name }}, {{ resident.first_name }} {{ resident.middle_name }}{% if
-                            resident.suffix %} {{ resident.suffix }}{% endif %}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Gender</label>
-                        <span>{{ resident.get_gender_display }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Birthdate</label>
-                        <span>{{ resident.birthdate }} (Age: {{ resident.age }})</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Civil Status</label>
-                        <span>{{ resident.get_civil_status_display }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Nationality</label>
-                        <span>{{ resident.nationality }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Religion</label>
-                        <span>{{ resident.religion|default:"---" }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Occupation</label>
-                        <span>{{ resident.occupation|default:"Unemployed" }}</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card mt-4">
-            <div class="card-header">
-                <h3>Address & Household</h3>
-            </div>
-            <div class="card-body">
-                <div class="detail-grid">
-                    <div class="detail-item col-span-2">
-                        <label>Address</label>
-                        <span>{{ resident.address }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Purok / Zone</label>
-                        <span>{{ resident.purok }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Household</label>
-                        <span>
-                            {% if resident.household %}
-                            <a href="{% url 'residents:household_view' resident.household.pk %}">
-                                Household #{{ resident.household.household_no }}
-                            </a>
-                            {% if resident.is_household_head %}(Head){% endif %}
-                            {% else %}
-                            Not assigned to a household
-                            {% endif %}
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {% if certificates %}
-        <div class="card mt-4">
-            <div class="card-header">
-                <h3>Recent Certifications</h3>
-            </div>
-            <div class="table-responsive">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Type</th>
-                            <th>Date Issued</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for cert in certificates %}
-                        <tr>
-                            <td>{{ cert.get_certificate_type_display }}</td>
-                            <td>{{ cert.issued_at|date:"M d, Y" }}</td>
-                            <td><span class="status-badge badge-active">Issued</span></td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+  <div class="profile-sidebar">
+    <div class="card profile-card">
+      <div class="profile-photo">
+        {% if resident.photo %}
+        <img src="{{ resident.photo.url }}" alt="{{ resident.full_name }}">
+        {% else %}
+        <div class="photo-placeholder">
+          <i class="fas fa-user"></i>
         </div>
         {% endif %}
+      </div>
+      <div class="profile-info">
+        <h2>{{ resident.full_name }}</h2>
+        <span class="resident-id">ID: #{{ resident.pk|stringformat:"05d" }}</span>
+        <div class="status-tags">
+          {% if resident.is_registered_voter %}
+          <span class="badge badge-success">Voter</span>
+          {% endif %}
+          {% if resident.is_pwd %}
+          <span class="badge badge-warning">PWD</span>
+          {% endif %}
+          {% if resident.is_4ps_member %}
+          <span class="badge badge-info">4Ps</span>
+          {% endif %}
+        </div>
+      </div>
     </div>
+
+    <div class="card mt-4">
+      <div class="card-header">
+        <h3>Contact Information</h3>
+      </div>
+      <div class="card-body">
+        <div class="info-item">
+          <i class="fas fa-phone"></i>
+          <div>
+            <label>Phone</label>
+            <span>{{ resident.contact_number|default:"Not provided" }}</span>
+          </div>
+        </div>
+        <div class="info-item">
+          <i class="fas fa-envelope"></i>
+          <div>
+            <label>Email</label>
+            <span>{{ resident.email|default:"Not provided" }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="profile-main">
+    <div class="card">
+      <div class="card-header">
+        <h3>Personal Information</h3>
+      </div>
+      <div class="card-body">
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>Full Name</label>
+<span>{{ resident.last_name }}, {{ resident.first_name }} {{ resident.middle_name }}{% if resident.suffix %} {{ resident.suffix }}{% endif %}</span>
+          </div>
+          <div class="detail-item">
+            <label>Gender</label>
+            <span>{{ resident.get_gender_display }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Birthdate</label>
+            <span>{{ resident.birthdate }} (Age: {{ resident.age }})</span>
+          </div>
+          <div class="detail-item">
+            <label>Civil Status</label>
+            <span>{{ resident.get_civil_status_display }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Nationality</label>
+            <span>{{ resident.nationality }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Religion</label>
+            <span>{{ resident.religion|default:"---" }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Occupation</label>
+            <span>{{ resident.occupation|default:"Unemployed" }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header">
+        <h3>Address & Household</h3>
+      </div>
+      <div class="card-body">
+        <div class="detail-grid">
+          <div class="detail-item col-span-2">
+            <label>Address</label>
+            <span>{{ resident.address }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Purok / Zone</label>
+            <span>{{ resident.purok }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Household</label>
+            <span>
+              {% if resident.household %}
+              <a href="{% url 'residents:household_view' resident.household.pk %}">
+                Household #{{ resident.household.household_no }}
+              </a>
+              {% if resident.is_household_head %}(Head){% endif %}
+              {% else %}
+              Not assigned to a household
+              {% endif %}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if certificates %}
+    <div class="card mt-4">
+      <div class="card-header">
+        <h3>Recent Certifications</h3>
+      </div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Date Issued</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for cert in certificates %}
+            <tr>
+              <td>{{ cert.get_certificate_type_display }}</td>
+              <td>{{ cert.issued_at|date:"M d, Y" }}</td>
+              <td><span class="status-badge badge-active">Issued</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
 </div>
 
 <style>
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 25px;
+  }
+
+  .profile-card {
+    text-align: center;
+    padding: 30px 20px;
+  }
+
+  .profile-photo {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 5px solid var(--bg-card);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+  }
+
+  .profile-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .photo-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 60px;
+    color: var(--text-muted);
+  }
+
+  .profile-info h2 {
+    font-size: 20px;
+    margin-bottom: 5px;
+  }
+
+  .resident-id {
+    display: block;
+    color: var(--text-muted);
+    font-size: 13px;
+    margin-bottom: 15px;
+  }
+
+  .status-tags {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  .badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .badge-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+
+  .badge-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
+
+  .badge-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+  }
+
+  .info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    margin-bottom: 20px;
+    width: 100%;
+    overflow-wrap: break-word;
+  }
+
+  .info-item i {
+    font-size: 20px;
+    color: var(--primary);
+    width: 32px;
+    height: 32px;
+    background: rgba(79, 70, 229, 0.1);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .info-item label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 2px;
+  }
+
+  .info-item span {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 35px 25px;
+  }
+
+  .detail-item label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+  }
+
+  .detail-item span {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-main);
+    display: block;
+    margin-top: 2px;
+  }
+
+  .col-span-2 {
+    grid-column: span 2;
+  }
+
+  .mt-4 {
+    margin-top: 30px;
+  }
+
+  @media (max-width: 992px) {
     .profile-grid {
-        display: grid;
-        grid-template-columns: 350px 1fr;
-        gap: 25px;
+      grid-template-columns: 1fr;
     }
-
-    .profile-card {
-        text-align: center;
-        padding: 30px 20px;
-    }
-
-    .profile-photo {
-        width: 150px;
-        height: 150px;
-        margin: 0 auto 20px;
-        border-radius: 50%;
-        overflow: hidden;
-        border: 5px solid var(--bg-card);
-        box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
-    }
-
-    .profile-photo img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .photo-placeholder {
-        width: 100%;
-        height: 100%;
-        background: var(--border);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 60px;
-        color: var(--text-muted);
-    }
-
-    .profile-info h2 {
-        font-size: 20px;
-        margin-bottom: 5px;
-    }
-
-    .resident-id {
-        display: block;
-        color: var(--text-muted);
-        font-size: 13px;
-        margin-bottom: 15px;
-    }
-
-    .status-tags {
-        display: flex;
-        gap: 8px;
-        justify-content: center;
-    }
-
-    .badge {
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-
-    .badge-success {
-        background: rgba(16, 185, 129, 0.1);
-        color: #10b981;
-    }
-
-    .badge-warning {
-        background: rgba(245, 158, 11, 0.1);
-        color: #f59e0b;
-    }
-
-    .badge-info {
-        background: rgba(59, 130, 246, 0.1);
-        color: #3b82f6;
-    }
-
-    .info-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 15px;
-        margin-bottom: 20px;
-        width: 100%;
-        overflow-wrap: break-word;
-    }
-
-    .info-item i {
-        font-size: 20px;
-        color: var(--primary);
-        width: 32px;
-        height: 32px;
-        background: rgba(79, 70, 229, 0.1);
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .info-item label {
-        display: block;
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--text-muted);
-        margin-bottom: 2px;
-    }
-
-    .info-item span {
-        font-size: 15px;
-        font-weight: 600;
-        color: var(--text-main);
-    }
-
-    .detail-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 35px 25px;
-    }
-
-    .detail-item label {
-        display: block;
-        font-size: 12px;
-        color: var(--text-muted);
-        margin-bottom: 5px;
-    }
-
-    .detail-item span {
-        font-size: 15px;
-        font-weight: 600;
-        color: var(--text-main);
-        display: block;
-        margin-top: 2px;
-    }
-
-    .col-span-2 {
-        grid-column: span 2;
-    }
-
-    .mt-4 {
-        margin-top: 30px;
-    }
-
-    @media (max-width: 992px) {
-        .profile-grid {
-            grid-template-columns: 1fr;
-        }
-    }
+  }
 </style>
 {% endblock %}

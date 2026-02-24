@@ -8,270 +8,270 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">
-        <h1>Certificate Details</h1>
-        <span>Information for Control #: {{ certificate.control_number }}</span>
-    </div>
-    <div class="header-actions">
-        <a href="{% url 'certifications:pdf' certificate.pk %}" target="_blank" class="btn btn-primary">
-            <i class="fas fa-file-pdf"></i> Download PDF
-        </a>
-        <a href="{% url 'certifications:list' %}" class="btn btn-outline">
-            <i class="fas fa-chevron-left"></i> Back to List
-        </a>
-    </div>
+  <div class="page-title">
+    <h1>Certificate Details</h1>
+    <span>Information for Control #: {{ certificate.control_number }}</span>
+  </div>
+  <div class="header-actions">
+    <a href="{% url 'certifications:pdf' certificate.pk %}" target="_blank" class="btn btn-primary">
+      <i class="fas fa-file-pdf"></i> Download PDF
+    </a>
+    <a href="{% url 'certifications:list' %}" class="btn btn-outline">
+      <i class="fas fa-chevron-left"></i> Back to List
+    </a>
+  </div>
 </div>
 
 <div class="profile-grid">
-    <div class="profile-sidebar">
-        <div class="card profile-card">
-            <div class="profile-photo">
-                <div class="photo-placeholder">
-                    <i class="fas fa-certificate"></i>
-                </div>
-            </div>
-            <div class="profile-info">
-                <h2>{{ certificate.get_cert_type_display }}</h2>
-                <span class="resident-id">Control #: {{ certificate.control_number }}</span>
-                <div class="status-tags">
-                    <span class="badge badge-success">{{ certificate.get_status_display }}</span>
-                </div>
-            </div>
+  <div class="profile-sidebar">
+    <div class="card profile-card">
+      <div class="profile-photo">
+        <div class="photo-placeholder">
+          <i class="fas fa-certificate"></i>
         </div>
-
-        <div class="card mt-4">
-            <div class="card-header">
-                <h3>Transaction Details</h3>
-            </div>
-            <div class="card-body">
-                <div class="info-item">
-                    <i class="fas fa-receipt"></i>
-                    <div>
-                        <label>OR Number</label>
-                        <span>{{ certificate.or_number|default:"N/A" }}</span>
-                    </div>
-                </div>
-                <div class="info-item">
-                    <i class="fas fa-money-bill-wave"></i>
-                    <div>
-                        <label>Amount Paid</label>
-                        <span>₱{{ certificate.amount_paid|default:"0.00" }}</span>
-                    </div>
-                </div>
-                <div class="info-item">
-                    <i class="fas fa-calendar-check"></i>
-                    <div>
-                        <label>Date Issued</label>
-                        <span>{{ certificate.date_issued|date:"F d, Y" }}</span>
-                    </div>
-                </div>
-            </div>
+      </div>
+      <div class="profile-info">
+        <h2>{{ certificate.get_cert_type_display }}</h2>
+        <span class="resident-id">Control #: {{ certificate.control_number }}</span>
+        <div class="status-tags">
+          <span class="badge badge-success">{{ certificate.get_status_display }}</span>
         </div>
+      </div>
     </div>
 
-    <div class="profile-main">
-        <div class="card">
-            <div class="card-header">
-                <h3>Recipient Information</h3>
-            </div>
-            <div class="card-body">
-                <div class="detail-grid">
-                    <div class="detail-item col-span-2">
-                        <label>Resident Name</label>
-                        <span>
-                            <a href="{% url 'residents:view' certificate.resident.pk %}">
-                                {{ certificate.resident.full_name }}
-                            </a>
-                        </span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Purpose</label>
-                        <span>{{ certificate.purpose|default:"General Purpose" }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Issued By</label>
-                        <span>{{ certificate.issued_by.get_full_name|default:certificate.issued_by.username }}</span>
-                    </div>
-                </div>
-            </div>
+    <div class="card mt-4">
+      <div class="card-header">
+        <h3>Transaction Details</h3>
+      </div>
+      <div class="card-body">
+        <div class="info-item">
+          <i class="fas fa-receipt"></i>
+          <div>
+            <label>OR Number</label>
+            <span>{{ certificate.or_number|default:"N/A" }}</span>
+          </div>
         </div>
-
-        {% if certificate.cert_type == 'business_permit' %}
-        <div class="card mt-4">
-            <div class="card-header">
-                <h3>Business Information</h3>
-            </div>
-            <div class="card-body">
-                <div class="detail-grid">
-                    <div class="detail-item col-span-2">
-                        <label>Business Name</label>
-                        <span>{{ certificate.business_name }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Business Type</label>
-                        <span>{{ certificate.business_type }}</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Business Address</label>
-                        <span>{{ certificate.business_address }}</span>
-                    </div>
-                </div>
-            </div>
+        <div class="info-item">
+          <i class="fas fa-money-bill-wave"></i>
+          <div>
+            <label>Amount Paid</label>
+            <span>₱{{ certificate.amount_paid|default:"0.00" }}</span>
+          </div>
         </div>
-        {% endif %}
-
-        <div class="card mt-4">
-            <div class="card-header">
-                <h3>Status History</h3>
-            </div>
-            <div class="card-body">
-                <div class="status-timeline">
-                    <div class="timeline-item">
-                        <div class="timeline-icon success">
-                            <i class="fas fa-check"></i>
-                        </div>
-                        <div class="timeline-content">
-                            <h4>Issued</h4>
-                            <p>Certificate was generated and signed on {{ certificate.issued_at|date:"M d, Y H:i" }}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="info-item">
+          <i class="fas fa-calendar-check"></i>
+          <div>
+            <label>Date Issued</label>
+            <span>{{ certificate.date_issued|date:"F d, Y" }}</span>
+          </div>
         </div>
+      </div>
     </div>
+  </div>
+
+  <div class="profile-main">
+    <div class="card">
+      <div class="card-header">
+        <h3>Recipient Information</h3>
+      </div>
+      <div class="card-body">
+        <div class="detail-grid">
+          <div class="detail-item col-span-2">
+            <label>Resident Name</label>
+            <span>
+              <a href="{% url 'residents:view' certificate.resident.pk %}">
+                {{ certificate.resident.full_name }}
+              </a>
+            </span>
+          </div>
+          <div class="detail-item">
+            <label>Purpose</label>
+            <span>{{ certificate.purpose|default:"General Purpose" }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Issued By</label>
+            <span>{{ certificate.issued_by.get_full_name|default:certificate.issued_by.username }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if certificate.cert_type == 'business_permit' %}
+    <div class="card mt-4">
+      <div class="card-header">
+        <h3>Business Information</h3>
+      </div>
+      <div class="card-body">
+        <div class="detail-grid">
+          <div class="detail-item col-span-2">
+            <label>Business Name</label>
+            <span>{{ certificate.business_name }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Business Type</label>
+            <span>{{ certificate.business_type }}</span>
+          </div>
+          <div class="detail-item">
+            <label>Business Address</label>
+            <span>{{ certificate.business_address }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card mt-4">
+      <div class="card-header">
+        <h3>Status History</h3>
+      </div>
+      <div class="card-body">
+        <div class="status-timeline">
+          <div class="timeline-item">
+            <div class="timeline-icon success">
+              <i class="fas fa-check"></i>
+            </div>
+            <div class="timeline-content">
+              <h4>Issued</h4>
+              <p>Certificate was generated and signed on {{ certificate.issued_at|date:"M d, Y H:i" }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <style>
-    /* Reuse styles from residents/view.html */
+  /* Reuse styles from residents/view.html */
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 350px 1fr;
+    gap: 25px;
+  }
+
+  .profile-card {
+    text-align: center;
+    padding: 30px 20px;
+  }
+
+  .profile-photo {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 60px;
+    color: var(--text-muted);
+  }
+
+  .badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .badge-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+
+  .info-item {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+  }
+
+  .info-item i {
+    font-size: 18px;
+    color: var(--primary);
+    width: 25px;
+  }
+
+  .info-item label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .info-item span {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .detail-item label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+  }
+
+  .detail-item span {
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .col-span-2 {
+    grid-column: span 2;
+  }
+
+  .mt-4 {
+    margin-top: 25px;
+  }
+
+  .status-timeline {
+    margin-top: 10px;
+  }
+
+  .timeline-item {
+    display: flex;
+    gap: 15px;
+    position: relative;
+    padding-bottom: 20px;
+  }
+
+  .timeline-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    z-index: 1;
+  }
+
+  .timeline-icon.success {
+    border-color: #10b981;
+    color: #10b981;
+  }
+
+  .timeline-content h4 {
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+
+  .timeline-content p {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  @media (max-width: 992px) {
     .profile-grid {
-        display: grid;
-        grid-template-columns: 350px 1fr;
-        gap: 25px;
+      grid-template-columns: 1fr;
     }
-
-    .profile-card {
-        text-align: center;
-        padding: 30px 20px;
-    }
-
-    .profile-photo {
-        width: 150px;
-        height: 150px;
-        margin: 0 auto 20px;
-        border-radius: 50%;
-        overflow: hidden;
-        background: var(--border);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 60px;
-        color: var(--text-muted);
-    }
-
-    .badge {
-        padding: 4px 10px;
-        border-radius: 4px;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-
-    .badge-success {
-        background: rgba(16, 185, 129, 0.1);
-        color: #10b981;
-    }
-
-    .info-item {
-        display: flex;
-        gap: 15px;
-        margin-bottom: 15px;
-    }
-
-    .info-item i {
-        font-size: 18px;
-        color: var(--primary);
-        width: 25px;
-    }
-
-    .info-item label {
-        display: block;
-        font-size: 11px;
-        color: var(--text-muted);
-    }
-
-    .info-item span {
-        font-size: 14px;
-        font-weight: 500;
-    }
-
-    .detail-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 20px;
-    }
-
-    .detail-item label {
-        display: block;
-        font-size: 12px;
-        color: var(--text-muted);
-        margin-bottom: 5px;
-    }
-
-    .detail-item span {
-        font-size: 15px;
-        font-weight: 500;
-    }
-
-    .col-span-2 {
-        grid-column: span 2;
-    }
-
-    .mt-4 {
-        margin-top: 25px;
-    }
-
-    .status-timeline {
-        margin-top: 10px;
-    }
-
-    .timeline-item {
-        display: flex;
-        gap: 15px;
-        position: relative;
-        padding-bottom: 20px;
-    }
-
-    .timeline-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--bg-card);
-        border: 2px solid var(--border);
-        z-index: 1;
-    }
-
-    .timeline-icon.success {
-        border-color: #10b981;
-        color: #10b981;
-    }
-
-    .timeline-content h4 {
-        font-size: 14px;
-        margin-bottom: 4px;
-    }
-
-    .timeline-content p {
-        font-size: 12px;
-        color: var(--text-muted);
-    }
-
-    @media (max-width: 992px) {
-        .profile-grid {
-            grid-template-columns: 1fr;
-        }
-    }
+  }
 </style>
 {% endblock %}

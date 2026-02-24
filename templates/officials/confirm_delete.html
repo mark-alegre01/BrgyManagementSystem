@@ -4,39 +4,39 @@
 
 {% block content %}
 <div class="card" style="max-width: 500px; margin: 100px auto; text-align: center; padding: 40px;">
-    <div class="alert-icon" style="font-size: 60px; color: var(--danger); margin-bottom: 20px;">
-        <i class="fas fa-user-minus"></i>
-    </div>
-    <h2>Remove from Officials?</h2>
-    <p style="margin: 20px 0; color: var(--text-muted);">
-        Are you sure you want to remove <strong>{{ official.resident.full_name }}</strong> from the list of Barangay
-        Officials?
-        The resident's personal record will remain intact, but they will no longer be listed as an active or inactive
-        official.
-    </p>
+  <div class="alert-icon" style="font-size: 60px; color: var(--danger); margin-bottom: 20px;">
+    <i class="fas fa-user-minus"></i>
+  </div>
+  <h2>Remove from Officials?</h2>
+  <p style="margin: 20px 0; color: var(--text-muted);">
+    Are you sure you want to remove <strong>{{ official.resident.full_name }}</strong> from the list of Barangay
+    Officials?
+    The resident's personal record will remain intact, but they will no longer be listed as an active or inactive
+    official.
+  </p>
 
-    <form method="POST">
-        {% csrf_token %}
-        <div class="action-buttons" style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
-            <button type="submit" class="btn btn-danger btn-lg">
-                <i class="fas fa-trash"></i> Yes, Remove Official
-            </button>
-            <a href="{% url 'officials:view' official.pk %}" class="btn btn-outline btn-lg">
-                Cancel
-            </a>
-        </div>
-    </form>
+  <form method="POST">
+    {% csrf_token %}
+    <div class="action-buttons" style="display: flex; gap: 15px; justify-content: center; margin-top: 30px;">
+      <button type="submit" class="btn btn-danger btn-lg">
+        <i class="fas fa-trash"></i> Yes, Remove Official
+      </button>
+      <a href="{% url 'officials:view' official.pk %}" class="btn btn-outline btn-lg">
+        Cancel
+      </a>
+    </div>
+  </form>
 </div>
 
 <style>
-    .btn-danger {
-        background: var(--danger);
-        color: white;
-        border: none;
-    }
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+    border: none;
+  }
 
-    .btn-danger:hover {
-        background: #dc2626;
-    }
+  .btn-danger:hover {
+    background: #dc2626;
+  }
 </style>
 {% endblock %}

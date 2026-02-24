@@ -8,88 +8,88 @@
 
 {% block content %}
 <div class="page-header">
-    <div class="page-title">
-        <h1>Daily Time Record (DTR)</h1>
-        <span>Monthly attendance summary for all officials</span>
-    </div>
-    <div class="header-actions">
-        <form method="GET" class="filter-form" style="display: flex; gap: 10px;">
-            <select name="month" class="form-control">
-                <option value="1" {% if month == 1 %}selected{% endif %}>January</option>
-                <option value="2" {% if month == 2 %}selected{% endif %}>February</option>
-                <option value="3" {% if month == 3 %}selected{% endif %}>March</option>
-                <option value="4" {% if month == 4 %}selected{% endif %}>April</option>
-                <option value="5" {% if month == 5 %}selected{% endif %}>May</option>
-                <option value="6" {% if month == 6 %}selected{% endif %}>June</option>
-                <option value="7" {% if month == 7 %}selected{% endif %}>July</option>
-                <option value="8" {% if month == 8 %}selected{% endif %}>August</option>
-                <option value="9" {% if month == 9 %}selected{% endif %}>September</option>
-                <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
-                <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
-                <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
-            </select>
-            <input type="number" name="year" value="{{ year }}" class="form-control" style="width: 100px;">
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-filter"></i> Filter
-            </button>
-        </form>
-    </div>
+  <div class="page-title">
+    <h1>Daily Time Record (DTR)</h1>
+    <span>Monthly attendance summary for all officials</span>
+  </div>
+  <div class="header-actions">
+    <form method="GET" class="filter-form" style="display: flex; gap: 10px;">
+      <select name="month" class="form-control">
+        <option value="1" {% if month == 1 %}selected{% endif %}>January</option>
+        <option value="2" {% if month == 2 %}selected{% endif %}>February</option>
+        <option value="3" {% if month == 3 %}selected{% endif %}>March</option>
+        <option value="4" {% if month == 4 %}selected{% endif %}>April</option>
+        <option value="5" {% if month == 5 %}selected{% endif %}>May</option>
+        <option value="6" {% if month == 6 %}selected{% endif %}>June</option>
+        <option value="7" {% if month == 7 %}selected{% endif %}>July</option>
+        <option value="8" {% if month == 8 %}selected{% endif %}>August</option>
+        <option value="9" {% if month == 9 %}selected{% endif %}>September</option>
+        <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
+        <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
+        <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
+      </select>
+      <input type="number" name="year" value="{{ year }}" class="form-control" style="width: 100px;">
+      <button type="submit" class="btn btn-primary">
+        <i class="fas fa-filter"></i> Filter
+      </button>
+    </form>
+  </div>
 </div>
 
 <div class="card">
-    <div class="table-responsive">
-        <table>
-            <thead>
-                <tr>
-                    <th>Official</th>
-                    <th>Position</th>
-                    <th>Days Present</th>
-                    <th>Late</th>
-                    <th>Absent</th>
-                    <th>Total Hours</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in dtr_summary %}
-                <tr>
-                    <td><strong>{{ item.official.resident.full_name }}</strong></td>
-                    <td>{{ item.official.get_position_display }}</td>
-                    <td><span class="badge badge-success">{{ item.present }}</span></td>
-                    <td><span class="badge badge-warning">{{ item.late }}</span></td>
-                    <td><span class="badge badge-danger">{{ item.absent }}</span></td>
-                    <td><strong>{{ item.total_hours }} hrs</strong></td>
-                    <td>
-                        <a href="{% url 'attendance:dtr_detail' item.official.pk %}?month={{ month }}&year={{ year }}"
-                            class="btn btn-outline btn-icon" title="View Detailed DTR">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="7" class="text-center">No attendance records found for this period.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Official</th>
+          <th>Position</th>
+          <th>Days Present</th>
+          <th>Late</th>
+          <th>Absent</th>
+          <th>Total Hours</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in dtr_summary %}
+        <tr>
+          <td><strong>{{ item.official.resident.full_name }}</strong></td>
+          <td>{{ item.official.get_position_display }}</td>
+          <td><span class="badge badge-success">{{ item.present }}</span></td>
+          <td><span class="badge badge-warning">{{ item.late }}</span></td>
+          <td><span class="badge badge-danger">{{ item.absent }}</span></td>
+          <td><strong>{{ item.total_hours }} hrs</strong></td>
+          <td>
+            <a href="{% url 'attendance:dtr_detail' item.official.pk %}?month={{ month }}&year={{ year }}"
+              class="btn btn-outline btn-icon" title="View Detailed DTR">
+              <i class="fas fa-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center">No attendance records found for this period.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <style>
-    .badge-success {
-        background: rgba(16, 185, 129, 0.1);
-        color: #10b981;
-    }
+  .badge-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
 
-    .badge-warning {
-        background: rgba(245, 158, 11, 0.1);
-        color: #f59e0b;
-    }
+  .badge-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+  }
 
-    .badge-danger {
-        background: rgba(239, 68, 68, 0.1);
-        color: #ef4444;
-    }
+  .badge-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
 </style>
 {% endblock %}
