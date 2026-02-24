@@ -10,11 +10,34 @@ from ordinances.models import Ordinance
 from datetime import date
 
 
+ROLE_TEMPLATE_MAP = {
+    'captain': 'core/dashboard_captain.html',
+    'admin': 'core/dashboard_captain.html',
+    'secretary': 'core/dashboard_secretary.html',
+    'treasurer': 'core/dashboard_treasurer.html',
+    'kagawad': 'core/dashboard_kagawad.html',
+    'sk_chairperson': 'core/dashboard_sk.html',
+    'lupong_member': 'core/dashboard_lupon.html',
+    'staff': 'core/dashboard_default.html',
+    'resident': 'core/dashboard_default.html',
+}
+
+
 @login_required
 def dashboard(request):
-    """Main dashboard with statistics."""
+    """Role-based dashboard dispatcher."""
     today = date.today()
+
+    # Determine role
+    role = 'admin' if request.user.is_superuser else 'staff'
+    try:
+        role = request.user.profile.role
+    except Exception:
+        pass
+
+    # Shared base context
     context = {
+        'today': today,
         'total_residents': Resident.objects.filter(is_active=True).count(),
         'total_households': Resident.objects.values('household').distinct().count(),
         'total_officials': Official.objects.filter(status='active').count(),
@@ -22,12 +45,38 @@ def dashboard(request):
         'certificates_today': Certificate.objects.filter(date_issued=today).count(),
         'certificates_total': Certificate.objects.count(),
         'attendance_today': AttendanceLog.objects.filter(date=today).count(),
-        'recent_certificates': Certificate.objects.select_related('resident')[:5],
+        'recent_certificates': Certificate.objects.select_related('resident').order_by('-date_issued')[:5],
         'recent_residents': Resident.objects.order_by('-created_at')[:5],
         'male_count': Resident.objects.filter(gender='M', is_active=True).count(),
         'female_count': Resident.objects.filter(gender='F', is_active=True).count(),
     }
-    return render(request, 'core/dashboard.html', context)
+
+    # Role-specific extra context
+    if role in ('captain', 'admin'):
+        context['recent_officials'] = Official.objects.select_related('resident').order_by('-created_at')[:5]
+        context['recent_ordinances'] = Ordinance.objects.order_by('-date_enacted')[:5]
+
+    elif role == 'secretary':
+        context['pending_certs'] = Certificate.objects.filter(date_issued=today).count()
+        context['recent_ordinances'] = Ordinance.objects.order_by('-date_enacted')[:5]
+
+    elif role == 'treasurer':
+        context['attendance_logs'] = AttendanceLog.objects.select_related('official__resident').filter(date=today)[:10]
+
+    elif role == 'kagawad':
+        context['recent_ordinances'] = Ordinance.objects.order_by('-date_enacted')[:5]
+
+    elif role == 'sk_chairperson':
+        from django.utils.timezone import now
+        from datetime import timedelta
+        cutoff = date.today().replace(year=date.today().year - 30)
+        context['youth_count'] = Resident.objects.filter(is_active=True, birthdate__gte=cutoff).count()
+
+    elif role == 'lupong_member':
+        context['recent_ordinances'] = Ordinance.objects.order_by('-date_enacted')[:5]
+
+    template = ROLE_TEMPLATE_MAP.get(role, 'core/dashboard_default.html')
+    return render(request, template, context)
 
 
 def login_view(request):

@@ -31,76 +31,101 @@
         </div>
 
         <nav class="sidebar-nav">
+            {% with r=user_role s=request.user.is_superuser %}
+            <!-- MAIN -->
             <div class="nav-section">
                 <span class="nav-section-title">MAIN</span>
                 <a href="{% url 'core:dashboard' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'dashboard' and request.resolver_match.app_name == 'core' %}active{% endif %}">
-                    <i class="fas fa-tachometer-alt"></i>
-                    <span>Dashboard</span>
+                    <i class="fas fa-tachometer-alt"></i><span>Dashboard</span>
                 </a>
             </div>
 
+            <!-- MANAGEMENT -->
             <div class="nav-section">
                 <span class="nav-section-title">MANAGEMENT</span>
+
+                {% if s or r != 'resident' %}
                 <a href="{% url 'residents:list' %}"
                     class="nav-item {% if request.resolver_match.app_name == 'residents' %}active{% endif %}">
-                    <i class="fas fa-users"></i>
-                    <span>Residents</span>
+                    <i class="fas fa-users"></i><span>Residents</span>
                 </a>
+                {% endif %}
+
+                {% if s or r == 'captain' or r == 'admin' or r == 'secretary' %}
                 <a href="{% url 'officials:list' %}"
                     class="nav-item {% if request.resolver_match.app_name == 'officials' %}active{% endif %}">
-                    <i class="fas fa-user-tie"></i>
-                    <span>Officials</span>
+                    <i class="fas fa-user-tie"></i><span>Officials</span>
                 </a>
+                {% endif %}
+
+                {% if s or r == 'captain' or r == 'admin' or r == 'secretary' %}
                 <a href="{% url 'residents:household_list' %}"
                     class="nav-item {% if request.resolver_match.url_name == 'household_list' %}active{% endif %}">
-                    <i class="fas fa-home"></i>
-                    <span>Households</span>
+                    <i class="fas fa-home"></i><span>Households</span>
                 </a>
+                {% endif %}
             </div>
 
+            <!-- SERVICES -->
             <div class="nav-section">
                 <span class="nav-section-title">SERVICES</span>
+
+                {% if s or r != 'lupon_member' and r != 'resident' %}
                 <a href="{% url 'certifications:list' %}"
                     class="nav-item {% if request.resolver_match.app_name == 'certifications' %}active{% endif %}">
-                    <i class="fas fa-certificate"></i>
-                    <span>Certifications</span>
+                    <i class="fas fa-certificate"></i><span>Certifications</span>
                 </a>
+                {% endif %}
+
+                {% if s or r == 'captain' or r == 'admin' or r == 'treasurer' %}
                 <a href="{% url 'attendance:dashboard' %}"
                     class="nav-item {% if request.resolver_match.app_name == 'attendance' %}active{% endif %}">
-                    <i class="fas fa-fingerprint"></i>
-                    <span>Attendance & DTR</span>
+                    <i class="fas fa-fingerprint"></i><span>Attendance &amp; DTR</span>
                 </a>
+                {% endif %}
             </div>
 
+            <!-- RECORDS -->
+            {% if s or r == 'captain' or r == 'admin' or r == 'secretary' or r == 'kagawad' or r == 'lupon_member' %}
             <div class="nav-section">
                 <span class="nav-section-title">RECORDS</span>
+
                 <a href="{% url 'ordinances:list' %}"
                     class="nav-item {% if request.resolver_match.app_name == 'ordinances' %}active{% endif %}">
-                    <i class="fas fa-gavel"></i>
-                    <span>Ordinances</span>
+                    <i class="fas fa-gavel"></i><span>Ordinances</span>
                 </a>
+
+                {% if s or r == 'captain' or r == 'admin' %}
                 <a href="{% url 'census:dashboard' %}"
                     class="nav-item {% if request.resolver_match.app_name == 'census' %}active{% endif %}">
-                    <i class="fas fa-chart-pie"></i>
-                    <span>Census</span>
+                    <i class="fas fa-chart-pie"></i><span>Census</span>
                 </a>
                 <a href="{% url 'reports:dashboard' %}"
                     class="nav-item {% if request.resolver_match.app_name == 'reports' %}active{% endif %}">
-                    <i class="fas fa-chart-bar"></i>
-                    <span>Reports</span>
+                    <i class="fas fa-chart-bar"></i><span>Reports</span>
                 </a>
+                {% endif %}
             </div>
+            {% endif %}
+            {% endwith %}
         </nav>
 
         <div class="sidebar-footer">
             <div class="user-info">
-                <div class="user-avatar">
-                    <i class="fas fa-user"></i>
-                </div>
+                <div class="user-avatar"><i class="fas fa-user"></i></div>
                 <div class="user-details">
                     <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
-                    <span class="user-role">{% if request.user.is_superuser %}Administrator{% else %}Staff{% endif %}</span>
+                    <span class="user-role">
+                        {% if request.user.is_superuser %}Administrator
+                        {% elif user_role == 'captain' %}Punong Barangay
+                        {% elif user_role == 'secretary' %}Barangay Secretary
+                        {% elif user_role == 'treasurer' %}Barangay Treasurer
+                        {% elif user_role == 'kagawad' %}Kagawad
+                        {% elif user_role == 'sk_chairperson' %}SK Chairperson
+                        {% elif user_role == 'lupong_member' %}Lupon Member
+                        {% else %}Staff{% endif %}
+                    </span>
                 </div>
             </div>
             <a href="{% url 'core:logout' %}" class="logout-btn" title="Logout">
@@ -111,16 +136,11 @@
 
     <!-- Main Content -->
     <main class="main-content">
-        <!-- Top Navbar -->
         <header class="top-navbar">
             <div class="navbar-left">
-                <button class="menu-toggle" id="menuToggle">
-                    <i class="fas fa-bars"></i>
-                </button>
+                <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
                 <div class="breadcrumb">
-                    {% block breadcrumb %}
-                    <span><i class="fas fa-home"></i> Dashboard</span>
-                    {% endblock %}
+                    {% block breadcrumb %}<span><i class="fas fa-home"></i> Dashboard</span>{% endblock %}
                 </div>
             </div>
             <div class="navbar-right">
@@ -131,32 +151,23 @@
             </div>
         </header>
 
-        <!-- Messages -->
         {% if messages %}
         <div class="messages-container">
             {% for message in messages %}
             <div class="alert alert-{{ message.tags }}" id="alert-{{ forloop.counter }}">
                 <div class="alert-content">
-                    {% if message.tags == 'success' %}
-                    <i class="fas fa-check-circle"></i>
-                    {% elif message.tags == 'error' %}
-                    <i class="fas fa-exclamation-circle"></i>
-                    {% elif message.tags == 'warning' %}
-                    <i class="fas fa-exclamation-triangle"></i>
-                    {% else %}
-                    <i class="fas fa-info-circle"></i>
-                    {% endif %}
+                    {% if message.tags == 'success' %}<i class="fas fa-check-circle"></i>
+                    {% elif message.tags == 'error' %}<i class="fas fa-exclamation-circle"></i>
+                    {% elif message.tags == 'warning' %}<i class="fas fa-exclamation-triangle"></i>
+                    {% else %}<i class="fas fa-info-circle"></i>{% endif %}
                     <span>{{ message }}</span>
                 </div>
-                <button class="alert-close" onclick="this.parentElement.remove()">
-                    <i class="fas fa-times"></i>
-                </button>
+                <button class="alert-close" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
             </div>
             {% endfor %}
         </div>
         {% endif %}
 
-        <!-- Page Content -->
         <div class="page-content">
             {% block content %}{% endblock %}
         </div>

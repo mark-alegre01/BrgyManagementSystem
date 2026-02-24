@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard – Barangay Treasurer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Treasury Dashboard</h1>
+        <span>Welcome, {{ request.user.get_full_name|default:request.user.username }} &mdash; <strong>Barangay
+                Treasurer</strong></span>
+    </div>
+    <div class="header-actions">
+        <a href="{% url 'certifications:list' %}" class="btn btn-outline">
+            <i class="fas fa-certificate"></i> View Certificates
+        </a>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon icon-yellow"><i class="fas fa-certificate"></i></div>
+        <div class="stat-info">
+            <span class="value">{{ certificates_today }}</span>
+            <span class="label">Certificates Issued Today</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-green"><i class="fas fa-file-invoice-dollar"></i></div>
+        <div class="stat-info">
+            <span class="value">{{ certificates_total }}</span>
+            <span class="label">Total Certificates</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-blue"><i class="fas fa-fingerprint"></i></div>
+        <div class="stat-info">
+            <span class="value">{{ attendance_today }}</span>
+            <span class="label">Staff Present Today</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-blue"><i class="fas fa-user-tie"></i></div>
+        <div class="stat-info">
+            <span class="value">{{ total_officials }}</span>
+            <span class="label">Total Officials</span>
+        </div>
+    </div>
+</div>
+
+<div class="role-banner role-treasurer">
+    <div class="role-banner-icon"><i class="fas fa-coins"></i></div>
+    <div>
+        <strong>Treasury Access</strong>
+        <p>Monitor certificate transactions and staff attendance for payroll reference.</p>
+    </div>
+    <div class="quick-actions">
+        <a href="{% url 'certifications:list' %}" class="btn btn-outline btn-sm"><i class="fas fa-certificate"></i>
+            Certificates</a>
+        <a href="{% url 'attendance:dashboard' %}" class="btn btn-outline btn-sm"><i class="fas fa-fingerprint"></i>
+            Attendance</a>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <div class="card">
+        <div class="card-header">
+            <h3>Certificates Issued (Recent)</h3>
+            <a href="{% url 'certifications:list' %}" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Control No.</th>
+                        <th>Resident</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cert in recent_certificates %}
+                    <tr>
+                        <td>{{ cert.control_number }}</td>
+                        <td>{{ cert.resident.full_name }}</td>
+                        <td>{{ cert.get_cert_type_display }}</td>
+                        <td>{{ cert.date_issued|date:"M d, Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">No certificates yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Today's Attendance</h3>
+            <a href="{% url 'attendance:dashboard' %}" class="btn btn-outline btn-sm">Full DTR</a>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Official</th>
+                        <th>Time In</th>
+                        <th>Time Out</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in attendance_logs %}
+                    <tr>
+                        <td>{{ log.official.resident.full_name }}</td>
+                        <td>{{ log.time_in|time:"h:i A"|default:"—" }}</td>
+                        <td>{{ log.time_out|time:"h:i A"|default:"—" }}</td>
+                        <td><span class="badge badge-{{ log.status }}">{{ log.get_status_display }}</span></td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">No attendance records for today.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

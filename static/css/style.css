@@ -69,7 +69,8 @@ body {
     height: 40px;
     object-fit: contain;
     border-radius: 8px;
-    background: white; /* Optional: adds a background if logo is transparent */
+    background: white;
+    /* Optional: adds a background if logo is transparent */
     padding: 2px;
 }
 
@@ -132,7 +133,8 @@ body {
     text-align: center;
 }
 
-.nav-item:hover, .nav-item.active {
+.nav-item:hover,
+.nav-item.active {
     background: var(--sidebar-hover);
     color: var(--text-main);
 }
@@ -279,12 +281,34 @@ body {
     text-decoration: none;
 }
 
-.btn-primary { background: var(--primary); color: white; }
-.btn-primary:hover { background: var(--primary-dark); }
-.btn-secondary { background: var(--secondary); color: white; }
-.btn-danger { background: var(--danger); color: white; }
-.btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
-.btn-outline:hover { background: var(--border); }
+.btn-primary {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+}
+
+.btn-secondary {
+    background: var(--secondary);
+    color: white;
+}
+
+.btn-danger {
+    background: var(--danger);
+    color: white;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-main);
+}
+
+.btn-outline:hover {
+    background: var(--border);
+}
 
 /* Stats Cards */
 .stats-grid {
@@ -326,10 +350,25 @@ body {
 }
 
 /* Colors for stats */
-.icon-blue { background: rgba(79, 70, 229, 0.1); color: var(--primary); }
-.icon-green { background: rgba(16, 185, 129, 0.1); color: var(--secondary); }
-.icon-yellow { background: rgba(245, 158, 11, 0.1); color: var(--accent); }
-.icon-red { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+.icon-blue {
+    background: rgba(79, 70, 229, 0.1);
+    color: var(--primary);
+}
+
+.icon-green {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--secondary);
+}
+
+.icon-yellow {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--accent);
+}
+
+.icon-red {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+}
 
 /* Table Section */
 .card {
@@ -379,7 +418,9 @@ td {
     border-bottom: 1px solid var(--border);
 }
 
-tr:last-child td { border: none; }
+tr:last-child td {
+    border: none;
+}
 
 .status-badge {
     padding: 4px 12px;
@@ -388,9 +429,22 @@ tr:last-child td { border: none; }
     font-weight: 600;
 }
 
-.badge-active, .badge-issued { background: rgba(16, 185, 129, 0.1); color: var(--secondary); }
-.badge-pending { background: rgba(245, 158, 11, 0.1); color: var(--accent); }
-.badge-cancelled, .badge-inactive { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+.badge-active,
+.badge-issued {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--secondary);
+}
+
+.badge-pending {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--accent);
+}
+
+.badge-cancelled,
+.badge-inactive {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+}
 
 /* Alerts */
 .messages-container {
@@ -408,8 +462,17 @@ tr:last-child td { border: none; }
     animation: slideIn 0.3s ease;
 }
 
-.alert-success { background: rgba(16, 185, 129, 0.1); border: 1px solid var(--secondary); color: var(--secondary); }
-.alert-error { background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); color: var(--danger); }
+.alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid var(--secondary);
+    color: var(--secondary);
+}
+
+.alert-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+}
 
 /* Charts */
 .charts-grid {
@@ -419,15 +482,256 @@ tr:last-child td { border: none; }
 }
 
 @keyframes slideIn {
-    from { transform: translateY(-20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 /* Mobile Responsive */
 @media (max-width: 1024px) {
-    .sidebar { width: 0; transform: translateX(-100%); }
-    .main-content { margin-left: 0; }
-    .menu-toggle { display: block; }
-    .sidebar.open { width: 280px; transform: translateX(0); }
-    .charts-grid { grid-template-columns: 1fr; }
+    .sidebar {
+        width: 0;
+        transform: translateX(-100%);
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+
+    .menu-toggle {
+        display: block;
+    }
+
+    .sidebar.open {
+        width: 280px;
+        transform: translateX(0);
+    }
+
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Extra icon colors */
+.icon-purple {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+}
+
+.icon-teal {
+    background: rgba(20, 184, 166, 0.1);
+    color: #14b8a6;
+}
+
+/* ── Role Banner ─────────────────────────────────────── */
+.role-banner {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px 28px;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.role-banner p {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+.role-banner strong {
+    font-size: 15px;
+}
+
+.role-banner-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.quick-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Role-specific banner colors */
+.role-captain {
+    background: linear-gradient(135deg, rgba(79, 70, 229, .12), rgba(79, 70, 229, .04));
+    border-color: rgba(79, 70, 229, .3);
+}
+
+.role-captain .role-banner-icon {
+    background: rgba(79, 70, 229, .15);
+    color: #4f46e5;
+}
+
+.role-secretary {
+    background: linear-gradient(135deg, rgba(16, 185, 129, .12), rgba(16, 185, 129, .04));
+    border-color: rgba(16, 185, 129, .3);
+}
+
+.role-secretary .role-banner-icon {
+    background: rgba(16, 185, 129, .15);
+    color: #10b981;
+}
+
+.role-treasurer {
+    background: linear-gradient(135deg, rgba(245, 158, 11, .12), rgba(245, 158, 11, .04));
+    border-color: rgba(245, 158, 11, .3);
+}
+
+.role-treasurer .role-banner-icon {
+    background: rgba(245, 158, 11, .15);
+    color: #f59e0b;
+}
+
+.role-kagawad {
+    background: linear-gradient(135deg, rgba(239, 68, 68, .12), rgba(239, 68, 68, .04));
+    border-color: rgba(239, 68, 68, .3);
+}
+
+.role-kagawad .role-banner-icon {
+    background: rgba(239, 68, 68, .15);
+    color: #ef4444;
+}
+
+.role-sk {
+    background: linear-gradient(135deg, rgba(139, 92, 246, .12), rgba(139, 92, 246, .04));
+    border-color: rgba(139, 92, 246, .3);
+}
+
+.role-sk .role-banner-icon {
+    background: rgba(139, 92, 246, .15);
+    color: #8b5cf6;
+}
+
+.role-lupon {
+    background: linear-gradient(135deg, rgba(20, 184, 166, .12), rgba(20, 184, 166, .04));
+    border-color: rgba(20, 184, 166, .3);
+}
+
+.role-lupon .role-banner-icon {
+    background: rgba(20, 184, 166, .15);
+    color: #14b8a6;
+}
+
+.role-default {
+    background: linear-gradient(135deg, rgba(148, 163, 184, .12), rgba(148, 163, 184, .04));
+    border-color: rgba(148, 163, 184, .3);
+}
+
+.role-default .role-banner-icon {
+    background: rgba(148, 163, 184, .15);
+    color: #94a3b8;
+}
+
+/* Badge styles */
+.badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.badge-active,
+.badge-issued {
+    background: rgba(16, 185, 129, .15);
+    color: #10b981;
+}
+
+.badge-inactive,
+.badge-cancelled {
+    background: rgba(239, 68, 68, .15);
+    color: #ef4444;
+}
+
+.badge-pending,
+.badge-draft {
+    background: rgba(245, 158, 11, .15);
+    color: #f59e0b;
+}
+
+.badge-on_leave {
+    background: rgba(139, 92, 246, .15);
+    color: #8b5cf6;
+}
+
+/* Gender stats for captain dashboard */
+.gender-stats {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 30px;
+}
+
+.gender-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.gender-item i {
+    font-size: 32px;
+}
+
+.gender-count {
+    font-size: 36px;
+    font-weight: 800;
+}
+
+.gender-label {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.gender-item.male i {
+    color: #4f46e5;
+}
+
+.gender-item.male .gender-count {
+    color: #4f46e5;
+}
+
+.gender-item.female i {
+    color: #ec4899;
+}
+
+.gender-item.female .gender-count {
+    color: #ec4899;
+}
+
+.gender-divider {
+    width: 1px;
+    height: 80px;
+    background: var(--border);
+    margin: 0 30px;
+}
+
+/* Util */
+.btn-sm {
+    padding: 7px 14px;
+    font-size: 12px;
+}
+
+.text-center {
+    text-align: center;
 }

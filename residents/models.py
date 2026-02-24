@@ -4,6 +4,7 @@ from datetime import date
 
 class Household(models.Model):
     """Household/family unit."""
+
     household_no = models.CharField(max_length=50, unique=True)
     address = models.TextField()
     purok = models.CharField(max_length=100, blank=True)
@@ -22,18 +23,24 @@ class Household(models.Model):
         return self.members.filter(is_household_head=True).first()
 
     class Meta:
-        ordering = ['household_no']
+        ordering = ["household_no"]
 
 
 class Resident(models.Model):
     """Barangay resident record."""
-    GENDER_CHOICES = [('M', 'Male'), ('F', 'Female')]
+
+    GENDER_CHOICES = [("M", "Male"), ("F", "Female")]
     CIVIL_STATUS_CHOICES = [
-        ('single', 'Single'),
-        ('married', 'Married'),
-        ('widowed', 'Widowed'),
-        ('separated', 'Separated'),
-        ('divorced', 'Divorced'),
+        ("single", "Single"),
+        ("married", "Married"),
+        ("widowed", "Widowed"),
+        ("separated", "Separated"),
+        ("divorced", "Divorced"),
+    ]
+    PHILSYS_VERIFICATION_METHOD_CHOICES = [
+        ("qr", "QR Code"),
+        ("psn", "PSN"),
+        ("biometric", "Biometric"),
     ]
 
     # Personal info
@@ -44,8 +51,10 @@ class Resident(models.Model):
     birthdate = models.DateField()
     birthplace = models.CharField(max_length=200, blank=True)
     gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
-    civil_status = models.CharField(max_length=20, choices=CIVIL_STATUS_CHOICES, default='single')
-    nationality = models.CharField(max_length=100, default='Filipino')
+    civil_status = models.CharField(
+        max_length=20, choices=CIVIL_STATUS_CHOICES, default="single"
+    )
+    nationality = models.CharField(max_length=100, default="Filipino")
     religion = models.CharField(max_length=100, blank=True)
     occupation = models.CharField(max_length=200, blank=True)
 
@@ -58,17 +67,39 @@ class Resident(models.Model):
     purok = models.CharField(max_length=100, blank=True)
 
     # Household
-    household = models.ForeignKey(Household, on_delete=models.SET_NULL, null=True, blank=True, related_name='members')
+    household = models.ForeignKey(
+        Household,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="members",
+    )
     is_household_head = models.BooleanField(default=False)
+
+    # PhilSys Integration
+    philSys_number = models.CharField(
+        max_length=12, blank=True, null=True, verbose_name="PhilSys Number (PSN)"
+    )
+    philSys_card_number = models.CharField(
+        max_length=20, blank=True, null=True, verbose_name="PhilSys Card Number (PCN)"
+    )
+    is_philsys_verified = models.BooleanField(default=False)
+    philsys_verified_at = models.DateTimeField(blank=True, null=True)
+    philsys_verification_method = models.CharField(
+        max_length=20,
+        choices=PHILSYS_VERIFICATION_METHOD_CHOICES,
+        blank=True,
+        null=True,
+    )
 
     # Status
     is_registered_voter = models.BooleanField(default=False)
-    is_pwd = models.BooleanField(default=False, verbose_name='Person with Disability')
+    is_pwd = models.BooleanField(default=False, verbose_name="Person with Disability")
     is_senior_citizen = models.BooleanField(default=False)
-    is_4ps_member = models.BooleanField(default=False, verbose_name='4Ps Member')
+    is_4ps_member = models.BooleanField(default=False, verbose_name="4Ps Member")
 
     # Photo
-    photo = models.ImageField(upload_to='residents/photos/', blank=True, null=True)
+    photo = models.ImageField(upload_to="residents/photos/", blank=True, null=True)
 
     # Metadata
     is_active = models.BooleanField(default=True)
@@ -84,34 +115,36 @@ class Resident(models.Model):
         parts = [self.first_name, self.middle_name, self.last_name]
         if self.suffix:
             parts.append(self.suffix)
-        return ' '.join(p for p in parts if p)
+        return " ".join(p for p in parts if p)
 
     @property
     def age(self):
         today = date.today()
-        return today.year - self.birthdate.year - (
-            (today.month, today.day) < (self.birthdate.month, self.birthdate.day)
+        return (
+            today.year
+            - self.birthdate.year
+            - ((today.month, today.day) < (self.birthdate.month, self.birthdate.day))
         )
 
     @property
     def age_group(self):
         age = self.age
         if age < 1:
-            return 'Infant'
+            return "Infant"
         elif age <= 5:
-            return 'Early Childhood'
+            return "Early Childhood"
         elif age <= 12:
-            return 'Child'
+            return "Child"
         elif age <= 17:
-            return 'Teenager'
+            return "Teenager"
         elif age <= 24:
-            return 'Young Adult'
+            return "Young Adult"
         elif age <= 59:
-            return 'Adult'
+            return "Adult"
         else:
-            return 'Senior Citizen'
+            return "Senior Citizen"
 
     class Meta:
-        ordering = ['last_name', 'first_name']
-        verbose_name = 'Resident'
-        verbose_name_plural = 'Residents'
+        ordering = ["last_name", "first_name"]
+        verbose_name = "Resident"
+        verbose_name_plural = "Residents"

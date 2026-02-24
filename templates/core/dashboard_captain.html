@@ -1,0 +1,204 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard – Punong Barangay{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Dashboard</h1>
+        <span>Welcome, {{ request.user.get_full_name|default:request.user.username }} &mdash; <strong>Punong Barangay /
+                Admin</strong></span>
+    </div>
+    <div class="header-actions">
+        <a href="{% url 'certifications:issue' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Issue Certificate
+        </a>
+    </div>
+</div>
+
+<!-- Stats Grid -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon icon-blue"><i class="fas fa-users"></i></div>
+        <div class="stat-info">
+            <span class="value">{{ total_residents }}</span>
+            <span class="label">Total Residents</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-green"><i class="fas fa-user-tie"></i></div>
+        <div class="stat-info">
+            <span class="value">{{ total_officials }}</span>
+            <span class="label">Active Officials</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-yellow"><i class="fas fa-certificate"></i></div>
+        <div class="stat-info">
+            <span class="value">{{ certificates_today }}</span>
+            <span class="label">Certificates Issued Today</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-red"><i class="fas fa-gavel"></i></div>
+        <div class="stat-info">
+            <span class="value">{{ total_ordinances }}</span>
+            <span class="label">Active Ordinances</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-purple"><i class="fas fa-home"></i></div>
+        <div class="stat-info">
+            <span class="value">{{ total_households }}</span>
+            <span class="label">Households</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon icon-teal"><i class="fas fa-fingerprint"></i></div>
+        <div class="stat-info">
+            <span class="value">{{ attendance_today }}</span>
+            <span class="label">Staff Present Today</span>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="role-banner role-captain">
+    <div class="role-banner-icon"><i class="fas fa-star"></i></div>
+    <div>
+        <strong>Full Administrative Access</strong>
+        <p>You have complete control over all barangay modules and records.</p>
+    </div>
+    <div class="quick-actions">
+        <a href="{% url 'residents:list' %}" class="btn btn-outline btn-sm"><i class="fas fa-users"></i> Residents</a>
+        <a href="{% url 'officials:list' %}" class="btn btn-outline btn-sm"><i class="fas fa-user-tie"></i>
+            Officials</a>
+        <a href="{% url 'ordinances:list' %}" class="btn btn-outline btn-sm"><i class="fas fa-gavel"></i> Ordinances</a>
+        <a href="{% url 'reports:dashboard' %}" class="btn btn-outline btn-sm"><i class="fas fa-chart-bar"></i>
+            Reports</a>
+    </div>
+</div>
+
+<div class="charts-grid">
+    <!-- Recent Certifications -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Recent Certifications</h3>
+            <a href="{% url 'certifications:list' %}" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Control No.</th>
+                        <th>Resident</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cert in recent_certificates %}
+                    <tr>
+                        <td>{{ cert.control_number }}</td>
+                        <td>{{ cert.resident.full_name }}</td>
+                        <td>{{ cert.get_cert_type_display }}</td>
+                        <td>{{ cert.date_issued|date:"M d, Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">No recent certificates.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recently Added Residents -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Recently Added Residents</h3>
+            <a href="{% url 'residents:list' %}" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Age</th>
+                        <th>Gender</th>
+                        <th>Purok</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for resident in recent_residents %}
+                    <tr>
+                        <td>{{ resident.full_name }}</td>
+                        <td>{{ resident.age }}</td>
+                        <td>{{ resident.get_gender_display }}</td>
+                        <td>{{ resident.purok }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">No recent residents.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Recent Ordinances -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Recent Ordinances</h3>
+            <a href="{% url 'ordinances:list' %}" class="btn btn-outline btn-sm">View All</a>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th>Date Enacted</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ord in recent_ordinances %}
+                    <tr>
+                        <td>{{ ord.title }}</td>
+                        <td><span class="badge badge-{{ ord.status }}">{{ ord.get_status_display }}</span></td>
+                        <td>{{ ord.date_enacted|date:"M d, Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="3" class="text-center">No ordinances found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Population Overview -->
+    <div class="card">
+        <div class="card-header">
+            <h3>Population Overview</h3>
+        </div>
+        <div class="gender-stats">
+            <div class="gender-item male">
+                <i class="fas fa-mars"></i>
+                <span class="gender-count">{{ male_count }}</span>
+                <span class="gender-label">Male</span>
+            </div>
+            <div class="gender-divider"></div>
+            <div class="gender-item female">
+                <i class="fas fa-venus"></i>
+                <span class="gender-count">{{ female_count }}</span>
+                <span class="gender-label">Female</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
