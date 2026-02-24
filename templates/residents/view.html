@@ -83,7 +83,8 @@
         <div class="detail-grid">
           <div class="detail-item">
             <label>Full Name</label>
-<span>{{ resident.last_name }}, {{ resident.first_name }} {{ resident.middle_name }}{% if resident.suffix %} {{ resident.suffix }}{% endif %}</span>
+            <span>{{ resident.last_name }}, {{ resident.first_name }} {{ resident.middle_name }}{% if resident.suffix %}
+              {{ resident.suffix }}{% endif %}</span>
           </div>
           <div class="detail-item">
             <label>Gender</label>
@@ -161,9 +162,9 @@
           <tbody>
             {% for cert in certificates %}
             <tr>
-              <td>{{ cert.get_certificate_type_display }}</td>
-              <td>{{ cert.issued_at|date:"M d, Y" }}</td>
-              <td><span class="status-badge badge-active">Issued</span></td>
+              <td>{{ cert.get_cert_type_display }}</td>
+              <td>{{ cert.date_issued|date:"M d, Y" }}</td>
+              <td><span class="status-badge badge-{{ cert.status }}">{{ cert.get_status_display }}</span></td>
             </tr>
             {% endfor %}
           </tbody>
