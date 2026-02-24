@@ -59,8 +59,7 @@
                         <label>Civil Status*</label>
                         <select name="civil_status" class="form-control" required>
                             {% for code, label in resident.CIVIL_STATUS_CHOICES %}
-                            <option value="{{ code }}" {% if resident.civil_status == code %}selected{% endif %}>{{ label
-                                }}</option>
+                            <option value="{{ code }}" {% if resident.civil_status == code %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
                     </div>
