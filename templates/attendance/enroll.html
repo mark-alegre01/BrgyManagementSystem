@@ -33,10 +33,7 @@
             <select name="official" class="form-control" required>
               <option value="">Select Official...</option>
               {% for official in officials %}
-              <option value="{{ official.pk }}">
-                {{ official.resident.full_name }} ({{ official.get_position_display }})
-                {% if official.pk in enrolled %} [ENROLLED] {% endif %}
-              </option>
+              <option value="{{ official.pk }}">{{ official.resident.last_name }}, {{ official.resident.first_name }}{% if official.resident.middle_name %} {{ official.resident.middle_name }}{% endif %}{% if official.resident.suffix %} {{ official.resident.suffix }}{% endif %} — {{ official.get_position_display }}{% if official.pk in enrolled %} [ENROLLED]{% endif %}</option>
               {% endfor %}
             </select>
           </div>

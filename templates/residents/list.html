@@ -60,10 +60,7 @@
             </div>
           </td>
           <td>
-            <div class="resident-name">
-              <strong>{{ resident.last_name }}, {{ resident.first_name }}</strong>
-              <span>{{ resident.middle_name }}</span>
-            </div>
+            <div class="resident-name"><strong>{{ resident.last_name }}, {{ resident.first_name }}{% if resident.middle_name %} {{ resident.middle_name }}{% endif %}{% if resident.suffix %} {{ resident.suffix }}{% endif %}</strong></div>
           </td>
           <td>{{ resident.age }}</td>
           <td>{{ resident.get_gender_display }}</td>
@@ -77,10 +74,10 @@
           </td>
           <td>
             <div class="btn-group">
-              <a href="{% url 'residents:view' resident.pk %}" class="btn btn-outline btn-icon"
-                title="View"><i class="fas fa-eye"></i></a>
-              <a href="{% url 'residents:edit' resident.pk %}" class="btn btn-outline btn-icon"
-                title="Edit"><i class="fas fa-edit"></i></a>
+              <a href="{% url 'residents:view' resident.pk %}" class="btn btn-outline btn-icon" title="View"><i
+                  class="fas fa-eye"></i></a>
+              <a href="{% url 'residents:edit' resident.pk %}" class="btn btn-outline btn-icon" title="Edit"><i
+                  class="fas fa-edit"></i></a>
             </div>
           </td>
         </tr>

@@ -26,7 +26,7 @@
             <select name="resident" class="form-control" required>
               <option value="">Select Resident...</option>
               {% for r in residents %}
-              <option value="{{ r.pk }}">{{ r.full_name }} ({{ r.purok }})</option>
+              <option value="{{ r.pk }}">{{ r.last_name }}, {{ r.first_name }}{% if r.middle_name %} {{ r.middle_name }}{% endif %}{% if r.suffix %} {{ r.suffix }}{% endif %}{% if r.purok %} — {{ r.purok }}{% endif %}</option>
               {% endfor %}
             </select>
             {% endif %}
@@ -35,8 +35,7 @@
             <label>Position*</label>
             <select name="position" class="form-control" required>
               {% for code, label in positions %}
-              <option value="{{ code }}" {% if official.position == code %}selected{% endif %}>{{ label }}
-              </option>
+              <option value="{{ code }}" {% if official.position == code %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
           </div>
@@ -60,18 +59,16 @@
         <div class="form-row">
           <div class="form-group col-4">
             <label>Term Start*</label>
-            <input type="date" name="term_start" value="{{ official.term_start|date:'Y-m-d' }}"
-              class="form-control" required>
+            <input type="date" name="term_start" value="{{ official.term_start|date:'Y-m-d' }}" class="form-control"
+              required>
           </div>
           <div class="form-group col-4">
             <label>Term End</label>
-            <input type="date" name="term_end" value="{{ official.term_end|date:'Y-m-d' }}"
-              class="form-control">
+            <input type="date" name="term_end" value="{{ official.term_end|date:'Y-m-d' }}" class="form-control">
           </div>
           <div class="form-group col-4">
             <label>Salary/Honorarium</label>
-            <input type="number" step="0.01" name="salary" value="{{ official.salary|default:0 }}"
-              class="form-control">
+            <input type="number" step="0.01" name="salary" value="{{ official.salary|default:0 }}" class="form-control">
           </div>
         </div>
         {% if editing %}
@@ -80,8 +77,7 @@
             <label>Status*</label>
             <select name="status" class="form-control">
               <option value="active" {% if official.status == 'active' %}selected{% endif %}>Active</option>
-              <option value="inactive" {% if official.status == 'inactive' %}selected{% endif %}>Inactive
-              </option>
+              <option value="inactive" {% if official.status == 'inactive' %}selected{% endif %}>Inactive</option>
             </select>
           </div>
         </div>

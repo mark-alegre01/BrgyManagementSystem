@@ -23,7 +23,7 @@
         <select name="official" class="form-control" style="height: 50px; font-size: 16px;" required>
           <option value="">Select Name...</option>
           {% for official in officials %}
-          <option value="{{ official.pk }}">{{ official.resident.full_name }} ({{ official.get_position_display }})</option>
+          <option value="{{ official.pk }}">{{ official.resident.last_name }}, {{ official.resident.first_name }}{% if official.resident.middle_name %} {{ official.resident.middle_name }}{% endif %}{% if official.resident.suffix %} {{ official.resident.suffix }}{% endif %} — {{ official.get_position_display }}</option>
           {% endfor %}
         </select>
       </div>

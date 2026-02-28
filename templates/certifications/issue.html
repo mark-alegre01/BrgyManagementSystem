@@ -28,8 +28,7 @@
           </div>
           <div class="form-group col-6">
             <label>Purpose*</label>
-            <input type="text" name="purpose" class="form-control"
-              placeholder="e.g. For employment, ID, etc." required>
+            <input type="text" name="purpose" class="form-control" placeholder="e.g. For employment, ID, etc." required>
           </div>
         </div>
 
@@ -39,7 +38,7 @@
             <select name="resident" class="form-control" required>
               <option value="">Search and select resident...</option>
               {% for r in residents %}
-              <option value="{{ r.pk }}">{{ r.last_name }}, {{ r.first_name }} - {{ r.purok }}</option>
+              <option value="{{ r.pk }}">{{ r.last_name }}, {{ r.first_name }}{% if r.middle_name %} {{ r.middle_name }}{% endif %}{% if r.suffix %} {{ r.suffix }}{% endif %}{% if r.purok %} — {{ r.purok }}{% endif %}</option>
               {% endfor %}
             </select>
             <small class="text-muted">Showing 50 most recent residents. Use search above if not
@@ -95,7 +94,7 @@
 <script>
   document.getElementById('cert_type').addEventListener('change', function () {
     const businessFields = document.getElementById('business_fields');
-    if (this.value == = 'business_permit') {
+    if (this.value === 'business_permit') {
       businessFields.style.display = 'block';
     } else {
       businessFields.style.display = 'none';

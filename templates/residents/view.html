@@ -83,8 +83,7 @@
         <div class="detail-grid">
           <div class="detail-item">
             <label>Full Name</label>
-            <span>{{ resident.last_name }}, {{ resident.first_name }} {{ resident.middle_name }}{% if resident.suffix %}
-              {{ resident.suffix }}{% endif %}</span>
+            <span>{{ resident.last_name }}, {{ resident.first_name }}{% if resident.middle_name %} {{ resident.middle_name }}{% endif %}{% if resident.suffix %} {{ resident.suffix }}{% endif %}</span>
           </div>
           <div class="detail-item">
             <label>Gender</label>
