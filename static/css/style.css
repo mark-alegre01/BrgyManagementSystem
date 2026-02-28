@@ -500,8 +500,9 @@ tr:last-child td {
 /* Mobile Responsive */
 @media (max-width: 1024px) {
     .sidebar {
-        width: 0;
         transform: translateX(-100%);
+        z-index: 1000;
+        box-shadow: 5px 0 25px rgba(0,0,0,0.5);
     }
 
     .main-content {
@@ -513,7 +514,6 @@ tr:last-child td {
     }
 
     .sidebar.open {
-        width: 280px;
         transform: translateX(0);
     }
 
@@ -841,4 +841,102 @@ textarea.form-control {
 
 .checkbox-container:hover input[type="checkbox"] {
     border-color: var(--primary);
+}
+
+/* Comprehensive Mobile Responsiveness */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .header-actions {
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .header-actions .btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .form-row, .filter-group form, .stats-grid, .charts-grid, .detail-grid, .action-buttons {
+        flex-direction: column !important;
+        grid-template-columns: 1fr !important;
+    }
+
+    .form-group.col-6, .form-group.col-4, .form-group.col-3 {
+        width: 100% !important;
+        flex: none !important;
+    }
+
+    .search-form {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .search-form input, .search-form select, .search-form button {
+        width: 100%;
+    }
+
+    .top-navbar {
+        padding: 0 15px;
+        flex-wrap: wrap;
+    }
+
+    .navbar-left, .navbar-right {
+        gap: 10px;
+    }
+
+    .datetime {
+        font-size: 12px;
+    }
+    
+    .card-body {
+        padding: 15px;
+    }
+    
+    th, td {
+        padding: 12px 10px;
+    }
+}
+
+
+/* Sidebar Close Button */
+.sidebar-close {
+    display: none;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 5px;
+}
+
+@media (max-width: 1024px) {
+    .sidebar-close {
+        display: block;
+    }
+}
+
+@media (max-width: 768px) {
+    .page-title h1 {
+        font-size: 20px;
+    }
+    
+    .card-header h3 {
+        font-size: 16px;
+    }
+
+    .btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+    
+    .detail-grid {
+        gap: 15px !important;
+    }
 }
