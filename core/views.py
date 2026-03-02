@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from residents.models import Resident
+from residents.models import Resident, Household
 from certifications.models import Certificate
 from officials.models import Official
 from attendance.models import AttendanceLog
@@ -39,7 +39,7 @@ def dashboard(request):
     context = {
         'today': today,
         'total_residents': Resident.objects.filter(is_active=True).count(),
-        'total_households': Resident.objects.values('household').distinct().count(),
+        'total_households': Household.objects.count(),
         'total_officials': Official.objects.filter(status='active').count(),
         'total_ordinances': Ordinance.objects.filter(status='active').count(),
         'certificates_today': Certificate.objects.filter(date_issued=today).count(),

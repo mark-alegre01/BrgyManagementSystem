@@ -94,10 +94,10 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/login/"
 
 # Barangay Settings
-BARANGAY_NAME = "Barangay Sample"
-BARANGAY_MUNICIPALITY = "Municipality of Sample"
-BARANGAY_PROVINCE = "Province of Sample"
-BARANGAY_REGION = "Region Sample"
+BARANGAY_NAME = "Barangay Sico-Sico"
+BARANGAY_MUNICIPALITY = "Gigaquit"
+BARANGAY_PROVINCE = "Surigao del Norte"
+BARANGAY_REGION = "XIII (Caraga)"
 
 # Attendance
 ATTENDANCE_START_HOUR = 7

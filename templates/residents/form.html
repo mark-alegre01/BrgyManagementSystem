@@ -70,7 +70,7 @@
           </div>
           <div class="form-group col-6">
             <label>Purok/Zone</label>
-            <input type="text" name="purok" value="{{ resident.purok }}" class="form-control">
+            <input type="text" name="purok" id="id_purok" value="{{ resident.purok }}" class="form-control">
           </div>
         </div>
 
@@ -92,11 +92,10 @@
         <div class="form-row">
           <div class="form-group col-6">
             <label>Household</label>
-            <select name="household" class="form-control">
+            <select name="household" id="id_household" class="form-control">
               <option value="">No Household Assigned</option>
               {% for household in households %}
-              <option value="{{ household.pk }}" {% if resident.household.pk == household.pk %}selected{% endif %}>{{
-                household.household_no }}{% if household.purok %} — {{ household.purok }}{% endif %}</option>
+              <option value="{{ household.pk }}" data-purok="{{ household.purok }}" {% if   resident.household.pk == household.pk %}selected{% endif %}>{{ household.household_no }}{% if   household.purok %} — {{ household.purok }}{% endif %}</option>
               {% endfor %}
             </select>
           </div>
@@ -204,4 +203,36 @@
     padding-top: 20px;
   }
 </style>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const purokInput = document.getElementById('id_purok');
+    const householdSelect = document.getElementById('id_household');
+    const allOptions = Array.from(householdSelect.options);
+
+    function filterHouseholds() {
+      const selectedPurok = purokInput.value.trim().toLowerCase();
+
+      // Clear current options except the first one (No Household Assigned)
+      householdSelect.innerHTML = '';
+
+      allOptions.forEach(option => {
+        if (!option.value) { // "No Household Assigned"
+          householdSelect.appendChild(option);
+          return;
+        }
+
+        const householdPurok = option.getAttribute('data-purok').toLowerCase().trim();
+        if (!selectedPurok || householdPurok === selectedPurok) {
+          householdSelect.appendChild(option);
+        }
+      });
+    }
+
+    purokInput.addEventListener('input', filterHouseholds);
+    // Initial filter if purok is already set (e.g., during edit)
+    if (purokInput.value) {
+      filterHouseholds();
+    }
+  });
+</script>
 {% endblock %}
