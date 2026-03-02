@@ -1,51 +1,112 @@
 import io
+import os
 from datetime import date
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, Frame, PageTemplate
 from reportlab.lib import colors
 from django.conf import settings
+from django.contrib.staticfiles import finders
+
+
+def draw_watermark(canvas, doc):
+    """Draw a faded logo as a watermark in the center of the page."""
+    canvas.saveState()
+    # Path to the barangay logo
+    logo_path = os.path.join(settings.BASE_DIR, 'static/images/sico_sico_logo.jpg')
+    if not os.path.exists(logo_path):
+        # Fallback if specific name doesn't exist
+        logo_path = os.path.join(settings.BASE_DIR, 'static/images/logo.png')
+    
+    if os.path.exists(logo_path):
+        canvas.setFillAlpha(0.1)  # Set opacity to 10%
+        # Calculate center
+        img_width = 5 * inch
+        img_height = 5 * inch
+        x = (letter[0] - img_width) / 2
+        y = (letter[1] - img_height) / 2
+        canvas.drawImage(logo_path, x, y, width=img_width, height=img_height, mask='auto')
+    canvas.restoreState()
 
 
 def generate_certificate_pdf(certificate):
     """Generate a styled PDF for any certificate type."""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
-                            topMargin=0.5 * inch, bottomMargin=0.5 * inch,
-                            leftMargin=0.75 * inch, rightMargin=0.75 * inch)
+                            topMargin=0.3 * inch, bottomMargin=0.3 * inch,
+                            leftMargin=0.5 * inch, rightMargin=0.5 * inch)
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(name='CertTitle', fontSize=18, alignment=TA_CENTER,
-                               spaceAfter=6, fontName='Helvetica-Bold', textColor=colors.HexColor('#1a237e')))
-    styles.add(ParagraphStyle(name='CertSubtitle', fontSize=11, alignment=TA_CENTER,
-                               spaceAfter=4, fontName='Helvetica'))
-    styles.add(ParagraphStyle(name='CertHeader', fontSize=14, alignment=TA_CENTER,
-                               spaceAfter=20, fontName='Helvetica-Bold', textColor=colors.HexColor('#1565c0')))
+    
+    # Custom Styles
+    styles.add(ParagraphStyle(name='CertHeaderLabel', fontSize=10, alignment=TA_CENTER,
+                               fontName='Helvetica', leading=12))
+    styles.add(ParagraphStyle(name='CertHeaderBrgy', fontSize=12, alignment=TA_CENTER,
+                               fontName='Helvetica-Bold', leading=14))
+    styles.add(ParagraphStyle(name='CertOffice', fontSize=16, alignment=TA_CENTER,
+                               spaceBefore=20, spaceAfter=10, fontName='Times-Bold'))
+    styles.add(ParagraphStyle(name='CertTitleLarge', fontSize=24, alignment=TA_CENTER,
+                               spaceAfter=25, fontName='Helvetica-Bold'))
+    styles.add(ParagraphStyle(name='CertToWhom', fontSize=14, alignment=TA_LEFT,
+                               spaceAfter=15, fontName='Helvetica-Bold'))
     styles.add(ParagraphStyle(name='CertBody', fontSize=12, alignment=TA_JUSTIFY,
                                spaceAfter=12, fontName='Helvetica', leading=18))
-    styles.add(ParagraphStyle(name='CertCenter', fontSize=12, alignment=TA_CENTER,
-                               spaceAfter=8, fontName='Helvetica'))
-    styles.add(ParagraphStyle(name='CertBold', fontSize=12, alignment=TA_CENTER,
-                               fontName='Helvetica-Bold', spaceAfter=8))
+    styles.add(ParagraphStyle(name='CertSignName', fontSize=14, alignment=TA_CENTER,
+                               fontName='Helvetica-Bold'))
+    styles.add(ParagraphStyle(name='CertSignPos', fontSize=11, alignment=TA_CENTER,
+                               fontName='Helvetica'))
+    styles.add(ParagraphStyle(name='CertWarning', fontSize=10, alignment=TA_CENTER,
+                               textColor=colors.red, fontName='Helvetica-BoldOblique'))
 
     elements = []
 
-    # Header
-    brgy_name = getattr(settings, 'BARANGAY_NAME', 'Barangay Sample')
-    municipality = getattr(settings, 'BARANGAY_MUNICIPALITY', 'Municipality of Sample')
-    province = getattr(settings, 'BARANGAY_PROVINCE', 'Province of Sample')
+    # Paths to logos
+    sico_logo_path = os.path.join(settings.BASE_DIR, 'static/images/sico_sico_logo.jpg')
+    bagong_pilipinas_path = os.path.join(settings.BASE_DIR, 'static/images/bagong_pilipinas.png')
+    gigaquit_logo_path = os.path.join(settings.BASE_DIR, 'static/images/gigaquit_logo.png')
 
-    elements.append(Paragraph('Republic of the Philippines', styles['CertSubtitle']))
-    elements.append(Paragraph(province, styles['CertSubtitle']))
-    elements.append(Paragraph(municipality, styles['CertSubtitle']))
-    elements.append(Paragraph(f'BARANGAY {brgy_name.upper()}', styles['CertTitle']))
-    elements.append(Paragraph('Office of the Punong Barangay', styles['CertSubtitle']))
-    elements.append(Spacer(1, 20))
+    # Standardized logo size
+    logo_w = 0.85 * inch
+    logo_h = 0.85 * inch
 
-    # Certificate type title
-    cert_titles = {
+    # Header Components
+    img_sico = Image(sico_logo_path, width=logo_w, height=logo_h) if os.path.exists(sico_logo_path) else Spacer(logo_w, logo_h)
+    img_bagong = Image(bagong_pilipinas_path, width=logo_w, height=logo_h) if os.path.exists(bagong_pilipinas_path) else Spacer(logo_w, logo_h)
+    img_gigaquit = Image(gigaquit_logo_path, width=logo_w, height=logo_h) if os.path.exists(gigaquit_logo_path) else Spacer(logo_w, logo_h)
+
+    brgy_name = getattr(settings, 'BARANGAY_NAME', 'Sico-Sico')
+    municipality = getattr(settings, 'BARANGAY_MUNICIPALITY', 'Gigaquit')
+    province = getattr(settings, 'BARANGAY_PROVINCE', 'Surigao del Norte')
+    
+    # Fix redundant "Barangay" in title
+    header_brgy_title = brgy_name.upper() if "BARANGAY" in brgy_name.upper() else f"BARANGAY {brgy_name.upper()}"
+    
+    center_text = [
+        Paragraph('REPUBLIC OF THE PHILIPPINES', styles['CertHeaderLabel']),
+        Paragraph(f'Province of {province}', styles['CertHeaderLabel']),
+        Paragraph(f'Municipality of {municipality}', styles['CertHeaderLabel']),
+        Paragraph(header_brgy_title, styles['CertHeaderBrgy']),
+    ]
+    
+    # Create 5-column table to balance the logos and keep text perfectly centered
+    # [Logo Sico] [Logo Bagong] [Center Text] [Logo Gigaquit] [Empty Balance]
+    col_widths = [1.0*inch, 1.0*inch, 3.5*inch, 1.0*inch, 1.0*inch]
+    header_table_data = [[img_sico, img_bagong, center_text, img_gigaquit, '']]
+    
+    header_table = Table(header_table_data, colWidths=col_widths)
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (1,0), 'CENTER'),
+        ('ALIGN', (2,0), (2,0), 'CENTER'),
+        ('ALIGN', (3,0), (3,0), 'CENTER'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+    ]))
+    
+    # Certificate Type Title Mapping
+    cert_titles_map = {
         'clearance': 'BARANGAY CLEARANCE',
         'residency': 'CERTIFICATE OF RESIDENCY',
         'indigency': 'CERTIFICATE OF INDIGENCY',
@@ -55,111 +116,67 @@ def generate_certificate_pdf(certificate):
         'cedula': 'COMMUNITY TAX CERTIFICATE',
         'late_registration': 'CERTIFICATE OF LATE REGISTRATION',
     }
-    elements.append(Paragraph(cert_titles.get(certificate.cert_type, 'CERTIFICATE'), styles['CertHeader']))
-    elements.append(Spacer(1, 10))
+    cert_display_title = cert_titles_map.get(certificate.cert_type, 'CERTIFICATE')
+
+    elements.append(header_table)
+    elements.append(Paragraph('OFFICE OF THE SANGGUNIANG BARANGAY', styles['CertOffice']))
+    elements.append(Paragraph(cert_display_title, styles['CertTitleLarge']))
 
     resident = certificate.resident
-    today_str = certificate.date_issued.strftime('%B %d, %Y') if certificate.date_issued else date.today().strftime('%B %d, %Y')
-
+    day = date.today().day
+    month = date.today().strftime('%B')
+    year = date.today().year
+    
     # Body text based on certificate type
     if certificate.cert_type == 'clearance':
-        body = f"""TO WHOM IT MAY CONCERN:
-        <br/><br/>
-        This is to certify that <b>{resident.full_name}</b>, of legal age, {resident.get_civil_status_display()},
-        Filipino, and a resident of {resident.address}, {brgy_name}, {municipality}, {province},
-        is known to be of good moral character and has no derogatory record filed in this barangay.
-        <br/><br/>
-        This certification is issued upon the request of the above-named person for <b>{certificate.purpose}</b>.
-        <br/><br/>
-        Issued this <b>{today_str}</b> at {brgy_name}, {municipality}, {province}.
-        """
+        body_text = f"This Clearance is hereby granted to <b>{resident.full_name.upper()}</b>, with residence at Barangay {brgy_name}, {municipality}, Surigao del Norte, in connection with this application for <b>{certificate.purpose}</b>."
+        conclusion_text = f"It is understood that the issuance of this clearance shall not exempt the applicant/s from other requirements prescribed under the existing barangay ordinance of Barangay {brgy_name}, {municipality}, Surigao del Norte."
     elif certificate.cert_type == 'residency':
-        body = f"""TO WHOM IT MAY CONCERN:
-        <br/><br/>
-        This is to certify that <b>{resident.full_name}</b>, {resident.age} years old,
-        {resident.get_civil_status_display()}, Filipino, is a bonafide resident of
-        {resident.address}, {brgy_name}, {municipality}, {province}.
-        <br/><br/>
-        This certification is issued upon the request of the above-named person for <b>{certificate.purpose}</b>.
-        <br/><br/>
-        Issued this <b>{today_str}</b> at {brgy_name}, {municipality}, {province}.
-        """
+        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, is a bonafide resident of Barangay {brgy_name}, {municipality}, {province}."
+        conclusion_text = f"This certification is issued upon the request of the above-named person for <b>{certificate.purpose}</b>."
     elif certificate.cert_type == 'indigency':
-        body = f"""TO WHOM IT MAY CONCERN:
-        <br/><br/>
-        This is to certify that <b>{resident.full_name}</b>, {resident.age} years old,
-        {resident.get_civil_status_display()}, Filipino, a resident of {resident.address},
-        {brgy_name}, {municipality}, {province}, belongs to an indigent family
-        in this barangay.
-        <br/><br/>
-        This certification is issued upon the request of the above-named person for <b>{certificate.purpose}</b>.
-        <br/><br/>
-        Issued this <b>{today_str}</b> at {brgy_name}, {municipality}, {province}.
-        """
+        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, a resident of Barangay {brgy_name}, {municipality}, {province}, belongs to an indigent family in this barangay."
+        conclusion_text = f"This certification is issued upon the request of the above-named person for <b>{certificate.purpose}</b>."
     elif certificate.cert_type == 'good_moral':
-        body = f"""TO WHOM IT MAY CONCERN:
-        <br/><br/>
-        This is to certify that <b>{resident.full_name}</b>, {resident.age} years old,
-        {resident.get_civil_status_display()}, Filipino, a resident of {resident.address},
-        {brgy_name}, {municipality}, {province}, is known to me to be a person of
-        good moral character and has no derogatory or criminal record in this barangay.
-        <br/><br/>
-        This certification is issued upon the request of the above-named person for <b>{certificate.purpose}</b>.
-        <br/><br/>
-        Issued this <b>{today_str}</b> at {brgy_name}, {municipality}, {province}.
-        """
+        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, a resident of Barangay {brgy_name}, {municipality}, {province}, is known to me to be a person of good moral character and has no derogatory or criminal record in this barangay."
+        conclusion_text = f"This certification is issued upon the request of the above-named person for <b>{certificate.purpose}</b>."
     elif certificate.cert_type == 'business_permit':
-        body = f"""TO WHOM IT MAY CONCERN:
-        <br/><br/>
-        This is to certify that <b>{certificate.business_name}</b> owned/managed by
-        <b>{resident.full_name}</b>, located at {certificate.business_address or resident.address},
-        {brgy_name}, {municipality}, {province},
-        is hereby granted clearance to operate within the jurisdiction of this barangay.
-        <br/><br/>
-        Type of Business: <b>{certificate.business_type}</b>
-        <br/><br/>
-        This certification is issued for <b>{certificate.purpose}</b>.
-        <br/><br/>
-        Issued this <b>{today_str}</b> at {brgy_name}, {municipality}, {province}.
-        """
+        body_text = f"This is to certify that <b>{certificate.business_name.upper()}</b> owned/managed by <b>{resident.full_name.upper()}</b>, located at {certificate.business_address or resident.address}, Barangay {brgy_name}, {municipality}, {province}, is hereby granted clearance to operate within the jurisdiction of this barangay.<br/><br/>Type of Business: <b>{certificate.business_type}</b>"
+        conclusion_text = f"This certification is issued for <b>{certificate.purpose}</b>."
     else:
-        body = f"""TO WHOM IT MAY CONCERN:
-        <br/><br/>
-        This is to certify that <b>{resident.full_name}</b>, {resident.age} years old,
-        {resident.get_civil_status_display()}, Filipino, a resident of {resident.address},
-        {brgy_name}, {municipality}, {province}.
-        <br/><br/>
-        This certification is issued for <b>{certificate.purpose}</b>.
-        <br/><br/>
-        Issued this <b>{today_str}</b> at {brgy_name}, {municipality}, {province}.
-        """
+        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, a resident of Barangay {brgy_name}, {municipality}, {province}."
+        conclusion_text = f"This certification is issued for <b>{certificate.purpose}</b>."
 
-    elements.append(Paragraph(body, styles['CertBody']))
+    issued_date_text = f"Given this <b>{day}th</b> day of <b>{month}, {year}</b>, at the Office of Punong Barangay of Barangay {brgy_name}, {municipality}, Surigao del Norte."
+
+    elements.append(Paragraph('TO WHOM IT MAY CONCERN;', styles['CertToWhom']))
+    elements.append(Paragraph(body_text, styles['CertBody']))
+    elements.append(Paragraph(conclusion_text, styles['CertBody']))
+    elements.append(Paragraph(f'Certification is issued upon the request of the above named for whatever legal purpose it may serve him/her best.', styles['CertBody']))
+    elements.append(Spacer(1, 15))
+    elements.append(Paragraph(issued_date_text, styles['CertBody']))
     elements.append(Spacer(1, 40))
-
-    # Signature block
-    captain_name = getattr(settings, 'BARANGAY_CAPTAIN', 'HON. PUNONG BARANGAY')
-    elements.append(Spacer(1, 30))
-    sig_data = [
-        ['', ''],
-        ['', f'______________________________'],
-        ['', f'{captain_name}'],
-        ['', 'Punong Barangay'],
+    
+    # Captain Signature - Optimized for full width to prevent clipping
+    captain_name = getattr(settings, 'BARANGAY_CAPTAIN', 'HON. MARITES R. MANONGAS')
+    sig_content = [
+        Paragraph(captain_name, styles['CertSignName']),
+        Paragraph('Punong Barangay', styles['CertSignPos'])
     ]
-    sig_table = Table(sig_data, colWidths=[3.5 * inch, 3 * inch])
+    sig_table = Table([['', sig_content]], colWidths=[3.5*inch, 4*inch])
     sig_table.setStyle(TableStyle([
-        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
-        ('FONTNAME', (1, 2), (1, 2), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, -1), 11),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN', (1,0), (1,0), 'CENTER'),
     ]))
     elements.append(sig_table)
+    
+    # Final warning
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph('“NOT VALID WITHOUT SEAL”', styles['CertWarning']))
 
-    # Footer with control number
-    elements.append(Spacer(1, 30))
-    elements.append(Paragraph(f'Control No.: <b>{certificate.control_number}</b>', styles['Normal']))
-    if certificate.or_number:
-        elements.append(Paragraph(f'OR No.: {certificate.or_number} | Amount: ₱{certificate.amount_paid}', styles['Normal']))
-
-    doc.build(elements)
+    # Build PDF
+    doc.build(elements, onFirstPage=draw_watermark, onLaterPages=draw_watermark)
     buffer.seek(0)
     return buffer
+
+
