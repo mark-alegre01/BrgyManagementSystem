@@ -7,6 +7,8 @@ import sys
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'barangay_project.settings')
+    if len(sys.argv) == 2 and sys.argv[1] == 'runserver':
+        sys.argv.append('127.0.0.1:8001')
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -20,3 +22,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

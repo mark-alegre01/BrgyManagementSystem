@@ -11,6 +11,10 @@
         Admin</strong></span>
   </div>
   <div class="header-actions">
+    <button id="btn-biometric-attendance" class="btn btn-secondary mr-2">
+      <i class="fas fa-fingerprint"></i> Attendance Scan
+    </button>
+    <div id="attendance-status" class="d-inline-block mr-3"></div>
     <a href="{% url 'certifications:issue' %}" class="btn btn-primary">
       <i class="fas fa-plus"></i> Issue Certificate
     </a>
@@ -201,4 +205,61 @@
     </div>
   </div>
 </div>
+
+<script>
+  // Biometric Attendance Logic
+  const btnAttendance = document.getElementById('btn-biometric-attendance');
+  const attendanceStatus = document.getElementById('attendance-status');
+
+  if (btnAttendance) {
+    btnAttendance.addEventListener('click', function() {
+      btnAttendance.disabled = true;
+      btnAttendance.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Scanner...';
+      
+      fetch("{% url 'core:biometric_verify_login_start' %}")
+        .then(async response => {
+          const data = await response.json();
+          if (response.ok) {
+            attendanceStatus.innerHTML = '<span class="badge badge-primary">Scanner Active - Place Finger</span>';
+            checkAttendanceStatus();
+          } else {
+            throw new Error(data.message);
+          }
+        })
+        .catch(error => {
+          btnAttendance.disabled = false;
+          btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
+          alert('Error: ' + error.message);
+        });
+    });
+  }
+
+  function checkAttendanceStatus() {
+    const pollInterval = setInterval(() => {
+      fetch("{% url 'core:biometric_status_check' %}")
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'authenticated') {
+            clearInterval(pollInterval);
+            attendanceStatus.innerHTML = '<span class="badge badge-success">Attendance Recorded!</span>';
+            setTimeout(() => location.reload(), 2000);
+          } else if (data.status === 'failed') {
+            clearInterval(pollInterval);
+            btnAttendance.disabled = false;
+            btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
+            attendanceStatus.innerHTML = '<span class="badge badge-danger">Not Recognized</span>';
+          }
+        });
+    }, 2000);
+    
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      if (btnAttendance.disabled) {
+        btnAttendance.disabled = false;
+        btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
+        attendanceStatus.innerHTML = '';
+      }
+    }, 30000);
+  }
+</script>
 {% endblock %}

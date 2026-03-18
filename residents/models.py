@@ -101,6 +101,9 @@ class Resident(models.Model):
     # Photo
     photo = models.ImageField(upload_to="residents/photos/", blank=True, null=True)
 
+    # Biometrics
+    fingerprint_template = models.TextField(blank=True, null=True, help_text="Base64 encoded fingerprint template")
+
     # Metadata
     is_active = models.BooleanField(default=True)
     remarks = models.TextField(blank=True)

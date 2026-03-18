@@ -77,6 +77,32 @@
   <div class="profile-main">
     <div class="card">
       <div class="card-header">
+        <h3>Biometrics</h3>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Biometrics</h5>
+          <div>
+            <a href="{% url 'residents:capture_fingerprint' resident.pk %}" class="btn btn-sm btn-primary">
+              <i class="fas fa-fingerprint"></i> Capture Fingerprint
+            </a>
+          </div>
+        </div>
+        {% if resident.fingerprint_template %}
+        <div class="alert alert-success mb-0">
+          <i class="fas fa-check-circle"></i> Fingerprint registered
+          <small class="d-block text-muted mt-1">Template size: {{ resident.fingerprint_template|length }} characters</small>
+        </div>
+        {% else %}
+        <div class="alert alert-warning mb-0">
+          <i class="fas fa-exclamation-triangle"></i> No fingerprint registered
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card mt-4">
+      <div class="card-header">
         <h3>Personal Information</h3>
       </div>
       <div class="card-body">

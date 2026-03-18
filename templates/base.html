@@ -57,6 +57,10 @@
           class="nav-item {% if request.resolver_match.app_name == 'officials' %}active{% endif %}">
           <i class="fas fa-user-tie"></i><span>Officials</span>
         </a>
+        <a href="{% url 'officials:biometric_register' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'biometric_register' %}active{% endif %}">
+          <i class="fas fa-fingerprint"></i><span>Register for Biometric</span>
+        </a>
         {% endif %}
 
         {% if s or r == 'captain' or r == 'admin' or r == 'secretary' %}

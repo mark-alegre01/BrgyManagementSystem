@@ -339,6 +339,14 @@
     .manual-entry-content.show {
       display: block;
     }
+
+    .d-none {
+      display: none !important;
+    }
+
+    .mr-2 {
+      margin-right: 0.5rem;
+    }
   </style>
 </head>
 
@@ -373,19 +381,66 @@
       <form method="POST">
         {% csrf_token %}
         <div class="form-group">
-          <label>Username</label>
-          <input type="text" name="username" class="form-control" placeholder="Enter username" required
-            autofocus>
+          <label>Role</label>
+          <select name="role" class="form-control" required autofocus>
+            <option value="">Select role</option>
+            <option value="captain">Barangay Captain</option>
+            <option value="secretary">Secretary</option>
+            <option value="treasurer">Treasurer</option>
+            <option value="bhw">Barangay BHW</option>
+          </select>
         </div>
         <div class="form-group">
-          <label>Password</label>
-          <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+          <label>Login Method</label>
+          <div id="login-method-buttons" class="login-tabs" style="margin-bottom: 0;">
+            <button type="button" id="btn-method-password" class="login-tab active" data-method="password">
+              <i class="fas fa-key"></i>
+              <span>Password</span>
+            </button>
+            <button type="button" id="btn-method-biometric" class="login-tab" data-method="biometric">
+              <i class="fas fa-fingerprint"></i>
+              <span>Fingerprint</span>
+            </button>
+          </div>
+          <input type="hidden" id="login-method" name="login_method" value="password">
         </div>
-        <button type="submit" class="btn btn-primary login-btn">
+
+        <div class="form-group">
+          <label>Password</label>
+          <input id="password-input" type="password" name="password" class="form-control" placeholder="Enter password" required>
+        </div>
+
+        <div id="biometric-credentials" style="display: none;">
+          <div class="qr-scanner-container" style="border-style: solid; border-color: #10b981;">
+            <div class="qr-scanner-placeholder">
+              <div class="qr-camera-view" style="border-color: #10b981;">
+                <i class="fas fa-fingerprint qr-camera-icon" style="color: #10b981;"></i>
+                <div class="scan-line" style="background: linear-gradient(90deg, transparent, #10b981, transparent); box-shadow: 0 0 10px #10b981;"></div>
+              </div>
+              <p class="qr-instructions" id="biometric-status">
+                <strong>Ready to Scan</strong><br>
+                Place your registered finger on the ZK9500 sensor
+              </p>
+            </div>
+          </div>
+
+          <button type="button" id="btn-biometric-login" class="btn btn-primary login-btn" style="background: #10b981; border-color: #059669;">
+            <i class="fas fa-play mr-2"></i>
+            Start Biometric Scan
+          </button>
+          
+          <div id="biometric-error" class="alert alert-error mt-3 d-none"></div>
+        </div>
+
+        <button type="submit" id="btn-password-login" class="btn btn-primary login-btn">
           <i class="fas fa-sign-in-alt"></i>
           Log In
         </button>
       </form>
+
+      <div style="margin-top: 16px; text-align: center;">
+        <a href="{% url 'signup' %}" style="color: inherit; text-decoration: underline;">Create an account</a>
+      </div>
     </div>
 
     <div id="philsys-content" class="login-content">
@@ -449,7 +504,7 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
-      const tabs = document.querySelectorAll('.login-tab');
+      const tabs = document.querySelectorAll('.login-tab[data-tab]');
       const contents = document.querySelectorAll('.login-content');
       const manualToggle = document.getElementById('manual-entry-toggle');
       const manualContent = document.getElementById('manual-entry-content');
@@ -463,7 +518,7 @@
 
           contents.forEach(content => {
             content.classList.remove('active');
-            if (content.id == = targetTab + '-content') {
+            if (content.id === targetTab + '-content') {
               content.classList.add('active');
             }
           });
@@ -481,13 +536,179 @@
           let value = e.target.value.replace(/[^0-9]/g, '');
           let formatted = '';
           for (let i = 0; i < value.length && i < 13; i++) {
-            if (i == = 4 || i == = 9) {
+            if (i === 4 || i === 9) {
               formatted += '-';
             }
             formatted += value[i];
           }
           e.target.value = formatted;
         });
+      }
+
+      // Login method dropdown (Password vs Biometric)
+      const loginMethodHidden = document.getElementById('login-method');
+      const methodPasswordBtn = document.getElementById('btn-method-password');
+      const methodBiometricBtn = document.getElementById('btn-method-biometric');
+      const passwordInput = document.getElementById('password-input');
+      const passwordGroup = passwordInput ? passwordInput.closest('.form-group') : null;
+      const biometricCredentials = document.getElementById('biometric-credentials');
+      const btnPasswordLogin = document.getElementById('btn-password-login');
+
+      let biometricAutoStarted = false;
+
+      let biometricPollInterval = null;
+      let biometricTimeout = null;
+
+      function resetBiometricUI(message) {
+        if (biometricPollInterval) {
+          clearInterval(biometricPollInterval);
+          biometricPollInterval = null;
+        }
+        if (biometricTimeout) {
+          clearTimeout(biometricTimeout);
+          biometricTimeout = null;
+        }
+
+        const btnBioLocal = document.getElementById('btn-biometric-login');
+        const bioStatusLocal = document.getElementById('biometric-status');
+        const bioErrorLocal = document.getElementById('biometric-error');
+
+        if (btnBioLocal) {
+          btnBioLocal.disabled = false;
+          btnBioLocal.innerHTML = '<i class="fas fa-play mr-2"></i> Start Biometric Scan';
+        }
+        if (bioStatusLocal) {
+          bioStatusLocal.innerHTML = '<strong>Ready to Scan</strong><br>Place your registered finger on the ZK9500 sensor';
+        }
+        if (bioErrorLocal) {
+          if (message) {
+            bioErrorLocal.textContent = message;
+            bioErrorLocal.classList.remove('d-none');
+          } else {
+            bioErrorLocal.classList.add('d-none');
+          }
+        }
+      }
+
+      function applyLoginMethod() {
+        const method = loginMethodHidden ? loginMethodHidden.value : 'password';
+        if (method === 'biometric') {
+          if (passwordGroup) passwordGroup.style.display = 'none';
+          if (biometricCredentials) biometricCredentials.style.display = 'block';
+          if (btnPasswordLogin) btnPasswordLogin.style.display = 'none';
+          if (passwordInput) passwordInput.required = false;
+
+          // Do not auto-start scanning; user must click the button
+          biometricAutoStarted = false;
+        } else {
+          if (passwordGroup) passwordGroup.style.display = '';
+          if (biometricCredentials) biometricCredentials.style.display = 'none';
+          if (btnPasswordLogin) btnPasswordLogin.style.display = '';
+          if (passwordInput) passwordInput.required = true;
+
+          biometricAutoStarted = false;
+          resetBiometricUI();
+        }
+      }
+
+      function setLoginMethod(method) {
+        if (loginMethodHidden) loginMethodHidden.value = method;
+
+        if (methodPasswordBtn && methodBiometricBtn) {
+          methodPasswordBtn.classList.toggle('active', method === 'password');
+          methodBiometricBtn.classList.toggle('active', method === 'biometric');
+        }
+        applyLoginMethod();
+      }
+
+      if (methodPasswordBtn) {
+        methodPasswordBtn.addEventListener('click', () => setLoginMethod('password'));
+      }
+      if (methodBiometricBtn) {
+        methodBiometricBtn.addEventListener('click', () => setLoginMethod('biometric'));
+      }
+
+      setLoginMethod('password');
+
+      // Biometric Login Logic
+      const btnBio = document.getElementById('btn-biometric-login');
+      const bioStatus = document.getElementById('biometric-status');
+      const bioError = document.getElementById('biometric-error');
+      const roleSelect = document.querySelector('select[name="role"]');
+
+      if (btnBio) {
+        btnBio.addEventListener('click', function() {
+          const selectedRole = roleSelect ? (roleSelect.value || '').trim() : '';
+          if (!selectedRole) {
+            resetBiometricUI('Please select a role first.');
+            return;
+          }
+
+          // Reset any previous run
+          if (biometricPollInterval) {
+            clearInterval(biometricPollInterval);
+            biometricPollInterval = null;
+          }
+
+          if (biometricTimeout) {
+            clearTimeout(biometricTimeout);
+            biometricTimeout = null;
+          }
+
+          btnBio.disabled = true;
+          btnBio.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Initializing Scanner...';
+          bioError.classList.add('d-none');
+
+          fetch("/biometric-login-start/", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: selectedRole }),
+          })
+            .then(async response => {
+              const data = await response.json();
+              if (response.ok) {
+                btnBio.innerHTML = '<i class="fas fa-fingerprint fa-pulse mr-2"></i> Waiting for Finger...';
+                bioStatus.innerHTML = '<strong>Scanner Active</strong><br>Please place your finger on the sensor';
+
+                // Start polling for verification success
+                checkBiometricStatus();
+
+                biometricTimeout = setTimeout(() => {
+                  resetBiometricUI('Scanner session expired. Try again.');
+                }, 30000);
+              } else {
+                throw new Error(data.message || 'Failed to start biometric service');
+              }
+            })
+            .catch(error => {
+              btnBio.disabled = false;
+              btnBio.innerHTML = '<i class="fas fa-play mr-2"></i> Start Biometric Scan';
+              bioError.textContent = error.message;
+              bioError.classList.remove('d-none');
+            });
+        });
+      }
+
+      function checkBiometricStatus() {
+        biometricPollInterval = setInterval(() => {
+          fetch("/biometric-status-check/")
+            .then(response => response.json())
+            .then(data => {
+              if (data.status === 'authenticated') {
+                resetBiometricUI();
+                window.location.href = "{% url 'dashboard' %}";
+              } else if (data.status === 'failed') {
+                resetBiometricUI(data.reason || 'Finger not recognized. Try again.');
+                btnBio.disabled = false;
+                btnBio.innerHTML = '<i class="fas fa-play mr-2"></i> Start Biometric Scan';
+                bioStatus.innerHTML = '<strong>Scan Failed</strong><br>' + (data.reason || 'Finger not recognized. Try again.');
+                if (data.reason) {
+                  bioError.textContent = data.reason;
+                  bioError.classList.remove('d-none');
+                }
+              }
+            });
+        }, 2000);
       }
     });
   </script>

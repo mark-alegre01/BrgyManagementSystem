@@ -19,11 +19,13 @@ class UserProfile(models.Model):
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="resident")
+    middle_name = models.CharField(max_length=150, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     philSys_id = models.CharField(max_length=50, blank=True, null=True, unique=True)
     is_philsys_verified = models.BooleanField(default=False)
     philsys_verified_at = models.DateTimeField(blank=True, null=True)
+    fingerprint_template = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -31,6 +31,10 @@ class Official(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     employee_id = models.CharField(max_length=50, blank=True, unique=True)
+    
+    # Biometrics
+    fingerprint_template = models.TextField(blank=True, null=True, help_text="Base64 encoded fingerprint template")
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

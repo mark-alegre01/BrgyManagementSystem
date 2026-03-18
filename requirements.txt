@@ -1,6 +1,6 @@
 asgiref==3.11.1
 charset-normalizer==3.4.4
-Django==6.0.2
+Django==5.0.2
 numpy==2.4.2
 pillow==12.1.1
 reportlab==4.4.10

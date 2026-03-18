@@ -12,4 +12,6 @@ urlpatterns = [
     path('households/', views.household_list, name='household_list'),
     path('households/add/', views.household_add, name='household_add'),
     path('households/<int:pk>/', views.household_view, name='household_view'),
+    path('<int:pk>/capture/', views.resident_capture_fingerprint, name='capture_fingerprint'),
+    path('<int:pk>/fingerprint/', views.resident_update_fingerprint, name='update_fingerprint'),
 ]

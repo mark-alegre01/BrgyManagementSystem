@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block title %}Biometric Registration - Barangay Management System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Biometric Registration</h1>
+        <span>Register fingerprints for {{ request.user.get_full_name }}</span>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3>Scanner Status</h3>
+                <div id="scanner-status-badge" class="badge badge-secondary">Ready</div>
+            </div>
+            <div class="card-body text-center py-5">
+                <div class="form-group" style="max-width: 360px; margin: 0 auto 20px;">
+                    <label style="display:block; margin-bottom: 6px;">Enroll for Role</label>
+                    <select id="enroll-role" class="form-control">
+                        <option value="">Select role</option>
+                        <option value="captain">Barangay Captain</option>
+                        <option value="secretary">Secretary</option>
+                        <option value="treasurer">Treasurer</option>
+                    </select>
+                </div>
+
+                <div class="biometric-icon mb-4">
+                    <i id="fingerprint-icon" class="fas fa-fingerprint fa-5x text-muted"></i>
+                </div>
+                <h4 id="instruction-text">Click the button below to start enrollment</h4>
+                <p class="text-muted" id="sub-instruction">Make sure your ZK9500 device is plugged in.</p>
+                
+                <div class="mt-4">
+                    <button id="btn-start-enroll" class="btn btn-primary btn-lg px-5">
+                        <i class="fas fa-play mr-2"></i> Start Enrollment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h3>Enrollment Progress</h3>
+            </div>
+            <div class="card-body">
+                <div class="progress-steps mt-3">
+                    <div id="step-1" class="step d-flex align-items-center mb-4 text-muted">
+                        <div class="step-icon mr-3"><i class="fas fa-circle-notch"></i></div>
+                        <div>
+                            <h5 class="mb-0">Step 1: First Press</h5>
+                            <small>Place your finger on the sensor</small>
+                        </div>
+                    </div>
+                    <div id="step-2" class="step d-flex align-items-center mb-4 text-muted">
+                        <div class="step-icon mr-3"><i class="fas fa-circle-notch"></i></div>
+                        <div>
+                            <h5 class="mb-0">Step 2: Second Press</h5>
+                            <small>Lift and place your finger again</small>
+                        </div>
+                    </div>
+                    <div id="step-3" class="step d-flex align-items-center mb-4 text-muted">
+                        <div class="step-icon mr-3"><i class="fas fa-circle-notch"></i></div>
+                        <div>
+                            <h5 class="mb-0">Step 3: Final Press</h5>
+                            <small>One last time to complete enrollment</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="result-area" class="alert mt-4 d-none">
+                    <i class="fas mr-2"></i> <span id="result-message"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .step.active { color: var(--primary-color); }
+    .step.active .step-icon { color: var(--primary-color); animation: pulse 1.5s infinite; }
+    .step.completed { color: #28a745; }
+    .step.completed .step-icon { color: #28a745; }
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.2); opacity: 0.7; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<script>
+    const btnStart = document.getElementById('btn-start-enroll');
+    const statusBadge = document.getElementById('scanner-status-badge');
+    const fpIcon = document.getElementById('fingerprint-icon');
+    const instruction = document.getElementById('instruction-text');
+    const resultArea = document.getElementById('result-area');
+    const resultMsg = document.getElementById('result-message');
+    const enrollRole = document.getElementById('enroll-role');
+
+    btnStart.addEventListener('click', function() {
+        const role = enrollRole ? (enrollRole.value || '').trim() : '';
+        if (!role) {
+            alert('Please select a role first.');
+            return;
+        }
+
+        // We call the Django view which launches the 32-bit service
+        btnStart.disabled = true;
+        btnStart.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Launching Scanner...';
+        
+        fetch("{% url 'officials:official_capture_fingerprint' profile_pk %}?role=" + encodeURIComponent(role))
+            .then(async response => {
+                const data = await response.json();
+                if (response.ok) {
+                    statusBadge.className = 'badge badge-primary';
+                    statusBadge.innerText = 'Active';
+                    fpIcon.className = 'fas fa-fingerprint fa-5x text-primary';
+                    instruction.innerText = 'Follow the prompts in the scanner window';
+                    startEnrollmentPolling(role);
+                } else {
+                    throw new Error(data.message || 'Failed to launch scanner service');
+                }
+            })
+            .catch(error => {
+                btnStart.disabled = false;
+                btnStart.innerHTML = '<i class="fas fa-play mr-2"></i> Start Enrollment';
+                alert('Error: ' + error.message);
+            });
+    });
+
+    function startEnrollmentPolling(role) {
+        const pollInterval = setInterval(() => {
+            fetch("{% url 'officials:biometric_status' %}?role=" + encodeURIComponent(role))
+                .then(r => r.json())
+                .then(data => {
+                    if (data.has_template) {
+                        clearInterval(pollInterval);
+                        statusBadge.className = 'badge badge-success';
+                        statusBadge.innerText = 'Saved';
+                        btnStart.disabled = false;
+                        btnStart.innerHTML = '<i class="fas fa-check mr-2"></i> Fingerprint Registered';
+                        instruction.innerText = 'Fingerprint saved successfully.';
+                    }
+                })
+                .catch(() => {
+                    // ignore polling errors
+                });
+        }, 2000);
+
+        setTimeout(() => {
+            clearInterval(pollInterval);
+            if (btnStart.disabled) {
+                btnStart.disabled = false;
+                btnStart.innerHTML = '<i class="fas fa-play mr-2"></i> Start Enrollment';
+                statusBadge.className = 'badge badge-secondary';
+                statusBadge.innerText = 'Ready';
+            }
+        }, 60000);
+    }
+
+    // We can add a simple polling mechanism or WebSocket here later to update progress 
+    // when the 32-bit service sends updates to Django.
+</script>
+{% endblock %}

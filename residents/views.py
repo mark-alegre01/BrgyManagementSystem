@@ -1,10 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.db.models import Q
 from .models import Resident, Household
-
+import json
+import subprocess
+import os
 
 @login_required
 def resident_list(request):
@@ -151,6 +155,51 @@ def resident_edit(request, pk):
         'editing': True,
     })
 
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+
+@login_required
+def resident_capture_fingerprint(request, pk):
+    """Launch local fingerprint service for a resident."""
+    resident = get_object_or_404(Resident, pk=pk)
+    
+    # We launch the service as a separate process
+    # It will communicate back via the API
+    service_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'core', 'zk_service.py')
+    
+    try:
+        # Run it in a new console so the user can see it
+        subprocess.Popen([
+            'python', 
+            service_path, 
+            '--resident', str(pk),
+            '--url', request.build_absolute_uri('/')[:-1]
+        ], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        
+        messages.info(request, "Fingerprint scanner started. Please check the scanner window.")
+    except Exception as e:
+        messages.error(request, f"Failed to start scanner: {e}")
+        
+    return redirect('residents:view', pk=pk)
+
+@login_required
+@csrf_exempt
+def resident_update_fingerprint(request, pk):
+    """Update resident fingerprint template."""
+    resident = get_object_or_404(Resident, pk=pk)
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            template = data.get('template')
+            if template:
+                resident.fingerprint_template = template
+                resident.save()
+                return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=405)
 
 @login_required
 def resident_delete(request, pk):

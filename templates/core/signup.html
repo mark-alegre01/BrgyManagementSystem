@@ -1,0 +1,184 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign Up - Barangay Management System</title>
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      margin: 0;
+    }
+
+    .login-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .login-logo-container {
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 20px;
+      background: white;
+      border-radius: 50%;
+      padding: 5px;
+      box-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .login-logo-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .login-card h2 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: white;
+    }
+
+    .login-card p {
+      color: var(--text-muted);
+      margin-bottom: 30px;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      font-size: 16px;
+    }
+
+    .alert {
+      margin-bottom: 20px;
+      font-size: 14px;
+      padding: 12px;
+      border-radius: 10px;
+    }
+
+    .alert-error {
+      background: rgba(239, 68, 68, 0.15);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .alert-success {
+      background: rgba(16, 185, 129, 0.15);
+      color: #6ee7b7;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="login-card">
+    <div class="login-logo-container">
+      <img src="{% static 'images/logo.png' %}" alt="Logo" class="login-logo-img">
+    </div>
+    <h2>Create Account</h2>
+    <p>Barangay Management System</p>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">
+      {{ message }}
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <form method="POST">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="alert alert-error">
+        {{ form.non_field_errors }}
+      </div>
+      {% endif %}
+
+      <div class="form-group">
+        <label>Fullname</label>
+        <input type="text" name="first_name" class="form-control" placeholder="Enter fullname" required value="{{ form.first_name.value|default:'' }}">
+        {% if form.first_name.errors %}
+        <div class="text-danger">{{ form.first_name.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label>Middle Name</label>
+        <input type="text" name="middle_name" class="form-control" placeholder="Enter middle name (optional)" value="{{ form.middle_name.value|default:'' }}">
+        {% if form.middle_name.errors %}
+        <div class="text-danger">{{ form.middle_name.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label>Last Name</label>
+        <input type="text" name="last_name" class="form-control" placeholder="Enter last name" required value="{{ form.last_name.value|default:'' }}">
+        {% if form.last_name.errors %}
+        <div class="text-danger">{{ form.last_name.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label>Role</label>
+        <select name="role" class="form-control" required>
+          <option value="">Select role</option>
+          <option value="captain" {% if form.role.value == 'captain' %}selected{% endif %}>Barangay Captain</option>
+          <option value="secretary" {% if form.role.value == 'secretary' %}selected{% endif %}>Secretary</option>
+          <option value="treasurer" {% if form.role.value == 'treasurer' %}selected{% endif %}>Treasurer</option>
+          <option value="bhw" {% if form.role.value == 'bhw' %}selected{% endif %}>Barangay BHW</option>
+        </select>
+        {% if form.role.errors %}
+        <div class="text-danger">{{ form.role.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password1" class="form-control" placeholder="Create a password" required>
+        {% if form.password1.errors %}
+        <div class="text-danger">{{ form.password1.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" name="password2" class="form-control" placeholder="Confirm your password" required>
+        {% if form.password2.errors %}
+        <div class="text-danger">{{ form.password2.errors }}</div>
+        {% endif %}
+      </div>
+
+      <button type="submit" class="btn btn-primary login-btn">
+        <i class="fas fa-user-plus"></i>
+        Sign Up
+      </button>
+    </form>
+
+    <div style="margin-top: 16px; text-align: center;">
+      <a href="{% url 'login' %}" style="color: inherit; text-decoration: underline;">Already have an account? Log in</a>
+    </div>
+  </div>
+</body>
+
+</html>
