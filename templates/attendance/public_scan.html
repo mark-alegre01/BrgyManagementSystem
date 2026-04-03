@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Public DTR Scan - Barangay Management System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .public-scan-card {
+        max-width: 600px;
+        margin: 50px auto;
+        text-align: center;
+        background: #1e293b;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .scan-icon-container {
+        width: 150px;
+        height: 150px;
+        margin: 0 auto 30px;
+        background: rgba(79, 70, 229, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 4px solid #4f46e5;
+        transition: all 0.3s;
+    }
+    .scan-icon-container.scanning {
+        border-color: #10b981;
+        box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+    }
+    .scan-icon-container i {
+        font-size: 70px;
+        color: #4f46e5;
+    }
+    .scan-icon-container.scanning i {
+        color: #10b981;
+        animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+    .status-msg {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 10px;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="public-scan-card">
+    <h1 class="text-white mb-2">Daily Time Record</h1>
+    <p class="text-slate-400 mb-5">Place your registered finger on the scanner to Clock In/Out</p>
+
+    <div id="scan-container" class="scan-icon-container">
+        <i class="fas fa-fingerprint"></i>
+    </div>
+
+    <div id="status-display" class="status-msg d-none"></div>
+
+    <div class="mt-5">
+        <button id="btn-start-scan" class="btn btn-primary btn-lg px-5">
+            <i class="fas fa-play mr-2"></i> Start Scanner
+        </button>
+    </div>
+
+    <div id="result-panel" class="mt-4 d-none">
+        <div class="card bg-slate-900 border-slate-800 p-3">
+            <h4 id="result-name" class="text-white mb-0">---</h4>
+            <p id="result-time" class="text-success mb-0">---</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnStart = document.getElementById('btn-start-scan');
+        const scanContainer = document.getElementById('scan-container');
+        const statusDisplay = document.getElementById('status-display');
+        const resultPanel = document.getElementById('result-panel');
+        const resultName = document.getElementById('result-name');
+        const resultTime = document.getElementById('result-time');
+
+        btnStart.addEventListener('click', function() {
+            btnStart.disabled = true;
+            scanContainer.classList.add('scanning');
+            statusDisplay.textContent = 'Scanner Active - Waiting for finger...';
+            statusDisplay.className = 'status-msg alert alert-info';
+            statusDisplay.classList.remove('d-none');
+
+            // In a real scenario, this would trigger the 32-bit service for 1:N matching
+            // For now, we simulate the request to the backend
+            fetch('{% url "attendance:api_biometric_verify" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'verify' })
+            })
+            .then(res => res.json())
+            .then(data => {
+                // Logic to handle verification result from the 32-bit service
+                // This would be replaced with actual polling or WebSocket result
+            });
+        });
+    });
+</script>
+{% endblock %}

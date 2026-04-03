@@ -97,6 +97,7 @@ class Resident(models.Model):
     is_pwd = models.BooleanField(default=False, verbose_name="Person with Disability")
     is_senior_citizen = models.BooleanField(default=False)
     is_4ps_member = models.BooleanField(default=False, verbose_name="4Ps Member")
+    is_official = models.BooleanField(default=False, verbose_name="Barangay Functionary")
 
     # Photo
     photo = models.ImageField(upload_to="residents/photos/", blank=True, null=True)
@@ -109,6 +110,13 @@ class Resident(models.Model):
     remarks = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def display_occupation(self):
+        """Return official position if functionary, else regular occupation."""
+        if self.is_official and hasattr(self, 'official_record'):
+            return self.official_record.get_position_display()
+        return self.occupation or "Unemployed"
 
     def __str__(self):
         name = f"{self.last_name}, {self.first_name}"

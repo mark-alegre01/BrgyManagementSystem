@@ -6,6 +6,7 @@ app_name = 'officials'
 urlpatterns = [
     path('', views.official_list, name='list'),
     path('add/', views.official_add, name='add'),
+    path('api/by-category/', views.get_officials_by_category, name='get_by_category'),
     path('biometric/register/', views.biometric_register, name='biometric_register'),
     path('biometric/status/', views.biometric_status, name='biometric_status'),
     path('<int:pk>/', views.official_view, name='official_view'),

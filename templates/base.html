@@ -52,7 +52,7 @@
         </a>
         {% endif %}
 
-        {% if s or r == 'captain' or r == 'admin' or r == 'secretary' %}
+        {% if s or r == 'captain' or r == 'admin' or r == 'secretary' or r == 'treasurer' %}
         <a href="{% url 'officials:list' %}"
           class="nav-item {% if request.resolver_match.app_name == 'officials' %}active{% endif %}">
           <i class="fas fa-user-tie"></i><span>Officials</span>

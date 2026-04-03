@@ -18,49 +18,56 @@ OFFICIAL_USERNAME_BY_ROLE = {
     'treasurer': 'treasurer',
 }
 
+from django.contrib.auth.decorators import user_passes_test
+
+def is_barangay_admin(user):
+    """Check if user has administrative access (Captain, Secretary, Treasurer, or Admin)."""
+    return hasattr(user, 'profile') and user.profile.role in ['captain', 'secretary', 'treasurer', 'admin']
+
+@login_required
+@user_passes_test(is_barangay_admin)
+def get_officials_by_category(request):
+    category = request.GET.get('category', 'all')
+    
+    officials = Official.objects.filter(status='active').select_related('resident')
+    
+    if category == 'officials':
+        # Punong Barangay, Kagawad, SK Chairman, Secretary, Treasurer
+        officials = officials.filter(position__in=['captain', 'kagawad', 'secretary', 'treasurer', 'sk_chairman'])
+    elif category == 'bhw':
+        officials = officials.filter(position='health_worker')
+    elif category == 'tanod':
+        officials = officials.filter(position='tanod')
+    elif category == 'staff':
+        # Clerk, BNS, Day Care, Lupon, Staff
+        officials = officials.filter(position__in=['nutrition_scholar', 'day_care_worker', 'lupon', 'clerk', 'staff'])
+    
+    data = [
+        {
+            'id': official.id,
+            'full_name': official.resident.full_name,
+            'position': official.get_position_display(),
+            'has_fingerprint': bool(official.fingerprint_template and len(official.fingerprint_template) > 100)
+        }
+        for official in officials
+    ]
+    
+    return JsonResponse({'status': 'success', 'officials': data})
+
 @login_required
 def official_capture_fingerprint(request, pk):
     """Launch local fingerprint service for an official."""
     try:
-        # pk here is a UserProfile PK from the template call, but we may override
-        # enrollment target based on selected role.
-        role = (request.GET.get('role') or '').strip()
-        profile = get_object_or_404(UserProfile, pk=pk)
-
-        if role:
-            username = OFFICIAL_USERNAME_BY_ROLE.get(role)
-            if not username:
-                return JsonResponse({'status': 'error', 'message': 'Invalid role'}, status=400)
-
-            target_user = User.objects.filter(username=username).first()
-            if not target_user:
-                return JsonResponse({'status': 'error', 'message': f'User for role {role} not found'}, status=404)
-
-            profile, _created = UserProfile.objects.get_or_create(user=target_user, defaults={'role': role})
-            if profile.role != role:
-                profile.role = role
-                profile.save(update_fields=['role'])
+        # Use target_id from query params if provided (for Official enrollment)
+        official_id = request.GET.get('official_id')
         
-        # Try to find the Official record associated with this user
-        # UserProfile is linked to User.
-        # We need to find if there's a Resident or Official related to this user profile.
-        # Since 'Resident' model does not have a 'user' field directly (based on the error),
-        # we check the Official model which links to Resident.
-        
-        official = Official.objects.filter(resident__first_name=profile.user.first_name, resident__last_name=profile.user.last_name).first()
-        
-        resident = None
-        if official:
-            resident = official.resident
-        else:
-            # Try to find a resident with matching names if no official record
-            resident = Resident.objects.filter(first_name=profile.user.first_name, last_name=profile.user.last_name).first()
-        
-        # Determine enrollment target
-        # Always enroll to UserProfile so biometric login/attendance can work consistently
-        target_id = profile.pk
+        target_id = pk
         target_type = '--profile'
-
+        
+        if official_id:
+            target_id = official_id
+            target_type = '--official'
+        
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         venv_python = os.path.join(base_dir, 'venv32', 'Scripts', 'python.exe')
         service_path = os.path.join(base_dir, 'core', 'zk_service.py')
@@ -83,18 +90,21 @@ def official_capture_fingerprint(request, pk):
 
 @login_required
 def biometric_status(request):
-    role = (request.GET.get('role') or '').strip()
-    profile = None
-    if role:
-        username = OFFICIAL_USERNAME_BY_ROLE.get(role)
-        if username:
-            profile = UserProfile.objects.filter(user__username=username).first()
-        else:
-            profile = UserProfile.objects.filter(role=role).first()
+    official_id = request.GET.get('official_id')
+    profile_id = request.GET.get('profile_id')
+    
+    has_template = False
+    
+    if official_id:
+        official = Official.objects.filter(pk=official_id).first()
+        has_template = bool(official and official.fingerprint_template and len(official.fingerprint_template) > 100)
+    elif profile_id:
+        profile = UserProfile.objects.filter(pk=profile_id).first()
+        has_template = bool(profile and profile.fingerprint_template and len(profile.fingerprint_template) > 100)
     else:
         profile = getattr(request.user, 'profile', None)
+        has_template = bool(profile and profile.fingerprint_template and len(profile.fingerprint_template) > 100)
 
-    has_template = bool(profile and getattr(profile, 'fingerprint_template', None))
     return JsonResponse({'has_template': has_template})
 
 @csrf_exempt
@@ -183,21 +193,74 @@ def profile_update_fingerprint(request, pk):
 
 @login_required
 def official_list(request):
-    """List all officials."""
+    """List all officials categorized by position."""
     status_filter = request.GET.get('status', 'active')
+    pos_filter = request.GET.get('pos', 'all')
+    
     officials = Official.objects.select_related('resident').all()
 
     if status_filter:
         officials = officials.filter(status=status_filter)
+    
+    if pos_filter != 'all':
+        officials = officials.filter(position=pos_filter)
+
+    # Categories definition
+    categories = {
+        'council': {
+            'title': 'Barangay Council',
+            'positions': ['captain', 'kagawad', 'secretary', 'treasurer'],
+            'officials': []
+        },
+        'sk': {
+            'title': 'Sangguniang Kabataan (SK)',
+            'positions': ['sk_chairman', 'sk_kagawad'],
+            'officials': []
+        },
+        'tanod': {
+            'title': 'Barangay Tanod',
+            'positions': ['tanod'],
+            'officials': []
+        },
+        'health': {
+            'title': 'Health & Nutrition',
+            'positions': ['health_worker', 'nutrition_scholar'],
+            'officials': []
+        },
+        'staff': {
+            'title': 'Administrative & Support Staff',
+            'positions': ['clerk', 'staff', 'day_care_worker', 'lupon'],
+            'officials': []
+        }
+    }
+
+    # Group officials into categories
+    for official in officials:
+        found = False
+        for cat_key, cat_data in categories.items():
+            if official.position in cat_data['positions']:
+                cat_data['officials'].append(official)
+                found = True
+                break
+        if not found:
+            if 'other' not in categories:
+                categories['other'] = {'title': 'Other Functionaries', 'officials': []}
+            categories['other']['officials'].append(official)
+
+    # Remove empty categories
+    active_categories = {k: v for k, v in categories.items() if v['officials']}
 
     context = {
-        'officials': officials,
+        'categories': active_categories,
         'selected_status': status_filter,
+        'selected_pos': pos_filter,
+        'all_positions': Official.POSITION_CHOICES,
     }
     return render(request, 'officials/list.html', context)
 
 
 @login_required
+@user_passes_test(is_barangay_admin)
 def biometric_register(request):
     profile, _created = UserProfile.objects.get_or_create(user=request.user)
     return render(request, 'officials/biometric_register.html', {'profile_pk': profile.pk})

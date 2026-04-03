@@ -11,4 +11,6 @@ urlpatterns = [
     path('dtr/<int:official_id>/', views.dtr_detail, name='dtr_detail'),
     path('dtr/<int:official_id>/print/', views.dtr_print, name='dtr_print'),
     path('api/recognize/', views.api_face_recognize, name='api_recognize'),
+    path('public-scan/', views.public_dtr_scan, name='public_scan'),
+    path('api/biometric-verify/', views.api_biometric_verify, name='api_biometric_verify'),
 ]

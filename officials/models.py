@@ -11,11 +11,12 @@ class Official(models.Model):
         ('sk_chairman', 'SK Chairperson'),
         ('sk_kagawad', 'SK Kagawad'),
         ('tanod', 'Barangay Tanod'),
-        ('health_worker', 'Barangay Health Worker'),
-        ('nutrition_scholar', 'Barangay Nutrition Scholar'),
+        ('health_worker', 'Barangay Health Worker (BHW)'),
+        ('nutrition_scholar', 'Barangay Nutrition Scholar (BNS)'),
         ('day_care_worker', 'Day Care Worker'),
         ('lupon', 'Lupon Member'),
-        ('staff', 'Staff'),
+        ('clerk', 'Barangay Clerk'),
+        ('staff', 'Barangay Staff'),
     ]
     STATUS_CHOICES = [
         ('active', 'Active'),
@@ -30,7 +31,7 @@ class Official(models.Model):
     term_end = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    employee_id = models.CharField(max_length=50, blank=True, unique=True)
+    employee_id = models.CharField(max_length=50, blank=True, null=True, unique=True)
     
     # Biometrics
     fingerprint_template = models.TextField(blank=True, null=True, help_text="Base64 encoded fingerprint template")

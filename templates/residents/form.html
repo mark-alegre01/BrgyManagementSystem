@@ -81,7 +81,25 @@
           </div>
           <div class="form-group col-6">
             <label>Occupation</label>
-            <input type="text" name="occupation" value="{{ resident.occupation }}" class="form-control">
+            <div id="occupation-wrapper">
+              <input type="text" name="occupation" id="id_occupation" value="{{ resident.occupation }}" class="form-control" {% if resident.is_official %}style="display:none;"{% endif %}>
+              <select name="official_position" id="id_official_position" class="form-control" {% if not resident.is_official %}style="display:none;"{% endif %}>
+                <option value="">-- Select Position --</option>
+                <option value="captain" {% if resident.official_record.position == 'captain' %}selected{% endif %}>Punong Barangay (Captain)</option>
+                <option value="kagawad" {% if resident.official_record.position == 'kagawad' %}selected{% endif %}>Sangguniang Barangay Member (Kagawad)</option>
+                <option value="secretary" {% if resident.official_record.position == 'secretary' %}selected{% endif %}>Barangay Secretary</option>
+                <option value="treasurer" {% if resident.official_record.position == 'treasurer' %}selected{% endif %}>Barangay Treasurer</option>
+                <option value="sk_chairman" {% if resident.official_record.position == 'sk_chairman' %}selected{% endif %}>SK Chairperson</option>
+                <option value="sk_kagawad" {% if resident.official_record.position == 'sk_kagawad' %}selected{% endif %}>SK Kagawad</option>
+                <option value="tanod" {% if resident.official_record.position == 'tanod' %}selected{% endif %}>Barangay Tanod</option>
+                <option value="health_worker" {% if resident.official_record.position == 'health_worker' %}selected{% endif %}>Barangay Health Worker (BHW)</option>
+                <option value="nutrition_scholar" {% if resident.official_record.position == 'nutrition_scholar' %}selected{% endif %}>Barangay Nutrition Scholar (BNS)</option>
+                <option value="day_care_worker" {% if resident.official_record.position == 'day_care_worker' %}selected{% endif %}>Day Care Worker</option>
+                <option value="lupon" {% if resident.official_record.position == 'lupon' %}selected{% endif %}>Lupon Member</option>
+                <option value="clerk" {% if resident.official_record.position == 'clerk' %}selected{% endif %}>Barangay Clerk</option>
+                <option value="staff" {% if resident.official_record.position == 'staff' %}selected{% endif %}>Barangay Staff</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -95,7 +113,7 @@
             <select name="household" id="id_household" class="form-control">
               <option value="">No Household Assigned</option>
               {% for household in households %}
-              <option value="{{ household.pk }}" data-purok="{{ household.purok }}" {% if   resident.household.pk == household.pk %}selected{% endif %}>{{ household.household_no }}{% if   household.purok %} — {{ household.purok }}{% endif %}</option>
+              <option value="{{ household.pk }}" data-purok="{{ household.purok }}" {% if resident.household.pk == household.pk %}selected{% endif %}>{{ household.household_no }}{% if household.purok %} — {{ household.purok }}{% endif %}</option>
               {% endfor %}
             </select>
           </div>
@@ -123,6 +141,10 @@
           <label class="checkbox-container">
             <input type="checkbox" name="is_4ps_member" {% if resident.is_4ps_member %}checked{% endif %}>
             <span>4Ps Member</span>
+          </label>
+          <label class="checkbox-container">
+            <input type="checkbox" name="is_official" id="id_is_official" {% if resident.is_official %}checked{% endif %}>
+            <span class="text-primary font-weight-bold">Barangay Functionary</span>
           </label>
         </div>
 
@@ -233,6 +255,25 @@
     if (purokInput.value) {
       filterHouseholds();
     }
+
+    // Toggle Occupation vs Official Position
+    const isOfficialCheckbox = document.getElementById('id_is_official');
+    const occupationInput = document.getElementById('id_occupation');
+    const officialPositionSelect = document.getElementById('id_official_position');
+
+    isOfficialCheckbox.addEventListener('change', function() {
+      if (this.checked) {
+        occupationInput.style.display = 'none';
+        occupationInput.required = false;
+        officialPositionSelect.style.display = 'block';
+        officialPositionSelect.required = true;
+      } else {
+        occupationInput.style.display = 'block';
+        occupationInput.required = false;
+        officialPositionSelect.style.display = 'none';
+        officialPositionSelect.required = false;
+      }
+    });
   });
 </script>
 {% endblock %}

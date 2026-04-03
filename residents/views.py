@@ -5,7 +5,9 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.utils import timezone
 from .models import Resident, Household
+from officials.models import Official
 import json
 import subprocess
 import os
@@ -56,6 +58,10 @@ def resident_list(request):
 def resident_add(request):
     """Add a new resident."""
     if request.method == 'POST':
+        is_official = request.POST.get('is_official') == 'on'
+        occupation = request.POST.get('occupation', '')
+        official_position = request.POST.get('official_position', '')
+
         resident = Resident(
             first_name=request.POST.get('first_name'),
             last_name=request.POST.get('last_name'),
@@ -67,7 +73,8 @@ def resident_add(request):
             civil_status=request.POST.get('civil_status'),
             nationality=request.POST.get('nationality', 'Filipino'),
             religion=request.POST.get('religion', ''),
-            occupation=request.POST.get('occupation', ''),
+            occupation=occupation if not is_official else '',
+            is_official=is_official,
             contact_number=request.POST.get('contact_number', ''),
             email=request.POST.get('email', ''),
             address=request.POST.get('address'),
@@ -75,6 +82,7 @@ def resident_add(request):
             is_registered_voter=request.POST.get('is_registered_voter') == 'on',
             is_pwd=request.POST.get('is_pwd') == 'on',
             is_4ps_member=request.POST.get('is_4ps_member') == 'on',
+            is_senior_citizen=request.POST.get('is_senior_citizen') == 'on',
             remarks=request.POST.get('remarks', ''),
         )
         if request.FILES.get('photo'):
@@ -86,6 +94,17 @@ def resident_add(request):
             resident.is_household_head = request.POST.get('is_household_head') == 'on'
 
         resident.save()
+
+        if is_official and official_position:
+            Official.objects.update_or_create(
+                resident=resident,
+                defaults={
+                    'position': official_position,
+                    'status': 'active',
+                    'term_start': timezone.now().date(),
+                }
+            )
+
         messages.success(request, f'Resident {resident.full_name} added successfully.')
         return redirect('residents:view', pk=resident.pk)
 
@@ -113,6 +132,10 @@ def resident_edit(request, pk):
     resident = get_object_or_404(Resident, pk=pk)
 
     if request.method == 'POST':
+        is_official = request.POST.get('is_official') == 'on'
+        occupation = request.POST.get('occupation', '')
+        official_position = request.POST.get('official_position', '')
+
         resident.first_name = request.POST.get('first_name')
         resident.last_name = request.POST.get('last_name')
         resident.middle_name = request.POST.get('middle_name', '')
@@ -123,7 +146,8 @@ def resident_edit(request, pk):
         resident.civil_status = request.POST.get('civil_status')
         resident.nationality = request.POST.get('nationality', 'Filipino')
         resident.religion = request.POST.get('religion', '')
-        resident.occupation = request.POST.get('occupation', '')
+        resident.occupation = occupation if not is_official else ''
+        resident.is_official = is_official
         resident.contact_number = request.POST.get('contact_number', '')
         resident.email = request.POST.get('email', '')
         resident.address = request.POST.get('address')
@@ -131,6 +155,7 @@ def resident_edit(request, pk):
         resident.is_registered_voter = request.POST.get('is_registered_voter') == 'on'
         resident.is_pwd = request.POST.get('is_pwd') == 'on'
         resident.is_4ps_member = request.POST.get('is_4ps_member') == 'on'
+        resident.is_senior_citizen = request.POST.get('is_senior_citizen') == 'on'
         resident.remarks = request.POST.get('remarks', '')
 
         if request.FILES.get('photo'):
@@ -145,6 +170,27 @@ def resident_edit(request, pk):
             resident.is_household_head = False
 
         resident.save()
+
+        if is_official and official_position:
+            # Check if an official record already exists for this resident
+            official = Official.objects.filter(resident=resident).first()
+            if official:
+                official.position = official_position
+                official.status = 'active'
+                official.save()
+            else:
+                Official.objects.create(
+                    resident=resident,
+                    position=official_position,
+                    status='active',
+                    term_start=timezone.now().date()
+                )
+        elif not is_official and hasattr(resident, 'official_record'):
+            # If no longer an official, we mark it inactive (or you can delete)
+            official = resident.official_record
+            official.status = 'inactive'
+            official.save()
+
         messages.success(request, f'Resident {resident.full_name} updated successfully.')
         return redirect('residents:view', pk=resident.pk)
 
@@ -242,7 +288,7 @@ def household_add(request):
 def household_view(request, pk):
     """View household details."""
     household = get_object_or_404(Household, pk=pk)
-    members = household.members.all()
+    members = household.members.all().distinct()
     return render(request, 'residents/household_view.html', {
         'household': household,
         'members': members,

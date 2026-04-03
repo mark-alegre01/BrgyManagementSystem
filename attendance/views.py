@@ -187,6 +187,98 @@ def dtr_print(request, official_id):
     return render(request, 'attendance/dtr_print.html', context)
 
 
+def public_dtr_scan(request):
+    """Public DTR page for functionaries to scan fingerprints without logging in."""
+    return render(request, 'attendance/public_scan.html')
+
+
+import requests
+
+def match_1_to_n(target_template, target_type='official'):
+    """
+    Simulate or implement 1:N matching.
+    In a production EXE with ZK9500, the 32-bit service handles the actual matching.
+    """
+    if not target_template:
+        return None
+
+    if target_type == 'official':
+        # Get all officials with templates
+        candidates = Official.objects.exclude(fingerprint_template__isnull=True).exclude(fingerprint_template='')
+        for cand in candidates:
+            # This is a placeholder for actual SDK matching logic (e.g., score > threshold)
+            # In a real ZK environment, the 32-bit service would send the matched ID directly.
+            if cand.fingerprint_template == target_template:
+                return cand
+    return None
+
+@csrf_exempt
+def api_biometric_verify(request):
+    """
+    API endpoint for biometric verification (Clock In/Out).
+    Used by the 32-bit service or a public DTR kiosk.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        template = data.get('template')
+        official_id = data.get('official_id') # If the 32-bit service already matched it
+        
+        if not template and not official_id:
+            return JsonResponse({'status': 'error', 'message': 'Missing identification data'}, status=400)
+
+        official = None
+        if official_id:
+            official = Official.objects.filter(pk=official_id).first()
+        elif template:
+            official = match_1_to_n(template)
+
+        if not official:
+            return JsonResponse({'status': 'failed', 'message': 'Fingerprint not recognized'})
+
+        # Record attendance
+        today = date.today()
+        now = datetime.now().time()
+        
+        # Determine if Clock In or Clock Out
+        # Simple logic: if already clocked in today without clock out, then clock out.
+        log = AttendanceLog.objects.filter(official=official, date=today).first()
+        
+        if not log:
+            # Clock In
+            status = 'present'
+            if now > time(8, 0): # Assuming 8 AM start
+                status = 'late'
+            
+            log = AttendanceLog.objects.create(
+                official=official,
+                date=today,
+                time_in=now,
+                method='biometric',
+                status=status
+            )
+            action = 'Clocked IN'
+        elif not log.time_out:
+            # Clock Out
+            log.time_out = now
+            log.save()
+            action = 'Clocked OUT'
+        else:
+            return JsonResponse({'status': 'info', 'message': f'{official.resident.full_name} already completed DTR for today.'})
+
+        return JsonResponse({
+            'status': 'success',
+            'message': f'{action} successful',
+            'name': official.resident.full_name,
+            'time': now.strftime("%I:%M %p"),
+            'action': action
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
 @csrf_exempt
 def api_face_recognize(request):
     """API endpoint for Orange Pi face recognition.
