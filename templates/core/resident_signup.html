@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Resident Registration - {{ BARANGAY_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-lg border-0 rounded-lg">
+                <div class="card-header bg-primary text-white text-center py-4">
+                    <h2 class="h4 mb-0">Create Resident Account</h2>
+                    <p class="mb-0 opacity-75">Connect your profile to the Barangay System</p>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                            {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">First Name</label>
+                                <input type="text" name="first_name" class="form-control" required placeholder="Juan">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Middle Name</label>
+                                <input type="text" name="middle_name" class="form-control" placeholder="Dela">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Last Name</label>
+                                <input type="text" name="last_name" class="form-control" required placeholder="Cruz">
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label">PhilSys PSN (Optional)</label>
+                            <input type="text" name="philsys_id" class="form-control" placeholder="1234-5678-9012">
+                            <small class="text-muted">Used to link your account to your resident record.</small>
+                        </div>
+
+                        <div class="mt-3">
+                            <label class="form-label">Username</label>
+                            <input type="text" name="username" class="form-control" required
+                                placeholder="Choose a username">
+                        </div>
+
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Password</label>
+                                <input type="password" name="password1" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Confirm Password</label>
+                                <input type="password" name="password2" class="form-control" required>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary py-2"> Register Account </button>
+                            <a href="{% url 'login' %}" class="btn btn-link text-muted">Already have an account?
+                                Login</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

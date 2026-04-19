@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Appointments - {{ BARANGAY_NAME }}{% endblock %}
+
+{% block content %}
+<h4 class="mb-4">Appointment Requests</h4>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Resident</th>
+                        <th>Date & Time</th>
+                        <th>Purpose</th>
+                        <th>Status</th>
+                        <th class="text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for app in appointments %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-user-circle fa-2x me-2 text-muted"></i>
+                                <div>
+                                    <div class="fw-bold">{{ app.resident.full_name }}</div>
+                                    <div class="small text-muted">{{ app.resident.contact_number|default:"No contact" }}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div>{{ app.appointment_date }}</div>
+                            <div class="small text-muted">{{ app.appointment_time|default:"" }}</div>
+                        </td>
+                        <td>
+                            <span class="d-block">{{ app.get_purpose_display }}</span>
+                            {% if app.specification %}
+                            <small class="text-muted fst-italic">{{ app.specification|truncatechars:30 }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge rounded-pill 
+                                {% if app.status == 'approved' %}bg-success
+                                {% elif app.status == 'pending' %}bg-warning text-dark
+                                {% elif app.status == 'completed' %}bg-info
+                                {% else %}bg-secondary{% endif %}">
+                                {{ app.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="text-end pe-4">
+                            {% if app.status == 'pending' %}
+                            <div class="btn-group">
+                                <a href="{% url 'appointment_status_update' app.pk 'approved' %}"
+                                    class="btn btn-sm btn-outline-success">Approve</a>
+                                <a href="{% url 'appointment_status_update' app.pk 'cancelled' %}"
+                                    class="btn btn-sm btn-outline-danger">Deny</a>
+                            </div>
+                            {% elif app.status == 'approved' %}
+                            <a href="{% url 'appointment_status_update' app.pk 'completed' %}"
+                                class="btn btn-sm btn-success">Mark Completed</a>
+                            {% else %}
+                            <span class="text-muted small">No actions</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">No appointments found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

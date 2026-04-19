@@ -379,10 +379,77 @@ def signup_view(request):
             login(request, user)
             messages.success(request, 'Account created successfully.')
             return redirect('dashboard')
-    else:
-        form = SignupForm()
-
     return render(request, 'core/signup.html', {'form': form})
+
+
+def resident_signup_view(request):
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+
+    class ResidentSignupForm(forms.Form):
+        first_name = forms.CharField(max_length=150)
+        middle_name = forms.CharField(max_length=150, required=False)
+        last_name = forms.CharField(max_length=150)
+        username = forms.CharField(max_length=150)
+        philsys_id = forms.CharField(max_length=50, required=False)
+        password1 = forms.CharField(widget=forms.PasswordInput)
+        password2 = forms.CharField(widget=forms.PasswordInput)
+
+        def clean(self):
+            cleaned = super().clean()
+            p1 = cleaned.get('password1')
+            p2 = cleaned.get('password2')
+            if p1 and p2 and p1 != p2:
+                raise forms.ValidationError('Passwords do not match.')
+            
+            uname = cleaned.get('username')
+            if User.objects.filter(username=uname).exists():
+                raise forms.ValidationError('Username is already taken.')
+            
+            return cleaned
+
+    if request.method == 'POST':
+        form = ResidentSignupForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data['username'].strip()
+            password = form.cleaned_data['password1']
+            first_name = form.cleaned_data['first_name'].strip()
+            last_name = form.cleaned_data['last_name'].strip()
+            middle_name = (form.cleaned_data.get('middle_name') or '').strip()
+            philsys_id = (form.cleaned_data.get('philsys_id') or '').strip()
+
+            user = User.objects.create_user(username=username, password=password)
+            user.first_name = first_name
+            user.last_name = last_name
+            user.save()
+
+            # Create profile and try to link to resident
+            resident = Resident.objects.none()
+            if philsys_id:
+                resident = Resident.objects.filter(philSys_number=philsys_id).first()
+            
+            if not resident:
+                # Try name match
+                resident = Resident.objects.filter(
+                    first_name__iexact=first_name,
+                    last_name__iexact=last_name
+                ).first()
+
+            UserProfile.objects.create(
+                user=user,
+                role='resident',
+                middle_name=middle_name,
+                philSys_id=philsys_id,
+                resident=resident
+            )
+
+            login(request, user)
+            messages.success(request, 'Account created successfully! You can now book appointments.')
+            return redirect('dashboard')
+    else:
+        form = ResidentSignupForm()
+
+    return render(request, 'core/resident_signup.html', {'form': form})
 
 
 @login_required

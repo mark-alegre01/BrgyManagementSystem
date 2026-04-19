@@ -18,6 +18,7 @@ class UserProfile(models.Model):
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+    resident = models.OneToOneField("residents.Resident", on_delete=models.SET_NULL, null=True, blank=True, related_name="user_profile")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="resident")
     middle_name = models.CharField(max_length=150, blank=True)
     phone = models.CharField(max_length=20, blank=True)
