@@ -9,6 +9,14 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
+CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1:8001",
+    "http://localhost:8001",
+    "http://192.168.1.63:8001",
+    "http://brgysicosico.local:8001",
+    "http://brgysicosico:8001",
+]
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
