@@ -15,6 +15,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://192.168.1.63:8001",
     "http://brgysicosico.local:8001",
     "http://brgysicosico:8001",
+    "https://*.trycloudflare.com",
 ]
 
 INSTALLED_APPS = [
