@@ -3,29 +3,25 @@ import time
 import json
 import argparse
 import requests
-from zk_sdk import ZKFingerSDK, log_message
+from zk_sdk import ZKFingerSDK
 
 class ZKVerifyService:
     def __init__(self, base_url, request_id, templates_data):
-        log_message(f"Initializing ZKVerifyService for request {request_id}")
         self.sdk = ZKFingerSDK()
-
         self.base_url = base_url
         self.request_id = request_id
         self.templates_data = templates_data
         self.finished = False
 
     def run(self):
-        log_message("ZKVerifyService.run() started")
         if not self.sdk.init_engine():
-            log_message("ZKVerifyService: Failed to initialize Fingerprint Engine.")
             print("[!] Failed to initialize Fingerprint Engine.")
             return
 
         if not self.sdk.open_device():
-            log_message("ZKVerifyService: Failed to open Fingerprint Device.")
             print("[!] Failed to open Fingerprint Device.")
             return
+
 
 
         hDB = self.sdk.get_db_handle()
