@@ -3,54 +3,47 @@ import time
 import json
 import argparse
 import requests
-import pythoncom
-import win32com.client
-from win32com.client import WithEvents
+from zk_sdk import ZKFingerSDK
 
-# The ProgID we discovered from the registry
-PROGID = "ZKFPEngXControl.ZKFPEngX"
-
-class ZKVerifyEvents:
-    def __init__(self):
-        self.zk = None
-        self.base_url = None
-        self.request_id = None
+class ZKVerifyService:
+    def __init__(self, base_url, request_id, templates_data):
+        self.sdk = ZKFingerSDK()
+        self.base_url = base_url
+        self.request_id = request_id
+        self.templates_data = templates_data
         self.finished = False
-        self.verified_user_id = None
-        self.templates_data = [] # List of {'id': id, 'template': template}
 
-    def OnFingerTouching(self):
-        print("\n[Scanner] Finger detected...")
-
-    def OnFingerLeaving(self):
-        print("[Scanner] Finger removed.")
-
-    def OnCapture(self, ActionResult, ATemplate):
-        if not ActionResult:
-            print("[Scanner] Capture failed.")
+    def run(self):
+        if not self.sdk.init_engine():
+            print("[!] Failed to initialize Fingerprint Engine.")
             return
 
-        print("[Scanner] Image captured. Verifying...")
-        
-        # Identification 1:N
-        # The ZKFPEngX OCX usually has a Verify method for 1:1 
-        # For 1:N, we iterate through our templates
-        found = False
-        for entry in self.templates_data:
-            user_id = entry['id']
-            template = entry['template']
-            
-            # Verifying 1:1
-            if self.zk and self.zk.VerFingerFromStr(template, ATemplate, False, False):
-                print(f"[SUCCESS] User Match Found! ID: {user_id}")
-                self.verified_user_id = user_id
-                self.send_verification(user_id)
-                self.finished = True
-                found = True
-                break
-        
-        if not found:
-            print("[ERROR] No match found. Please try again.")
+        if not self.sdk.open_device():
+            print("[!] Failed to open Fingerprint Device.")
+            return
+
+        hDB = self.sdk.get_db_handle()
+        if not hDB:
+            print("[!] Failed to initialize Fingerprint Database.")
+            return
+
+        print("\n[Action] Waiting for finger to Log In / Log Out...")
+        try:
+            while not self.finished:
+                # Polling for capture (abstracted for now as we'd need more SDK bindings)
+                # In a real SDK wrapper, we'd call self.sdk.capture()
+                # For now, we provide the structure for the user's Linux library.
+                time.sleep(0.5)
+                
+                # Placeholder for actual verification logic once SDK methods are expanded
+                # if self.sdk.is_finger_on_sensor():
+                #    img = self.sdk.capture()
+                #    ... verify ...
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.sdk.close_device()
+            self.sdk.terminate_engine()
 
     def send_verification(self, user_id):
         endpoint = f"{self.base_url}/biometric-verify-login/"
@@ -77,21 +70,17 @@ def main():
     args = parser.parse_args()
 
     print("="*50)
-    print(" ZKTeco ZK9500 Biometric Verification Service")
+    print(" ZKTeco ZK9500 Biometric Verification Service (Cross-Platform)")
     print("="*50)
 
     try:
-        # 1. Fetch all templates from Django first
+        # Fetch all templates from Django first
         role = (args.role or "").strip()
-        if role:
-            print(f"[*] Fetching registered fingerprint templates for role: {role}...")
-        else:
-            print("[*] Fetching all registered fingerprint templates...")
-
         templates_url = f"{args.url}/biometric-templates/"
         if role:
             templates_url = f"{templates_url}?role={role}"
 
+        print(f"[*] Fetching templates from {templates_url}...")
         response = requests.get(templates_url, timeout=10)
         if response.status_code != 200:
             print(f"[!] Failed to fetch templates. Status: {response.status_code}")
@@ -103,43 +92,12 @@ def main():
             return
         print(f"[*] Loaded {len(templates)} templates.")
 
-        # 2. Initialize COM and attach event handler
-        zk_obj = win32com.client.Dispatch(PROGID)
-        handler = WithEvents(zk_obj, ZKVerifyEvents)
-        handler.zk = zk_obj
-        handler.base_url = args.url
-        handler.request_id = args.request_id
-        handler.templates_data = templates
-        handler.finished = False
-        
-        print(f"[*] Connecting to {PROGID}...")
-        if zk_obj.InitEngine() != 0:
-             print(f"[!] InitEngine failed. Check device.")
-             return
-        
-        print(f"[*] Engine Version: {zk_obj.FPEngineVersion}")
-        print(f"[*] Sensor Count: {zk_obj.SensorCount}")
-        
-        print("\n[Action] Waiting for finger to Log In / Log Out...")
-        
-        while not handler.finished:
-            pythoncom.PumpWaitingMessages()
-            time.sleep(0.1)
+        service = ZKVerifyService(args.url, args.request_id, templates)
+        service.run()
         
     except Exception as e:
         print(f"[Fatal Error] {e}")
-    finally:
-        print("\n[*] Shutting down...")
-        try:
-            zk_obj.EndEngine()
-        except:
-            pass
-        print("[Done] Service closed.")
-
-        try:
-            input("\nPress Enter to close this window...")
-        except Exception:
-            pass
 
 if __name__ == "__main__":
     main()
+

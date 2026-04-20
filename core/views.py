@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -10,6 +10,7 @@ from django.utils.timezone import now
 from django.core.cache import cache
 import secrets
 import os
+import sys
 import subprocess
 from .models import UserProfile
 from residents.models import Resident, Household
@@ -114,7 +115,6 @@ def dashboard(request):
 
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth import login
 from django.db.models import Q
 import json
 
@@ -206,7 +206,7 @@ def biometric_verify_login(request):
 
 @login_required
 def biometric_verify_login_start(request):
-    """View to launch the 32-bit verification service."""
+    """View to launch the biometric verification service."""
     try:
         request_id = secrets.token_urlsafe(16)
         request.session['biometric_request_id'] = request_id
@@ -214,18 +214,10 @@ def biometric_verify_login_start(request):
         
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
-        # Cross-platform path handling
-        if os.name == 'nt': # Windows
-            venv_python = os.path.join(base_dir, 'venv32', 'Scripts', 'python.exe')
-        else: # Linux/Mac
-            venv_python = os.path.join(base_dir, 'venv32', 'bin', 'python')
-
+        # Use current python executable instead of hardcoded venv32
+        venv_python = sys.executable
         service_path = os.path.join(base_dir, 'core', 'zk_verify.py')
         
-        if not os.path.exists(venv_python):
-            msg = '32-bit environment not found. Please note: Biometrics currently require a 32-bit Windows environment.'
-            return JsonResponse({'status': 'error', 'message': msg}, status=500)
-
         popen_args = [
             venv_python,
             service_path,
@@ -244,7 +236,7 @@ def biometric_verify_login_start(request):
 
 @csrf_exempt
 def biometric_login_start(request):
-    """Public view to launch the 32-bit verification service for login."""
+    """Public view to launch the biometric verification service for login."""
     try:
         role = ''
         if request.method == 'POST':
@@ -264,18 +256,10 @@ def biometric_login_start(request):
         
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
-        # Cross-platform path handling
-        if os.name == 'nt': # Windows
-            venv_python = os.path.join(base_dir, 'venv32', 'Scripts', 'python.exe')
-        else: # Linux/Mac
-            venv_python = os.path.join(base_dir, 'venv32', 'bin', 'python')
-
+        # Use current python executable instead of hardcoded venv32
+        venv_python = sys.executable
         service_path = os.path.join(base_dir, 'core', 'zk_verify.py')
         
-        if not os.path.exists(venv_python):
-            msg = '32-bit environment not found. Please note: Biometrics currently require a 32-bit Windows environment.'
-            return JsonResponse({'status': 'error', 'message': msg}, status=500)
-
         popen_args = [
             venv_python,
             service_path,

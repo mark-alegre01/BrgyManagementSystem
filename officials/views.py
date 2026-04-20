@@ -6,6 +6,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 import subprocess
 import os
+import sys
 from django.contrib.auth.models import User
 from .models import Official
 from core.models import UserProfile
@@ -69,21 +70,26 @@ def official_capture_fingerprint(request, pk):
             target_type = '--official'
         
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        venv_python = os.path.join(base_dir, 'venv32', 'Scripts', 'python.exe')
+        
+        # Use current python executable instead of hardcoded venv32
+        venv_python = sys.executable
         service_path = os.path.join(base_dir, 'core', 'zk_service.py')
         
-        if not os.path.exists(venv_python):
-            return JsonResponse({'status': 'error', 'message': f'32-bit environment not found at {venv_python}'}, status=500)
-
-        # Launch the 32-bit service in a new console window
-        subprocess.Popen([
+        # Launch the service
+        popen_args = [
             venv_python, 
             service_path, 
             target_type, str(target_id),
             '--url', request.build_absolute_uri('/')[:-1]
-        ], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        ]
+        
+        if os.name == 'nt':
+            subprocess.Popen(popen_args, creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0))
+        else:
+            subprocess.Popen(popen_args)
         
         return JsonResponse({'status': 'success', 'message': 'Scanner service launched'})
+
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
