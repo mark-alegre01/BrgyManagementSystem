@@ -213,18 +213,30 @@ def biometric_verify_login_start(request):
         cache.set(f"biometric:{request_id}", {"status": "pending"}, timeout=120)
         
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        venv_python = os.path.join(base_dir, 'venv32', 'Scripts', 'python.exe')
+        
+        # Cross-platform path handling
+        if os.name == 'nt': # Windows
+            venv_python = os.path.join(base_dir, 'venv32', 'Scripts', 'python.exe')
+        else: # Linux/Mac
+            venv_python = os.path.join(base_dir, 'venv32', 'bin', 'python')
+
         service_path = os.path.join(base_dir, 'core', 'zk_verify.py')
         
         if not os.path.exists(venv_python):
-            return JsonResponse({'status': 'error', 'message': '32-bit environment not found'}, status=500)
+            msg = '32-bit environment not found. Please note: Biometrics currently require a 32-bit Windows environment.'
+            return JsonResponse({'status': 'error', 'message': msg}, status=500)
 
-        subprocess.Popen([
+        popen_args = [
             venv_python,
             service_path,
             '--url', request.build_absolute_uri('/')[:-1],
             '--request-id', request_id,
-        ], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        ]
+
+        if os.name == 'nt':
+            subprocess.Popen(popen_args, creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0))
+        else:
+            subprocess.Popen(popen_args)
         
         return JsonResponse({'status': 'success', 'message': 'Verification service launched', 'request_id': request_id})
     except Exception as e:
@@ -251,11 +263,18 @@ def biometric_login_start(request):
         cache.set(f"biometric:{request_id}", {"status": "pending", "role": role}, timeout=120)
         
         base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        venv_python = os.path.join(base_dir, 'venv32', 'Scripts', 'python.exe')
+        
+        # Cross-platform path handling
+        if os.name == 'nt': # Windows
+            venv_python = os.path.join(base_dir, 'venv32', 'Scripts', 'python.exe')
+        else: # Linux/Mac
+            venv_python = os.path.join(base_dir, 'venv32', 'bin', 'python')
+
         service_path = os.path.join(base_dir, 'core', 'zk_verify.py')
         
         if not os.path.exists(venv_python):
-            return JsonResponse({'status': 'error', 'message': '32-bit environment not found'}, status=500)
+            msg = '32-bit environment not found. Please note: Biometrics currently require a 32-bit Windows environment.'
+            return JsonResponse({'status': 'error', 'message': msg}, status=500)
 
         popen_args = [
             venv_python,
@@ -266,7 +285,10 @@ def biometric_login_start(request):
         if role:
             popen_args += ['--role', role]
 
-        subprocess.Popen(popen_args, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        if os.name == 'nt':
+            subprocess.Popen(popen_args, creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0))
+        else:
+            subprocess.Popen(popen_args)
         
         return JsonResponse({'status': 'success', 'message': 'Verification service launched', 'request_id': request_id})
     except Exception as e:
