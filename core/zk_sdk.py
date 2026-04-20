@@ -14,6 +14,8 @@ class ZKFingerSDK:
         except Exception:
             pass
 
+
+
     def _load_library(self):
         if os.name == 'nt': # Windows
             dll_path = r"C:\Windows\System32\ZKFPCap.dll"
@@ -24,7 +26,6 @@ class ZKFingerSDK:
                  raise FileNotFoundError("ZKFPCap.dll not found in System32 or SysWOW64")
 
             self.lib = ctypes.WinDLL(dll_path)
-            print(f"Loaded Windows SDK from {dll_path}")
         else: # Linux
             # Try to find libzkfp.so in common paths
             so_paths = [
@@ -38,23 +39,24 @@ class ZKFingerSDK:
                 if os.path.exists(p):
                     try:
                         self.lib = ctypes.CDLL(p)
-                        print(f"Loaded Linux SDK from {p}")
                         break
-                    except Exception as e:
-                        print(f"Failed to load {p}: {e}")
+                    except Exception:
+                        pass
             
             if not self.lib:
                 # Fallback to system search
                 try:
                     self.lib = ctypes.CDLL("libzkfp.so")
-                    print("Loaded Linux SDK from system path")
                 except Exception:
                     raise FileNotFoundError("libzkfp.so not found. Please install ZKTeco Linux SDK.")
 
     def init_engine(self):
         if not self.lib: return False
-        res = self.lib.ZKFP_Init()
-        return res == 0
+        try:
+            res = self.lib.ZKFP_Init()
+            return res == 0
+        except Exception:
+            return False
 
     def terminate_engine(self):
         if self.lib:
@@ -63,8 +65,12 @@ class ZKFingerSDK:
     def open_device(self, index=0):
         if not self.lib: return False
         self.lib.ZKFP_OpenDevice.restype = ctypes.c_void_p
-        self.hDevice = self.lib.ZKFP_OpenDevice(index)
-        return self.hDevice is not None
+        try:
+            self.hDevice = self.lib.ZKFP_OpenDevice(index)
+            return self.hDevice is not None
+        except Exception:
+            return False
+
 
     def close_device(self):
         if self.hDevice and self.lib:

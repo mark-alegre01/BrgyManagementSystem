@@ -3,10 +3,11 @@ import time
 import json
 import argparse
 import requests
-from zk_sdk import ZKFingerSDK
+from zk_sdk import ZKFingerSDK, log_message
 
 class ZKTecoEnrollService:
     def __init__(self, base_url, resident_id=None, official_id=None, profile_id=None):
+        log_message(f"Initializing ZKTecoEnrollService for resident={resident_id}, official={official_id}")
         self.sdk = ZKFingerSDK()
         self.base_url = base_url
         self.resident_id = resident_id
@@ -15,13 +16,17 @@ class ZKTecoEnrollService:
         self.finished = False
 
     def run(self):
+        log_message("ZKTecoEnrollService.run() started")
         if not self.sdk.init_engine():
+            log_message("ZKTecoEnrollService: Failed to initialize Fingerprint Engine.")
             print("[!] Failed to initialize Fingerprint Engine.")
             return
 
         if not self.sdk.open_device():
+            log_message("ZKTecoEnrollService: Failed to open Fingerprint Device.")
             print("[!] Failed to open Fingerprint Device.")
             return
+
 
         print(f"[*] Target resident_id: {self.resident_id}")
         print(f"[*] Target official_id: {self.official_id}")
