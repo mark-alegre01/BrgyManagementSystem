@@ -379,6 +379,8 @@ def signup_view(request):
             login(request, user)
             messages.success(request, 'Account created successfully.')
             return redirect('dashboard')
+    else:
+        form = SignupForm()
     return render(request, 'core/signup.html', {'form': form})
 
 
