@@ -211,20 +211,33 @@ def resident_capture_fingerprint(request, pk):
     """Launch local fingerprint service for a resident."""
     resident = get_object_or_404(Resident, pk=pk)
     
-    # We launch the service as a separate process
-    # It will communicate back via the API
-    service_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'core', 'zk_service.py')
+    # Identify paths
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    core_dir = os.path.join(project_root, 'core')
+    service_path = os.path.join(core_dir, 'zk_service.py')
+    venv_python = os.path.join(project_root, 'venv', 'bin', 'python')
+    
+    # Environment for subprocess
+    env = os.environ.copy()
+    env['LD_LIBRARY_PATH'] = f"{core_dir}:{env.get('LD_LIBRARY_PATH', '')}"
     
     try:
-        # Run it in a new console so the user can see it
-        subprocess.Popen([
-            'python', 
+        # Log path
+        log_path = '/tmp/zk_service.log'
+        
+        # Launch service
+        cmd = [
+            venv_python, 
             service_path, 
             '--resident', str(pk),
             '--url', request.build_absolute_uri('/')[:-1]
-        ], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        ]
         
-        messages.info(request, "Fingerprint scanner started. Please check the scanner window.")
+        # Redirect output to file
+        with open(log_path, 'w') as log_file:
+            subprocess.Popen(cmd, env=env, stdout=log_file, stderr=log_file)
+        
+        messages.info(request, f"Fingerprint scanner started. Logging to {log_path}")
     except Exception as e:
         messages.error(request, f"Failed to start scanner: {e}")
         

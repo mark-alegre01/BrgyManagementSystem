@@ -30,19 +30,24 @@ class ZKTecoEnrollService:
         print(f"[*] Target profile_id: {self.profile_id}")
         print(f"[*] Django base_url: {self.base_url}")
         
-        print("\n[Action] Starting Enrollment Mode...")
-        print("[Status] Please press your finger on the sensor 3 times.")
-        
         try:
-            # Polling for enrollment (Skeleton for Linux SDK usage)
+            print("\n[Action] Starting Enrollment Mode...")
+            print("[Status] Please press your finger on the sensor.")
+            
             while not self.finished:
-                time.sleep(0.5)
-                # Actual SDK capture and enrollment logic would go here
-                # if enrollment_done:
-                #    self.send_template(template)
-                #    self.finished = True
+                # Capture fingerprint
+                template = self.sdk.acquire_fingerprint()
+                if template:
+                    print("[Status] Fingerprint captured successfully!")
+                    self.send_template(template)
+                    self.finished = True
+                    print("[Status] Done. Closing in 3 seconds...")
+                    time.sleep(3)
+                else:
+                    # No finger or error
+                    time.sleep(0.5)
         except KeyboardInterrupt:
-            pass
+            print("\n[*] Service stopped by user.")
         finally:
             self.sdk.close_device()
             self.sdk.terminate_engine()
