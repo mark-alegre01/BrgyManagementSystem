@@ -19,51 +19,35 @@
 </div>
 
 <div class="card">
-  <div class="card-header border-bottom-0 pb-0">
-    <div class="filters-wrap mb-3">
-      <div class="filters-left">
-        <div class="filter-block">
-          <label class="small text-muted d-block mb-1">Status</label>
-          <div class="btn-group">
-            <a href="?status=active&pos={{ selected_pos }}"
-              class="btn btn-sm {% if selected_status == 'active' %}btn-primary{% else %}btn-outline{% endif %}">Active</a>
-            <a href="?status=inactive&pos={{ selected_pos }}"
-              class="btn btn-sm {% if selected_status == 'inactive' %}btn-primary{% else %}btn-outline{% endif %}">Inactive</a>
-          </div>
+  <div class="card-header filter-card-header">
+    <form method="get" class="filter-form" id="filterForm">
+      <div class="filter-inputs-group">
+        <div class="filter-select-wrapper">
+          <i class="fas fa-toggle-on filter-icon"></i>
+          <select name="status" class="form-control filter-select" onchange="this.form.submit();">
+            <option value="active" {% if selected_status ==   'active' %}selected{% endif %}>Active Officials</option>
+            <option value="inactive" {% if selected_status ==   'inactive' %}selected{% endif %}>Inactive/Past Officials
+            </option>
+          </select>
         </div>
 
-        <div class="filter-block">
-          <label class="small text-muted d-block mb-1">Position</label>
-          <form method="get" class="position-form" id="positionForm">
-            <input type="hidden" name="status" value="{{ selected_status }}">
-            <select name="pos" class="form-control form-control-sm" onchange="document.getElementById('positionForm').submit();">
-              <option value="all" {% if selected_pos == 'all' %}selected{% endif %}>All Positions</option>
-              {% for pos_code, pos_label in all_positions %}
-              <option value="{{ pos_code }}" {% if selected_pos == pos_code %}selected{% endif %}>{{ pos_label }}</option>
-              {% endfor %}
-            </select>
-          </form>
+        <div class="filter-select-wrapper">
+          <i class="fas fa-briefcase filter-icon"></i>
+          <select name="pos" class="form-control filter-select" onchange="this.form.submit();">
+            <option value="all" {% if selected_pos ==   'all' %}selected{% endif %}>All Positions</option>
+            {% for pos_code, pos_label in all_positions %}
+            <option value="{{ pos_code }}" {% if selected_pos ==   pos_code %}selected{% endif %}>{{ pos_label }}</option>
+            {% endfor %}
+          </select>
         </div>
       </div>
-
-      <div class="filters-right">
-        <label class="small text-muted d-block mb-1">Quick Filters</label>
-        <div class="quick-chips">
-          <a href="?status={{ selected_status }}&pos=captain" class="chip {% if selected_pos == 'captain' %}chip-active{% endif %}">Captain</a>
-          <a href="?status={{ selected_status }}&pos=secretary" class="chip {% if selected_pos == 'secretary' %}chip-active{% endif %}">Secretary</a>
-          <a href="?status={{ selected_status }}&pos=treasurer" class="chip {% if selected_pos == 'treasurer' %}chip-active{% endif %}">Treasurer</a>
-          <a href="?status={{ selected_status }}&pos=tanod" class="chip {% if selected_pos == 'tanod' %}chip-active{% endif %}">Tanod</a>
-          <a href="?status={{ selected_status }}&pos=health_worker" class="chip {% if selected_pos == 'health_worker' %}chip-active{% endif %}">BHW</a>
-          <a href="?status={{ selected_status }}&pos=all" class="chip {% if selected_pos == 'all' %}chip-active{% endif %}">All</a>
-        </div>
-      </div>
-    </div>
+    </form>
   </div>
 
   {% for key, category in categories.items %}
   <div class="category-section">
     <div class="category-header">
-      <i class="fas {% if key == 'council' %}fa-user-tie{% elif key == 'sk' %}fa-users{% elif key == 'tanod' %}fa-shield-alt{% elif key == 'health' %}fa-file-medical{% else %}fa-user-cog{% endif %} mr-2"></i>
+      <i class="fas {% if key ==   'council' %}fa-user-tie{% elif key ==   'sk' %}fa-users{% elif key ==   'tanod' %}fa-shield-alt{% elif key ==   'health' %}fa-file-medical{% else %}fa-user-cog{% endif %} mr-2"></i>
       {{ category.title }}
     </div>
     <div class="table-responsive">
@@ -91,17 +75,14 @@
             <td>{{ official.term_start|date:"M d, Y" }}</td>
             <td>{{ official.term_end|date:"M d, Y"|default:"Present" }}</td>
             <td>
-              <span
-                class="status-badge {% if official.status == 'active' %}badge-active{% else %}badge-inactive{% endif %}">
+              <span class="status-badge {% if official.status ==   'active' %}badge-active{% else %}badge-inactive{% endif %}">
                 {{ official.get_status_display }}
               </span>
             </td>
             <td>
               <div class="btn-group">
-                <a href="{% url 'officials:edit' official.pk %}" class="btn btn-outline btn-icon" title="Edit"><i
-                    class="fas fa-edit"></i></a>
-                <a href="{% url 'attendance:dtr_detail' official.pk %}" class="btn btn-outline btn-icon"
-                  title="DTR"><i class="fas fa-calendar-alt"></i></a>
+                <a href="{% url 'officials:edit' official.pk %}" class="btn-icon btn-edit" title="Edit"><i class="fas fa-edit"></i></a>
+                <a href="{% url 'attendance:dtr_detail' official.pk %}" class="btn btn-outline btn-icon" title="DTR"><i class="fas fa-calendar-alt"></i></a>
               </div>
             </td>
           </tr>
@@ -115,92 +96,4 @@
   {% endfor %}
 </div>
 
-<style>
-  .filters-wrap {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .filters-left {
-    display: flex;
-    align-items: flex-end;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-  .filter-block {
-    min-width: 180px;
-  }
-  .position-form select {
-    min-width: 260px;
-  }
-  .filters-right {
-    min-width: 260px;
-  }
-  .quick-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .chip {
-    display: inline-block;
-    padding: 4px 10px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    font-size: 12px;
-    color: var(--text-muted);
-    background: transparent;
-    text-decoration: none;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-    white-space: nowrap;
-  }
-  .chip:hover {
-    background: rgba(var(--primary-rgb), 0.08);
-    color: var(--text-main);
-    border-color: rgba(var(--primary-rgb), 0.3);
-  }
-  .chip-active {
-    background: rgba(var(--primary-rgb), 0.14);
-    color: var(--primary);
-    border-color: rgba(var(--primary-rgb), 0.45);
-  }
-  @media (max-width: 768px) {
-    .position-form select {
-      min-width: 220px;
-    }
-    .filter-block {
-      min-width: 160px;
-    }
-  }
-  .category-section {
-    border-bottom: 1px solid var(--border);
-  }
-  .category-section:last-child {
-    border-bottom: none;
-  }
-  .category-header {
-    background: rgba(var(--primary-rgb), 0.05);
-    padding: 12px 20px;
-    font-weight: 700;
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--primary);
-    display: flex;
-    align-items: center;
-    border-top: 1px solid var(--border);
-  }
-  .category-header i {
-    width: 20px;
-  }
-  .resident-item span {
-    display: block;
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-  .mr-2 {
-    margin-right: 0.5rem;
-  }
-</style>
 {% endblock %}

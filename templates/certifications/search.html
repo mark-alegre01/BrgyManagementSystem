@@ -14,20 +14,25 @@
   </div>
 </div>
 
-<div class="search-container" style="max-width: 600px; margin: 50px auto;">
-  <div class="card">
-    <div class="card-body">
-      <form method="GET" class="modern-form">
-        <div class="form-group mb-4">
-          <label>Control Number</label>
-          <div class="search-input-group">
-            <input type="text" name="control" value="{{ control }}" class="form-control form-control-lg"
-              placeholder="e.g. CLR-20260222-0001" required>
-            <button type="submit" class="btn btn-primary btn-lg">
-              <i class="fas fa-search"></i> Verify
-            </button>
+<div class="search-container" style="max-width: 800px; margin: 40px auto;">
+  <div class="card shadow-lg">
+    <div class="card-header filter-card-header">
+      <form method="GET" class="filter-form">
+        <div class="filter-inputs-group">
+          <div class="search-input-wrapper" style="min-width: 100%;">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" name="control" value="{{ control }}"
+              placeholder="Enter Control Number (e.g. CLR-20260222-0001)" class="form-control search-input" required>
+            {% if control %}
+            <a href="{% url 'certifications:search' %}" class="search-clear" title="Clear">
+              <i class="fas fa-times-circle"></i>
+            </a>
+            {% endif %}
           </div>
         </div>
+        <button type="submit" class="btn btn-primary search-btn" style="min-width: 140px;">
+          <i class="fas fa-check-circle"></i> <span>Verify Now</span>
+        </button>
       </form>
     </div>
   </div>

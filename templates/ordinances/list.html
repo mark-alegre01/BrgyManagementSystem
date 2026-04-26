@@ -16,17 +16,34 @@
 </div>
 
 <div class="card">
-  <div class="card-header">
+  <div class="card-header filter-card-header">
     <form method="GET" class="filter-form">
-      <input type="text" name="q" value="{{ query }}" placeholder="Search number or title..."
-        class="form-control-sm">
-      <select name="category">
-        <option value="">All Categories</option>
-        {% for code, label in categories %}
-        <option value="{{ code }}" {% if code == selected_category %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="btn btn-outline btn-sm">Filter</button>
+      <div class="filter-inputs-group">
+        <div class="search-input-wrapper">
+          <i class="fas fa-search search-icon"></i>
+          <input type="text" name="q" value="{{ query }}" placeholder="Search number or title..."
+            class="form-control search-input">
+          {% if query %}
+          <a href="{% url 'ordinances:list' %}" class="search-clear" title="Clear search">
+            <i class="fas fa-times-circle"></i>
+          </a>
+          {% endif %}
+        </div>
+
+        <div class="filter-select-wrapper">
+          <i class="fas fa-filter filter-icon"></i>
+          <select name="category" class="form-control filter-select">
+            <option value="">All Categories</option>
+            {% for code, label in categories %}
+            <option value="{{ code }}" {% if code ==   selected_category %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary search-btn">
+        <i class="fas fa-search"></i> <span>Search</span>
+      </button>
     </form>
   </div>
   <div class="table-responsive">
@@ -49,21 +66,17 @@
           <td>{{ ord.date_enacted|date:"M d, Y" }}</td>
           <td>{{ ord.author }}</td>
           <td>
-            <span
-              class="status-badge {% if ord.status == 'active' %}badge-active{% elif ord.status == 'pending' %}badge-pending{% else %}badge-inactive{% endif %}">
+            <span class="status-badge {% if ord.status ==   'active' %}badge-active{% elif ord.status ==   'pending' %}badge-pending{% else %}badge-inactive{% endif %}">
               {{ ord.get_status_display }}
             </span>
           </td>
           <td>
             <div class="btn-group">
-              <a href="{% url 'ordinances:view' ord.pk %}" class="btn btn-outline btn-icon"
-                title="View"><i class="fas fa-eye"></i></a>
+              <a href="{% url 'ordinances:view' ord.pk %}" class="btn-icon btn-view" title="View"><i class="fas fa-eye"></i></a>
               {% if ord.document_file %}
-              <a href="{% url 'ordinances:download' ord.pk %}" class="btn btn-outline btn-icon"
-                title="Download"><i class="fas fa-download"></i></a>
+              <a href="{% url 'ordinances:download' ord.pk %}" class="btn btn-outline btn-icon" title="Download"><i class="fas fa-download"></i></a>
               {% endif %}
-              <a href="{% url 'ordinances:edit' ord.pk %}" class="btn btn-outline btn-icon"
-                title="Edit"><i class="fas fa-edit"></i></a>
+              <a href="{% url 'ordinances:edit' ord.pk %}" class="btn-icon btn-edit" title="Edit"><i class="fas fa-edit"></i></a>
             </div>
           </td>
         </tr>
@@ -77,15 +90,4 @@
   </div>
 </div>
 
-<style>
-  .filter-form {
-    display: flex;
-    gap: 10px;
-  }
-
-  .btn-icon {
-    padding: 5px 10px;
-    font-size: 12px;
-  }
-</style>
 {% endblock %}

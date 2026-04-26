@@ -1,10 +1,11 @@
 import io
 import os
 from datetime import date
+from decimal import Decimal
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, Frame, PageTemplate
 from reportlab.lib import colors
 from django.conf import settings
@@ -33,6 +34,9 @@ def draw_watermark(canvas, doc):
 
 def generate_certificate_pdf(certificate):
     """Generate a styled PDF for any certificate type."""
+    if certificate.cert_type == 'cedula':
+        return generate_cedula_pdf(certificate)
+    
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
                             topMargin=0.3 * inch, bottomMargin=0.3 * inch,
@@ -180,3 +184,257 @@ def generate_certificate_pdf(certificate):
     return buffer
 
 
+def generate_cedula_pdf(certificate):
+    """Generate an authentic-looking Cedula (Community Tax Certificate)."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            topMargin=0.5 * inch, bottomMargin=0.5 * inch,
+                            leftMargin=0.5 * inch, rightMargin=0.5 * inch)
+    
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='CedulaHeader', fontSize=14, alignment=TA_CENTER, fontName='Helvetica-Bold'))
+    styles.add(ParagraphStyle(name='CedulaSubHeader', fontSize=10, alignment=TA_CENTER, fontName='Helvetica'))
+    styles.add(ParagraphStyle(name='CedulaLabel', fontSize=8, fontName='Helvetica-Bold'))
+    styles.add(ParagraphStyle(name='CedulaValue', fontSize=10, fontName='Helvetica'))
+    styles.add(ParagraphStyle(name='CedulaMoney', fontSize=10, fontName='Helvetica', alignment=TA_RIGHT))
+    
+    elements = []
+    
+    cedula = certificate.cedula_details
+    resident = certificate.resident
+    is_corp = cedula.taxpayer_type == 'corporation'
+    
+    # Header
+    header_title = 'COMMUNITY TAX CERTIFICATE'
+    if is_corp:
+        header_title += ' - CORPORATION'
+    elements.append(Paragraph(header_title, styles['CedulaHeader']))
+    elements.append(Paragraph(cedula.get_taxpayer_type_display().upper(), styles['CedulaSubHeader']))
+    elements.append(Spacer(1, 10))
+    
+    # Place and Date of Issue
+    header_data = [
+        [Paragraph('YEAR', styles['CedulaLabel']), Paragraph('PLACE OF ISSUE (City / Municipality / Province)', styles['CedulaLabel']), Paragraph('DATE ISSUED', styles['CedulaLabel'])],
+        [Paragraph(str(date.today().year), styles['CedulaValue']), Paragraph(cedula.place_of_issue, styles['CedulaValue']), Paragraph(date.today().strftime('%m/%d/%Y'), styles['CedulaValue'])]
+    ]
+    header_table = Table(header_data, colWidths=[1*inch, 4.5*inch, 1.5*inch])
+    header_table.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+    ]))
+    elements.append(header_table)
+    
+    # CTC Number
+    ctc_data = [[Paragraph('CTC NUMBER', styles['CedulaLabel']), Paragraph(cedula.ctc_number, styles['CedulaValue'])]]
+    ctc_table = Table(ctc_data, colWidths=[1.5*inch, 5.5*inch])
+    ctc_table.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+    ]))
+    elements.append(ctc_table)
+    
+    # Name/Company
+    name_label = 'NAME (Surname, First Name, Middle Name)' if not is_corp else 'COMPANY NAME'
+    name_data = [
+        [Paragraph(name_label, styles['CedulaLabel']), Paragraph('TIN (If any)', styles['CedulaLabel'])],
+        [Paragraph(resident.full_name.upper(), styles['CedulaValue']), Paragraph('', styles['CedulaValue'])]
+    ]
+    name_table = Table(name_data, colWidths=[5.5*inch, 1.5*inch])
+    name_table.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+    ]))
+    elements.append(name_table)
+    
+    addr_data = [[Paragraph('ADDRESS', styles['CedulaLabel']), Paragraph(resident.address, styles['CedulaValue'])]]
+    addr_table = Table(addr_data, colWidths=[1*inch, 6*inch])
+    addr_table.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+    ]))
+    elements.append(addr_table)
+    
+    if not is_corp:
+        info_row1 = [
+            [Paragraph('CITIZENSHIP', styles['CedulaLabel']), Paragraph('CIVIL STATUS', styles['CedulaLabel']), Paragraph('GENDER', styles['CedulaLabel']), Paragraph('BIRTH DATE', styles['CedulaLabel'])],
+            [Paragraph(resident.nationality, styles['CedulaValue']), Paragraph(resident.get_civil_status_display(), styles['CedulaValue']), Paragraph(resident.get_gender_display(), styles['CedulaValue']), Paragraph(resident.birthdate.strftime('%m/%d/%Y'), styles['CedulaValue'])]
+        ]
+        info_table1 = Table(info_row1, colWidths=[1.75*inch, 1.75*inch, 1.75*inch, 1.75*inch])
+        info_table1.setStyle(TableStyle([
+            ('BOX', (0,0), (-1,-1), 1, colors.black),
+            ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+        ]))
+        elements.append(info_table1)
+        
+        info_row2 = [
+            [Paragraph('PLACE OF BIRTH', styles['CedulaLabel']), Paragraph('HEIGHT', styles['CedulaLabel']), Paragraph('WEIGHT', styles['CedulaLabel']), Paragraph('PROFESSION / OCCUPATION', styles['CedulaLabel'])],
+            [Paragraph(resident.birthplace, styles['CedulaValue']), Paragraph(cedula.height, styles['CedulaValue']), Paragraph(cedula.weight, styles['CedulaValue']), Paragraph(resident.occupation, styles['CedulaValue'])]
+        ]
+        info_table2 = Table(info_row2, colWidths=[1.75*inch, 1.1*inch, 1.1*inch, 3.05*inch])
+        info_table2.setStyle(TableStyle([
+            ('BOX', (0,0), (-1,-1), 1, colors.black),
+            ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+        ]))
+        elements.append(info_table2)
+    else:
+        corp_info = [[Paragraph('DATE OF INCORPORATION / REGISTRATION', styles['CedulaLabel']), Paragraph('NATURE OF BUSINESS', styles['CedulaLabel'])]]
+        corp_table = Table(corp_info, colWidths=[3.5*inch, 3.5*inch])
+        corp_table.setStyle(TableStyle([
+            ('BOX', (0,0), (-1,-1), 1, colors.black),
+            ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+        ]))
+        elements.append(corp_table)
+    
+    elements.append(Spacer(1, 10))
+    
+    # Financial Section
+    basic_label = 'BASIC COMMUNITY TAX (₱5.00) Voluntary or Exempted (₱1.00)' if not is_corp else 'BASIC COMMUNITY TAX (₱500.00)'
+    fin_header = [[Paragraph('COMMUNITY TAX DUE', styles['CedulaLabel']), Paragraph(basic_label, styles['CedulaLabel']), Paragraph('AMOUNT', styles['CedulaLabel'])]]
+    fin_table_h = Table(fin_header, colWidths=[3.5*inch, 2.5*inch, 1.5*inch])
+    fin_table_h.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+    ]))
+    elements.append(fin_table_h)
+    
+    # Calculate capped additional tax for display
+    raw_additional = cedula.total_additional_tax
+    addl_cap = Decimal('5000.00') if not is_corp else Decimal('10000.00')
+    capped_additional = min(raw_additional, addl_cap)
+    
+    if not is_corp:
+        fin_data = [
+            [Paragraph('1. BASIC COMMUNITY TAX', styles['CedulaValue']), '', Paragraph(f"{cedula.basic_tax:,.2f}", styles['CedulaMoney'])],
+            [Paragraph('2. ADDITIONAL COMMUNITY TAX (Taxable amount not to exceed ₱5,000.00)', styles['CedulaValue']), '', ''],
+            [Paragraph('   (a) GROSS ANNUAL SALARY OR EARNINGS DERIVED FROM EXERCISE OF PROFESSION (₱1.00 for every ₱1,000)', styles['CedulaValue']), '', Paragraph(f"{cedula.additional_tax_income:,.2f}", styles['CedulaMoney'])],
+            [Paragraph('   (b) GROSS RECEIPTS OR EARNINGS DERIVED FROM BUSINESS DURING THE PRECEDING YEAR (₱1.00 for every ₱1,000)', styles['CedulaValue']), '', Paragraph(f"{cedula.additional_tax_business:,.2f}", styles['CedulaMoney'])],
+            [Paragraph('   (c) INCOME FROM REAL PROPERTY (₱1.00 for every ₱1,000)', styles['CedulaValue']), '', Paragraph(f"{cedula.additional_tax_property:,.2f}", styles['CedulaMoney'])],
+        ]
+    else:
+        fin_data = [
+            [Paragraph('1. BASIC COMMUNITY TAX', styles['CedulaValue']), '', Paragraph(f"{cedula.basic_tax:,.2f}", styles['CedulaMoney'])],
+            [Paragraph('2. ADDITIONAL COMMUNITY TAX (Taxable amount not to exceed ₱10,000.00)', styles['CedulaValue']), '', ''],
+            [Paragraph('   (a) ASSESSED VALUE OF REAL PROPERTY OWNED (₱2.00 for every ₱5,000)', styles['CedulaValue']), '', Paragraph(f"{cedula.additional_tax_property:,.2f}", styles['CedulaMoney'])],
+            [Paragraph('   (b) GROSS RECEIPTS OR EARNINGS FROM BUSINESS (₱2.00 for every ₱5,000)', styles['CedulaValue']), '', Paragraph(f"{cedula.additional_tax_business:,.2f}", styles['CedulaMoney'])],
+        ]
+        
+    fin_data.extend([
+        [Paragraph('TOTAL (Basic + Capped Additional)', styles['CedulaValue']), '', Paragraph(f"{(cedula.basic_tax + capped_additional):,.2f}", styles['CedulaMoney'])],
+        [Paragraph('INTEREST', styles['CedulaValue']), '', Paragraph(f"{cedula.interest:,.2f}", styles['CedulaMoney'])],
+        [Paragraph('TOTAL AMOUNT PAID', styles['CedulaHeader']), '', Paragraph(f"₱{cedula.total_amount:,.2f}", styles['CedulaHeader'])],
+    ])
+    
+    fin_table = Table(fin_data, colWidths=[3.5*inch, 2.5*inch, 1.5*inch])
+    fin_table.setStyle(TableStyle([
+        ('BOX', (0,0), (-1,-1), 1, colors.black),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('ALIGN', (2,0), (2,-1), 'RIGHT'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    elements.append(fin_table)
+    
+    elements.append(Spacer(1, 40))
+    
+    # Signatures
+    label1 = "Taxpayer's Signature" if not is_corp else "Authorized Representative"
+    label2 = "Municipal/City Treasurer"
+    
+    sig_data = [
+        [Paragraph('_______________________________', styles['CedulaValue']), Paragraph('_______________________________', styles['CedulaValue'])],
+        [Paragraph(label1, styles['CedulaSubHeader']), Paragraph(label2, styles['CedulaSubHeader'])]
+    ]
+    sig_table = Table(sig_data, colWidths=[3.5*inch, 3.5*inch])
+    sig_table.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+    ]))
+    elements.append(sig_table)
+    
+    doc.build(elements, onFirstPage=draw_watermark)
+    buffer.seek(0)
+    return buffer
+
+
+def generate_receipt_pdf(certificate):
+    """
+    Generate a 2-copy printable receipt (Resident & Barangay copies) on a single A4/Letter page.
+    """
+    buffer = io.BytesIO()
+    # Using letter size which is 8.5 x 11 inches
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            topMargin=0.5 * inch, bottomMargin=0.5 * inch,
+                            leftMargin=0.5 * inch, rightMargin=0.5 * inch)
+    
+    styles = getSampleStyleSheet()
+    
+    # Custom styles for receipt
+    styles.add(ParagraphStyle(name='ReceiptHeader', fontSize=10, alignment=TA_CENTER, fontName='Helvetica-Bold'))
+    styles.add(ParagraphStyle(name='CertHeaderLabel', fontSize=10, alignment=TA_CENTER, fontName='Helvetica', leading=12))
+    styles.add(ParagraphStyle(name='ReceiptTitle', fontSize=14, alignment=TA_CENTER, fontName='Helvetica-Bold', spaceBefore=10, spaceAfter=10))
+    styles.add(ParagraphStyle(name='ReceiptLabel', fontSize=11, fontName='Helvetica-Bold'))
+    styles.add(ParagraphStyle(name='ReceiptValue', fontSize=11, fontName='Helvetica'))
+    styles.add(ParagraphStyle(name='CopyLabel', fontSize=9, alignment=TA_RIGHT, fontName='Helvetica-Oblique', textColor=colors.grey))
+
+    def create_receipt_elements(copy_type):
+        elements = []
+        
+        # Copy indicator
+        elements.append(Paragraph(f"{copy_type} COPY", styles['CopyLabel']))
+        
+        # Header
+        brgy_name = getattr(settings, 'BARANGAY_NAME', 'Sico-Sico')
+        municipality = getattr(settings, 'BARANGAY_MUNICIPALITY', 'Gigaquit')
+        province = getattr(settings, 'BARANGAY_PROVINCE', 'Surigao del Norte')
+        
+        elements.append(Paragraph('REPUBLIC OF THE PHILIPPINES', styles['ReceiptHeader']))
+        elements.append(Paragraph(f'Barangay {brgy_name.upper()}, {municipality}, {province}', styles['ReceiptHeader']))
+        elements.append(Paragraph('OFFICIAL RECEIPT', styles['ReceiptTitle']))
+        
+        # Receipt Data Table
+        data = [
+            [Paragraph('Control Number:', styles['ReceiptLabel']), Paragraph(certificate.control_number, styles['ReceiptValue'])],
+            [Paragraph('OR Number:', styles['ReceiptLabel']), Paragraph(certificate.or_number or "N/A", styles['ReceiptValue'])],
+            [Paragraph('Date Issued:', styles['ReceiptLabel']), Paragraph(certificate.created_at.strftime('%B %d, %Y'), styles['ReceiptValue'])],
+            [Paragraph('Received From:', styles['ReceiptLabel']), Paragraph(certificate.resident.full_name, styles['ReceiptValue'])],
+            [Paragraph('Nature of Payment:', styles['ReceiptLabel']), Paragraph(certificate.get_cert_type_display(), styles['ReceiptValue'])],
+            [Paragraph('Purpose:', styles['ReceiptLabel']), Paragraph(certificate.purpose, styles['ReceiptValue'])],
+            [Paragraph('Amount Paid:', styles['ReceiptLabel']), Paragraph(f"<b>PHP {certificate.amount_paid:,.2f}</b>", styles['ReceiptValue'])],
+        ]
+        
+        t = Table(data, colWidths=[1.8 * inch, 5.2 * inch])
+        t.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('PADDING', (0, 0), (-1, -1), 6),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 0.4 * inch))
+        
+        # Signature block
+        sig_data = [
+            [Paragraph('__________________________', styles['ReceiptHeader']), Spacer(1, 1), Paragraph('__________________________', styles['ReceiptHeader'])],
+            [Paragraph('Resident Signature', styles['CertHeaderLabel']), Spacer(1, 1), Paragraph('Barangay Collector/Treasurer', styles['CertHeaderLabel'])]
+        ]
+        sig_table = Table(sig_data, colWidths=[3 * inch, 1 * inch, 3 * inch])
+        elements.append(sig_table)
+        
+        return elements
+
+    # Combine Resident and Barangay copies
+    all_elements = []
+    
+    # Resident Copy
+    all_elements.extend(create_receipt_elements("RESIDENT"))
+    
+    # Separation Dash Line
+    all_elements.append(Spacer(1, 0.5 * inch))
+    all_elements.append(Paragraph('-' * 140, styles['ReceiptHeader']))
+    all_elements.append(Spacer(1, 0.5 * inch))
+    
+    # Barangay Copy
+    all_elements.extend(create_receipt_elements("BARANGAY"))
+    
+    doc.build(all_elements)
+    buffer.seek(0)
+    return buffer

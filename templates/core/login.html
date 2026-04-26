@@ -480,7 +480,7 @@
 
       function applyLoginMethod() {
         const method = loginMethodHidden ? loginMethodHidden.value : 'password';
-        if (method === 'biometric') {
+        if (method ==   = 'biometric') {
           if (passwordCredentials) passwordCredentials.style.display = 'none';
           if (biometricCredentials) biometricCredentials.style.display = 'block';
           if (passwordInput) passwordInput.required = false;
@@ -495,8 +495,8 @@
       function setLoginMethod(method) {
         if (loginMethodHidden) loginMethodHidden.value = method;
         if (methodPasswordBtn && methodBiometricBtn) {
-          methodPasswordBtn.classList.toggle('active', method === 'password');
-          methodBiometricBtn.classList.toggle('active', method === 'biometric');
+          methodPasswordBtn.classList.toggle('active', method ==   = 'password');
+          methodBiometricBtn.classList.toggle('active', method ==   = 'biometric');
         }
         applyLoginMethod();
       }
@@ -559,10 +559,10 @@
           fetch("/biometric-status-check/")
             .then(response => response.json())
             .then(data => {
-              if (data.status === 'authenticated') {
+              if (data.status ==   = 'authenticated') {
                 resetBiometricUI();
                 window.location.href = "{% url 'dashboard' %}";
-              } else if (data.status === 'failed') {
+              } else if (data.status ==   = 'failed') {
                 resetBiometricUI(data.reason || 'Finger not recognized. Try again.');
                 btnBio.disabled = false;
                 btnBio.innerHTML = '<i class="fas fa-play mr-2"></i> Start Biometric Scan';

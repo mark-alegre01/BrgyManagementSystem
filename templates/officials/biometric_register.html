@@ -187,7 +187,7 @@
                 personName.textContent = opt.textContent;
                 personPosition.textContent = opt.dataset.position;
 
-                updateFingerprintBadge(opt.dataset.fingerprint === 'true');
+                updateFingerprintBadge(opt.dataset.fingerprint ==   = 'true');
                 registrationPanel.classList.remove('d-none');
             } else {
                 registrationPanel.classList.add('d-none');
@@ -218,7 +218,7 @@
             fetch(`/officials/${currentOfficialId}/capture/?official_id=${currentOfficialId}`)
                 .then(res => res.json())
                 .then(data => {
-                    if (data.status === 'success') {
+                    if (data.status ==   = 'success') {
                         startStatusPolling();
                     } else {
                         showError(data.message);

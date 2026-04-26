@@ -31,9 +31,9 @@
                         <td>{{ app.get_purpose_display }}</td>
                         <td>
                             <span class="badge rounded-pill 
-                                {% if app.status == 'approved' %}bg-success
-                                {% elif app.status == 'pending' %}bg-warning text-dark
-                                {% elif app.status == 'cancelled' %}bg-danger
+                                {% if app.status ==   'approved' %}bg-success
+                                {% elif app.status ==   'pending' %}bg-warning text-dark
+                                {% elif app.status ==   'cancelled' %}bg-danger
                                 {% else %}bg-secondary{% endif %}">
                                 {{ app.get_status_display }}
                             </span>

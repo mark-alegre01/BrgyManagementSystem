@@ -49,15 +49,15 @@
           <div class="form-group col-4">
             <label>Gender*</label>
             <select name="gender" class="form-control" required>
-              <option value="M" {% if resident.gender == 'M' %}selected{% endif %}>Male</option>
-              <option value="F" {% if resident.gender == 'F' %}selected{% endif %}>Female</option>
+              <option value="M" {% if resident.gender ==   'M' %}selected{% endif %}>Male</option>
+              <option value="F" {% if resident.gender ==   'F' %}selected{% endif %}>Female</option>
             </select>
           </div>
           <div class="form-group col-4">
             <label>Civil Status*</label>
             <select name="civil_status" class="form-control" required>
               {% for code, label in resident.CIVIL_STATUS_CHOICES %}
-              <option value="{{ code }}" {% if resident.civil_status == code %}selected{% endif %}>{{ label }}</option>
+              <option value="{{ code }}" {% if resident.civil_status ==   code %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
           </div>
@@ -85,19 +85,19 @@
               <input type="text" name="occupation" id="id_occupation" value="{{ resident.occupation }}" class="form-control" {% if resident.is_official %}style="display:none;"{% endif %}>
               <select name="official_position" id="id_official_position" class="form-control" {% if not resident.is_official %}style="display:none;"{% endif %}>
                 <option value="">-- Select Position --</option>
-                <option value="captain" {% if resident.official_record.position == 'captain' %}selected{% endif %}>Punong Barangay (Captain)</option>
-                <option value="kagawad" {% if resident.official_record.position == 'kagawad' %}selected{% endif %}>Sangguniang Barangay Member (Kagawad)</option>
-                <option value="secretary" {% if resident.official_record.position == 'secretary' %}selected{% endif %}>Barangay Secretary</option>
-                <option value="treasurer" {% if resident.official_record.position == 'treasurer' %}selected{% endif %}>Barangay Treasurer</option>
-                <option value="sk_chairman" {% if resident.official_record.position == 'sk_chairman' %}selected{% endif %}>SK Chairperson</option>
-                <option value="sk_kagawad" {% if resident.official_record.position == 'sk_kagawad' %}selected{% endif %}>SK Kagawad</option>
-                <option value="tanod" {% if resident.official_record.position == 'tanod' %}selected{% endif %}>Barangay Tanod</option>
-                <option value="health_worker" {% if resident.official_record.position == 'health_worker' %}selected{% endif %}>Barangay Health Worker (BHW)</option>
-                <option value="nutrition_scholar" {% if resident.official_record.position == 'nutrition_scholar' %}selected{% endif %}>Barangay Nutrition Scholar (BNS)</option>
-                <option value="day_care_worker" {% if resident.official_record.position == 'day_care_worker' %}selected{% endif %}>Day Care Worker</option>
-                <option value="lupon" {% if resident.official_record.position == 'lupon' %}selected{% endif %}>Lupon Member</option>
-                <option value="clerk" {% if resident.official_record.position == 'clerk' %}selected{% endif %}>Barangay Clerk</option>
-                <option value="staff" {% if resident.official_record.position == 'staff' %}selected{% endif %}>Barangay Staff</option>
+                <option value="captain" {% if resident.official_record.position ==   'captain' %}selected{% endif %}>Punong Barangay (Captain)</option>
+                <option value="kagawad" {% if resident.official_record.position ==   'kagawad' %}selected{% endif %}>Sangguniang Barangay Member (Kagawad)</option>
+                <option value="secretary" {% if resident.official_record.position ==   'secretary' %}selected{% endif %}>Barangay Secretary</option>
+                <option value="treasurer" {% if resident.official_record.position ==   'treasurer' %}selected{% endif %}>Barangay Treasurer</option>
+                <option value="sk_chairman" {% if resident.official_record.position ==   'sk_chairman' %}selected{% endif %}>SK Chairperson</option>
+                <option value="sk_kagawad" {% if resident.official_record.position ==   'sk_kagawad' %}selected{% endif %}>SK Kagawad</option>
+                <option value="tanod" {% if resident.official_record.position ==   'tanod' %}selected{% endif %}>Barangay Tanod</option>
+                <option value="health_worker" {% if resident.official_record.position ==   'health_worker' %}selected{% endif %}>Barangay Health Worker (BHW)</option>
+                <option value="nutrition_scholar" {% if resident.official_record.position ==   'nutrition_scholar' %}selected{% endif %}>Barangay Nutrition Scholar (BNS)</option>
+                <option value="day_care_worker" {% if resident.official_record.position ==   'day_care_worker' %}selected{% endif %}>Day Care Worker</option>
+                <option value="lupon" {% if resident.official_record.position ==   'lupon' %}selected{% endif %}>Lupon Member</option>
+                <option value="clerk" {% if resident.official_record.position ==   'clerk' %}selected{% endif %}>Barangay Clerk</option>
+                <option value="staff" {% if resident.official_record.position ==   'staff' %}selected{% endif %}>Barangay Staff</option>
               </select>
             </div>
           </div>
@@ -113,7 +113,7 @@
             <select name="household" id="id_household" class="form-control">
               <option value="">No Household Assigned</option>
               {% for household in households %}
-              <option value="{{ household.pk }}" data-purok="{{ household.purok }}" {% if resident.household.pk == household.pk %}selected{% endif %}>{{ household.household_no }}{% if household.purok %} — {{ household.purok }}{% endif %}</option>
+              <option value="{{ household.pk }}" data-purok="{{ household.purok }}" {% if resident.household.pk ==   household.pk %}selected{% endif %}>{{ household.household_no }}{% if household.purok %} — {{ household.purok }}{% endif %}</option>
               {% endfor %}
             </select>
           </div>
@@ -244,7 +244,7 @@
         }
 
         const householdPurok = option.getAttribute('data-purok').toLowerCase().trim();
-        if (!selectedPurok || householdPurok === selectedPurok) {
+        if (!selectedPurok || householdPurok ==   = selectedPurok) {
           householdSelect.appendChild(option);
         }
       });

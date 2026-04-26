@@ -143,10 +143,10 @@
         <label>Role</label>
         <select name="role" class="form-control" required>
           <option value="">Select role</option>
-          <option value="captain" {% if form.role.value == 'captain' %}selected{% endif %}>Barangay Captain</option>
-          <option value="secretary" {% if form.role.value == 'secretary' %}selected{% endif %}>Secretary</option>
-          <option value="treasurer" {% if form.role.value == 'treasurer' %}selected{% endif %}>Treasurer</option>
-          <option value="bhw" {% if form.role.value == 'bhw' %}selected{% endif %}>Barangay BHW</option>
+          <option value="captain" {% if form.role.value ==   'captain' %}selected{% endif %}>Barangay Captain</option>
+          <option value="secretary" {% if form.role.value ==   'secretary' %}selected{% endif %}>Secretary</option>
+          <option value="treasurer" {% if form.role.value ==   'treasurer' %}selected{% endif %}>Treasurer</option>
+          <option value="bhw" {% if form.role.value ==   'bhw' %}selected{% endif %}>Barangay BHW</option>
         </select>
         {% if form.role.errors %}
         <div class="text-danger">{{ form.role.errors }}</div>

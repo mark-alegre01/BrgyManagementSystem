@@ -239,11 +239,11 @@
       fetch("{% url 'core:biometric_status_check' %}")
         .then(response => response.json())
         .then(data => {
-          if (data.status === 'authenticated') {
+          if (data.status ==   = 'authenticated') {
             clearInterval(pollInterval);
             attendanceStatus.innerHTML = '<span class="badge badge-success">Attendance Recorded!</span>';
             setTimeout(() => location.reload(), 2000);
-          } else if (data.status === 'failed') {
+          } else if (data.status ==   = 'failed') {
             clearInterval(pollInterval);
             btnAttendance.disabled = false;
             btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';

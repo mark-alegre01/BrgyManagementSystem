@@ -30,7 +30,7 @@
 <div class="card">
   <div class="card-header bg-light d-flex justify-content-between align-items-center">
     <h2 class="mb-0">{{ ordinance.title }}</h2>
-    <span class="badge {% if ordinance.status == 'active' %}badge-success{% else %}badge-warning{% endif %}">
+    <span class="badge {% if ordinance.status ==   'active' %}badge-success{% else %}badge-warning{% endif %}">
       {{ ordinance.get_status_display }}
     </span>
   </div>

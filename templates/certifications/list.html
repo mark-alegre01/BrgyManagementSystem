@@ -8,81 +8,97 @@
 
 {% block content %}
 <div class="page-header">
-  <div class="page-title">
-    <h1>Document Certifications</h1>
-    <span>Manage and issue barangay clearances and certificates</span>
-  </div>
-  <div class="header-actions">
-    <a href="{% url 'certifications:issue' %}" class="btn btn-primary">
-      <i class="fas fa-file-signature"></i> Issue New Certificate
-    </a>
-  </div>
+    <div class="page-title">
+        <h1>Document Certifications</h1>
+        <span>Manage and issue barangay clearances and certificates</span>
+    </div>
+    <div class="header-actions">
+        <a href="{% url 'certifications:issue' %}" class="btn btn-primary">
+            <i class="fas fa-file-signature"></i> Issue New Certificate
+        </a>
+    </div>
 </div>
 
 <div class="card">
-  <div class="card-header">
-    <form method="GET" class="filter-form">
-      <input type="text" name="q" value="{{ query }}" placeholder="Search control no. or name..."
-        class="form-control-sm">
-      <select name="type">
-        <option value="">All Types</option>
-        {% for code, label in cert_types %}
-        <option value="{{ code }}" {% if code == selected_type %}selected{% endif %}>{{ label }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="btn btn-outline btn-sm">Filter</button>
-    </form>
-  </div>
-  <div class="table-responsive">
-    <table>
-      <thead>
-        <tr>
-          <th>Control Number</th>
-          <th>Resident</th>
-          <th>Type</th>
-          <th>Date Issued</th>
-          <th>OR Number</th>
-          <th>Amount</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for cert in certificates %}
-        <tr>
-          <td><strong>{{ cert.control_number }}</strong></td>
-          <td>{{ cert.resident.full_name }}</td>
-          <td>{{ cert.get_cert_type_display }}</td>
-          <td>{{ cert.date_issued|date:"M d, Y" }}</td>
-          <td>{{ cert.or_number|default:"-" }}</td>
-          <td>₱{{ cert.amount_paid }}</td>
-          <td>
-            <div class="btn-group">
-              <a href="{% url 'certifications:view' cert.pk %}" class="btn btn-outline btn-icon"
-                title="View"><i class="fas fa-eye"></i></a>
-              <a href="{% url 'certifications:pdf' cert.pk %}" target="_blank"
-                class="btn btn-outline btn-icon" title="Print/PDF"><i class="fas fa-print"></i></a>
+    <div class="card-header filter-card-header">
+        <form method="GET" class="filter-form">
+            <div class="filter-inputs-group">
+                <div class="search-input-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" name="q" value="{{ query }}" placeholder="Search control no. or name..."
+                        class="form-control search-input">
+                    {% if query %}
+                    <a href="{% url 'certifications:list' %}" class="search-clear" title="Clear search">
+                        <i class="fas fa-times-circle"></i>
+                    </a>
+                    {% endif %}
+                </div>
+
+                <div class="filter-select-wrapper">
+                    <i class="fas fa-filter filter-icon"></i>
+                    <select name="type" class="form-control filter-select">
+                        <option value="">All Types</option>
+                        {% for code, label in cert_types %}
+                        <option value="{{ code }}" {% if code == selected_type %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="7" class="text-center">No certificates found.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+
+            <button type="submit" class="btn btn-primary search-btn">
+                <i class="fas fa-search"></i> <span>Search</span>
+            </button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Control Number</th>
+                    <th>Resident</th>
+                    <th>Type</th>
+                    <th>Date Issued</th>
+                    <th>OR Number</th>
+                    <th>Amount</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cert in certificates %}
+                <tr>
+                    <td><strong>{{ cert.control_number }}</strong></td>
+                    <td>{{ cert.resident.full_name }}</td>
+                    <td>{{ cert.get_cert_type_display }}</td>
+                    <td>{{ cert.date_issued|date:"M d, Y" }}</td>
+                    <td>{{ cert.or_number|default:"-" }}</td>
+                    <td>Php{{ cert.amount_paid }}</td>
+                    <td>
+                        <div class="btn-group">
+                            <a href="{% url 'certifications:view' cert.pk %}" class="btn-icon btn-view" title="View">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'certifications:pdf' cert.pk %}" target="_blank" class="btn-icon btn-print"
+                                title="Print/PDF">
+                                <i class="fas fa-print"></i>
+                            </a>
+                            <form method="POST" action="{% url 'certifications:delete' cert.pk %}"
+                                onsubmit="return confirm('Delete {{ cert.control_number }}? This cannot be undone.');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn-icon btn-delete" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center">No certificates found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 
-<style>
-  .filter-form {
-    display: flex;
-    gap: 10px;
-  }
-
-  .btn-icon {
-    padding: 5px 10px;
-    font-size: 12px;
-  }
-</style>
 {% endblock %}
