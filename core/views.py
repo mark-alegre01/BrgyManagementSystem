@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.auth.models import User
-from django.http import JsonResponse
+from django.http import JsonResponse, FileResponse
 from django import forms
 from django.utils.text import slugify
 from django.utils.timezone import now
@@ -13,12 +13,13 @@ import os
 import sys
 import subprocess
 from .models import UserProfile
-from residents.models import Resident, Household
+from residents.models import Resident, Household, ResidentRegistration
 from certifications.models import Certificate
 from officials.models import Official
 from attendance.models import AttendanceLog
 from ordinances.models import Ordinance
 from datetime import date
+from .utils.backup import perform_backup, get_backup_destinations, create_backup_archive
 
 
 OFFICIAL_ROLE_CHOICES = [
@@ -26,6 +27,7 @@ OFFICIAL_ROLE_CHOICES = [
     ('secretary', 'Secretary'),
     ('treasurer', 'Treasurer'),
     ('bhw', 'Barangay BHW'),
+    ('resident', 'Resident'),
 ]
 
 OFFICIAL_USERNAME_BY_ROLE = {
@@ -79,6 +81,8 @@ def dashboard(request):
         'certificates_today': Certificate.objects.filter(date_issued=today).count(),
         'certificates_total': Certificate.objects.count(),
         'attendance_today': AttendanceLog.objects.filter(date=today).count(),
+        'pending_registrations_count': ResidentRegistration.objects.filter(status='pending').count(),
+        'pending_registrations_today': ResidentRegistration.objects.filter(status='pending', created_at__date=today).count(),
         'recent_certificates': Certificate.objects.select_related('resident').order_by('-date_issued')[:5],
         'recent_residents': Resident.objects.order_by('-created_at')[:5],
         'male_count': Resident.objects.filter(gender='M', is_active=True).count(),
@@ -122,8 +126,12 @@ import json
 def biometric_templates(request):
     """API for the 32-bit service to fetch all registered templates."""
     role = (request.GET.get('role') or '').strip()
+    username_param = (request.GET.get('username') or '').strip()
     profiles = UserProfile.objects.exclude(fingerprint_template__isnull=True).exclude(fingerprint_template='')
-    if role:
+    
+    if username_param:
+        profiles = profiles.filter(user__username=username_param)
+    elif role:
         username = OFFICIAL_USERNAME_BY_ROLE.get(role)
         if username:
             profiles = profiles.filter(user__username=username)
@@ -245,7 +253,9 @@ def biometric_login_start(request):
             except json.JSONDecodeError:
                 payload = {}
             role = (payload.get('role') or '').strip()
+            username = (payload.get('username') or '').strip()
         role = role or (request.GET.get('role') or '').strip()
+        username = username or (request.GET.get('username') or '').strip()
 
         if role and role not in dict(OFFICIAL_ROLE_CHOICES):
             return JsonResponse({'status': 'error', 'message': 'Invalid role'}, status=400)
@@ -268,6 +278,8 @@ def biometric_login_start(request):
         ]
         if role:
             popen_args += ['--role', role]
+        if username:
+            popen_args += ['--username', username]
 
         if os.name == 'nt':
             subprocess.Popen(popen_args, creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0))
@@ -309,16 +321,29 @@ def login_view(request):
         return redirect('dashboard')
 
     if request.method == 'POST':
-        role = request.POST.get('role')
+        user_type = request.POST.get('user_type', 'official')
+        role = request.POST.get('role') if user_type == 'official' else 'resident'
         password = request.POST.get('password')
-        username = OFFICIAL_USERNAME_BY_ROLE.get(role)
+        
+        if user_type == 'resident':
+            username = request.POST.get('username')
+        else:
+            username = OFFICIAL_USERNAME_BY_ROLE.get(role)
+
         user = authenticate(request, username=username, password=password) if username else None
         if user is not None:
+            if user_type == 'official' and not user.is_superuser:
+               # Double check role matches the user profile for official roles
+               profile = getattr(user, 'profile', None)
+               if profile and profile.role != role:
+                   messages.error(request, 'Role mismatch for this account.')
+                   return render(request, 'core/login.html')
+
             login(request, user)
             messages.success(request, f'Welcome back, {user.get_full_name() or user.username}!')
             return redirect('dashboard')
         else:
-            messages.error(request, 'Invalid role or password.')
+            messages.error(request, 'Invalid credentials or role.')
 
     return render(request, 'core/login.html')
 
@@ -394,70 +419,97 @@ def resident_signup_view(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
 
-    class ResidentSignupForm(forms.Form):
-        first_name = forms.CharField(max_length=150)
-        middle_name = forms.CharField(max_length=150, required=False)
-        last_name = forms.CharField(max_length=150)
-        username = forms.CharField(max_length=150)
-        philsys_id = forms.CharField(max_length=50, required=False)
-        password1 = forms.CharField(widget=forms.PasswordInput)
-        password2 = forms.CharField(widget=forms.PasswordInput)
-
-        def clean(self):
-            cleaned = super().clean()
-            p1 = cleaned.get('password1')
-            p2 = cleaned.get('password2')
-            if p1 and p2 and p1 != p2:
-                raise forms.ValidationError('Passwords do not match.')
-            
-            uname = cleaned.get('username')
-            if User.objects.filter(username=uname).exists():
-                raise forms.ValidationError('Username is already taken.')
-            
-            return cleaned
-
     if request.method == 'POST':
-        form = ResidentSignupForm(request.POST)
-        if form.is_valid():
-            username = form.cleaned_data['username'].strip()
-            password = form.cleaned_data['password1']
-            first_name = form.cleaned_data['first_name'].strip()
-            last_name = form.cleaned_data['last_name'].strip()
-            middle_name = (form.cleaned_data.get('middle_name') or '').strip()
-            philsys_id = (form.cleaned_data.get('philsys_id') or '').strip()
-
-            user = User.objects.create_user(username=username, password=password)
-            user.first_name = first_name
-            user.last_name = last_name
-            user.save()
-
-            # Create profile and try to link to resident
-            resident = Resident.objects.none()
-            if philsys_id:
-                resident = Resident.objects.filter(philSys_number=philsys_id).first()
+        # Collect all fields from the multi-step form
+        try:
+            from django.contrib.auth.hashers import make_password
             
-            if not resident:
-                # Try name match
-                resident = Resident.objects.filter(
-                    first_name__iexact=first_name,
-                    last_name__iexact=last_name
-                ).first()
-
-            UserProfile.objects.create(
-                user=user,
-                role='resident',
-                middle_name=middle_name,
-                philSys_id=philsys_id,
-                resident=resident
+            # Manual extraction from POST to support dynamic steps without a complex Form class
+            reg = ResidentRegistration(
+                # Step 1
+                first_name=request.POST.get('first_name', '').strip(),
+                middle_name=request.POST.get('middle_name', '').strip(),
+                last_name=request.POST.get('last_name', '').strip(),
+                suffix=request.POST.get('suffix', '').strip(),
+                birthdate=request.POST.get('birthdate'),
+                birthplace=request.POST.get('birthplace', '').strip(),
+                gender=request.POST.get('gender'),
+                civil_status=request.POST.get('civil_status'),
+                nationality=request.POST.get('citizenship', 'Filipino').strip(),
+                religion=request.POST.get('religion', '').strip(),
+                highest_education=request.POST.get('highest_education'),
+                occupation=request.POST.get('occupation', '').strip(),
+                
+                # Step 2
+                mobile_number=request.POST.get('mobile_number', '').strip(),
+                email=request.POST.get('email', '').strip(),
+                house_number=request.POST.get('house_number', '').strip(),
+                street=request.POST.get('street', '').strip(),
+                purok=request.POST.get('purok', '').strip(),
+                barangay=request.POST.get('barangay', '').strip(),
+                municipality=request.POST.get('municipality', '').strip(),
+                city=request.POST.get('city', '').strip(),
+                zip_code=request.POST.get('zip_code', '').strip(),
+                years_of_residency=int(request.POST.get('years_of_residency', 0)),
+                philSys_number=request.POST.get('philSys_number', '').strip() or None,
+                
+                # Step 3
+                is_joining_household=(request.POST.get('household_action') == 'join'),
+                household_number=request.POST.get('household_number', '').strip(),
+                is_pwd=(request.POST.get('is_pwd') == 'on'),
+                is_senior_citizen=(request.POST.get('is_senior_citizen') == 'on'),
+                is_4ps_member=(request.POST.get('is_4ps_member') == 'on'),
+                is_sole_parent=(request.POST.get('is_sole_parent') == 'on'),
+                is_registered_voter=(request.POST.get('is_registered_voter') == 'on'),
+                
+                guardian_name=request.POST.get('guardian_name', '').strip(),
+                guardian_relationship=request.POST.get('guardian_relationship', '').strip(),
+                guardian_contact=request.POST.get('guardian_contact', '').strip(),
+                guardian_id_number=request.POST.get('guardian_id_number', '').strip(),
+                
+                # Step 4
+                username=request.POST.get('username', '').strip(),
+                password=make_password(request.POST.get('password1')),
+                data_privacy_consent=(request.POST.get('data_privacy_consent') == 'on'),
             )
+            
+            # File Uploads
+            if request.FILES.get('photo'):
+                reg.photo = request.FILES['photo']
+            if request.FILES.get('id_card'):
+                reg.id_card = request.FILES['id_card']
+            if request.FILES.get('birth_certificate'):
+                reg.birth_certificate = request.FILES['birth_certificate']
+            if request.FILES.get('proof_of_residency'):
+                reg.proof_of_residency = request.FILES['proof_of_residency']
+                
+            # Check for duplicate username
+            if User.objects.filter(username=reg.username).exists() or ResidentRegistration.objects.filter(username=reg.username, status='pending').exists():
+                heads = Resident.objects.filter(is_household_head=True, is_active=True).select_related('household')
+                messages.error(request, 'Username is already taken or pending approval.')
+                return render(request, 'core/resident_signup.html', {'heads_of_households': heads})
 
-            login(request, user)
-            messages.success(request, 'Account created successfully! You can now book appointments.')
-            return redirect('dashboard')
-    else:
-        form = ResidentSignupForm()
+            # Delete any existing rejected/approved registrations to avoid UNIQUE constraint violation
+            # (Approved registrations have already been converted to User/Resident records)
+            ResidentRegistration.objects.filter(username=reg.username).exclude(status='pending').delete()
 
-    return render(request, 'core/resident_signup.html', {'form': form})
+            reg.save()
+            return redirect('registration_success', ref=reg.reference_number)
+            
+        except Exception as e:
+            heads = Resident.objects.filter(is_household_head=True, is_active=True).select_related('household')
+            messages.error(request, f'Registration failed: {str(e)}')
+            return render(request, 'core/resident_signup.html', {'heads_of_households': heads})
+            
+    heads = Resident.objects.filter(is_household_head=True, is_active=True).select_related('household')
+    return render(request, 'core/resident_signup.html', {'heads_of_households': heads})
+
+
+
+
+def registration_success_view(request, ref):
+    registration = get_object_or_404(ResidentRegistration, reference_number=ref)
+    return render(request, 'core/registration_success.html', {'registration': registration})
 
 
 @login_required
@@ -466,3 +518,120 @@ def logout_view(request):
     logout(request)
     messages.info(request, 'You have been logged out.')
     return redirect('login')
+
+
+@login_required
+def backup_download(request):
+    """Trigger data backup as a browser download."""
+    role = 'staff'
+    try: role = request.user.profile.role
+    except Exception: pass
+    
+    if not (request.user.is_superuser or role in ('admin', 'captain', 'secretary', 'treasurer')):
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+    
+    try:
+        zip_path = create_backup_archive()
+        response = FileResponse(open(zip_path, 'rb'), as_attachment=True)
+        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(zip_path)}"'
+        return response
+    except Exception as e:
+        messages.error(request, f"Download failed: {str(e)}")
+        return redirect('core:backup_setup')
+
+
+@login_required
+def backup_execute(request):
+    """Trigger data backup to a server-side destination."""
+    role = 'staff'
+    try: role = request.user.profile.role
+    except Exception: pass
+    
+    if not (request.user.is_superuser or role in ('admin', 'captain', 'secretary', 'treasurer')):
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+    
+    if request.method == 'POST':
+        target_path = request.POST.get('target_path')
+        success, message = perform_backup(target_base=target_path)
+        if success:
+            messages.success(request, f"Done! {message}")
+        else:
+            messages.error(request, message)
+    
+    return redirect('core:backup_setup')
+
+
+@login_required
+def backup_mount_drive(request):
+    """Attempt to mount a removable drive via udisksctl."""
+    role = 'staff'
+    try: role = request.user.profile.role
+    except Exception: pass
+    
+    if not (request.user.is_superuser or role in ('admin', 'captain', 'secretary', 'treasurer')):
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+        
+    device = request.POST.get('device')
+    do_backup = request.POST.get('perform_backup') == 'true'
+    
+    if device:
+        import subprocess
+        try:
+            # Attempt to mount
+            subprocess.run(['udisksctl', 'mount', '-b', device], check=True, timeout=10)
+            
+            if do_backup:
+                import time
+                from core.utils.backup import get_backup_destinations, perform_backup
+                
+                new_mount = None
+                # OS might take a second to settle the mount, so we retry a few times
+                for attempt in range(3):
+                    time.sleep(1.5) # Wait for OS
+                    all_dests = get_backup_destinations()
+                    new_mount = next((d['path'] for d in all_dests if d.get('device') == device and d.get('is_mounted')), None)
+                    if new_mount: break
+                
+                if new_mount:
+                    success, message = perform_backup(target_base=new_mount)
+                    if success:
+                        messages.success(request, f"Drive activated and {message}")
+                    else:
+                        messages.warning(request, f"Drive activated, but backup failed: {message}")
+                else:
+                    messages.success(request, f"Drive {device} activated successfully. Please click 'Save' below.")
+            else:
+                messages.success(request, f"Drive {device} activated successfully.")
+                
+        except subprocess.TimeoutExpired:
+            messages.warning(request, "Mount command timed out. Your drive might be ready, please refresh.")
+        except Exception as e:
+            messages.error(request, f"Failed to activate drive: {str(e)}")
+            
+    return redirect('core:backup_setup')
+
+
+from django.http import JsonResponse
+from core.utils.backup import get_backup_destinations
+
+@login_required
+def backup_check_dests(request):
+    """JSON endpoint for polling backup destinations."""
+    return JsonResponse({'destinations': get_backup_destinations()})
+
+@login_required
+def backup_setup(request):
+    """Show available backup destinations (GUI for choosing location)."""
+    role = 'staff'
+    try: role = request.user.profile.role
+    except Exception: pass
+    
+    if not (request.user.is_superuser or role in ('admin', 'captain', 'secretary', 'treasurer')):
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+        
+    destinations = get_backup_destinations()
+    return render(request, 'core/backup_choice.html', {'destinations': destinations})

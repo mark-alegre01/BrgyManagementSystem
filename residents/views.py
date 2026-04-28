@@ -4,9 +4,12 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
-from .models import Resident, Household
+from .models import Resident, Household, ResidentRegistration
+from django.contrib.auth.models import User
+from core.models import UserProfile
 from officials.models import Official
 import json
 import subprocess
@@ -261,15 +264,27 @@ def resident_update_fingerprint(request, pk):
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=405)
 
 @login_required
+@transaction.atomic
 def resident_delete(request, pk):
-    """Delete (deactivate) a resident."""
+    """Totally delete a resident and their associated User/UserProfile accounts."""
     resident = get_object_or_404(Resident, pk=pk)
     if request.method == 'POST':
-        resident.is_active = False
-        resident.save()
-        messages.success(request, f'Resident {resident.full_name} has been deactivated.')
+        full_name = resident.full_name
+        
+        # Delete associated User account if it exists
+        try:
+            if hasattr(resident, 'user_profile'):
+                user = resident.user_profile.user
+                user.delete()
+        except Exception:
+            pass
+            
+        resident.delete()
+        messages.success(request, f'Resident {full_name} and associated accounts have been permanently deleted.')
         return redirect('residents:list')
-    return render(request, 'residents/confirm_delete.html', {'resident': resident})
+    
+    # If not POST, just redirect back to list
+    return redirect('residents:list')
 
 
 @login_required
@@ -306,3 +321,152 @@ def household_view(request, pk):
         'household': household,
         'members': members,
     })
+
+@login_required
+def registration_list(request):
+    """List pending registrations for officials."""
+    if not request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin']:
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+    
+    registrations = ResidentRegistration.objects.all().order_by('-created_at')
+    status_filter = request.GET.get('status', 'pending')
+    if status_filter:
+        registrations = registrations.filter(status=status_filter)
+        
+    paginator = Paginator(registrations, 25)
+    page = request.GET.get('page')
+    registrations = paginator.get_page(page)
+    
+    return render(request, 'residents/registration_list.html', {
+        'registrations': registrations,
+        'status_filter': status_filter
+    })
+
+@login_required
+def registration_detail(request, pk):
+    """Review a specific registration."""
+    if not request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin']:
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+        
+    registration = get_object_or_404(ResidentRegistration, pk=pk)
+    return render(request, 'residents/registration_detail.html', {
+        'registration': registration
+    })
+
+@login_required
+def approve_registration(request, pk):
+    """Approve a registration and create Resident/User/Profile."""
+    if not request.user.profile.role in ["captain", "secretary", "treasurer", "admin"]:
+        messages.error(request, "Permission denied.")
+        return redirect("core:dashboard")
+
+    if request.method != 'POST':
+        messages.error(request, "Invalid request method. Use the approval button.")
+        return redirect("residents:registration_detail", pk=pk)
+
+    registration = get_object_or_404(ResidentRegistration, pk=pk)
+
+    if registration.status != "pending":
+        messages.error(request, "This registration has already been processed.")
+        return redirect("residents:registration_list")
+
+    try:
+        with transaction.atomic():
+            # 1. Validation Checks (redundant but safe)
+            if User.objects.filter(username=registration.username).exists():
+                raise Exception(f"Username '{registration.username}' is already taken.")
+
+            if (
+                registration.philSys_number
+                and UserProfile.objects.filter(philSys_id=registration.philSys_number).exists()
+            ):
+                raise Exception(f"The PhilSys ID '{registration.philSys_number}' is already registered.")
+
+            # 2. Create User
+            user = User.objects.create(
+                username=registration.username,
+                first_name=registration.first_name,
+                last_name=registration.last_name,
+                email=registration.email,
+                password=registration.password,
+            )
+
+            # 3. Create Resident record
+            resident = Resident.objects.create(
+                first_name=registration.first_name,
+                middle_name=registration.middle_name,
+                last_name=registration.last_name,
+                suffix=registration.suffix,
+                birthdate=registration.birthdate,
+                birthplace=registration.birthplace,
+                gender=registration.gender,
+                civil_status=registration.civil_status,
+                nationality=registration.nationality,
+                religion=registration.religion,
+                occupation=registration.occupation,
+                contact_number=registration.mobile_number,
+                email=registration.email,
+                address=", ".join(filter(None, [
+                    f"{registration.house_number} {registration.street}".strip(),
+                    registration.purok,
+                    registration.barangay,
+                    registration.municipality,
+                    registration.city
+                ])),
+                purok=registration.purok,
+                is_pwd=registration.is_pwd,
+                is_senior_citizen=registration.is_senior_citizen,
+                is_4ps_member=registration.is_4ps_member,
+                is_registered_voter=registration.is_registered_voter,
+                photo=registration.photo,
+            )
+
+            # Link to household if applicable
+            if registration.household_number:
+                household = Household.objects.filter(
+                    household_no=registration.household_number
+                ).first()
+                if household:
+                    resident.household = household
+                    resident.save()
+
+            # 4. Create UserProfile
+            UserProfile.objects.create(
+                user=user,
+                resident=resident,
+                role="resident",
+                phone=registration.mobile_number,
+                philSys_id=registration.philSys_number or None,
+            )
+
+            # 5. Update Registration Status
+            registration.status = "approved"
+            registration.save()
+
+        messages.success(
+            request,
+            f"Registration approved! User '{registration.username}' and Resident record created.",
+        )
+        return redirect("residents:registration_list")
+
+    except Exception as e:
+        messages.error(request, f"Approval failed: {str(e)}")
+        return redirect("residents:registration_detail", pk=pk)
+
+@login_required
+def reject_registration(request, pk):
+    """Reject a registration."""
+    if not request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin']:
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+        
+    registration = get_object_or_404(ResidentRegistration, pk=pk)
+    if request.method == 'POST':
+        registration.status = 'rejected'
+        registration.save()
+        messages.warning(request, f"Registration {registration.reference_number} has been rejected.")
+        return redirect('residents:registration_list')
+    
+    return redirect('residents:registration_detail', pk=pk)

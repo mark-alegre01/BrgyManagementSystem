@@ -1,0 +1,174 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Submitted - Barangay Management System</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .success-card {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 64px 48px;
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 32px;
+            font-size: 40px;
+            color: white;
+            box-shadow: 0 0 30px rgba(44, 110, 73, 0.2);
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            letter-spacing: -1px;
+            color: var(--text-main);
+        }
+
+        p {
+            font-size: 16px;
+            color: var(--text-muted);
+            line-height: 1.6;
+            margin-bottom: 48px;
+        }
+
+        .reference-box {
+            background: var(--bg-main);
+            border: 1px dashed var(--primary);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 48px;
+        }
+
+        .reference-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .reference-number {
+            font-size: 28px;
+            font-family: monospace;
+            font-weight: 700;
+            color: var(--text-main);
+            letter-spacing: 2px;
+        }
+
+        .instruction-list {
+            text-align: left;
+            background: var(--bg-main);
+            padding: 24px;
+            border-radius: 16px;
+            margin-bottom: 48px;
+            border: 1px solid var(--border);
+        }
+
+        .instruction-item {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        .instruction-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .instruction-item i {
+            color: var(--primary);
+            margin-top: 3px;
+        }
+
+        .btn-home {
+            background: var(--primary);
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-home:hover {
+            background: var(--primary-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(44, 110, 73, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="success-card">
+        <div class="success-icon">
+            <i class="fas fa-check"></i>
+        </div>
+        <h1>Registration Submitted!</h1>
+        <p>Thank you, <strong>{{ registration.first_name }}</strong>. Your registration has been received and is now
+            pending verification by our barangay staff.</p>
+
+        <div class="reference-box">
+            <span class="reference-label">Your Tracking Reference</span>
+            <div class="reference-number">{{ registration.reference_number }}</div>
+        </div>
+
+        <div class="instruction-list">
+            <div class="instruction-item">
+                <i class="fas fa-info-circle"></i>
+                <span>Please save your reference number for tracking purposes.</span>
+            </div>
+            <div class="instruction-item">
+                <i class="fas fa-clock"></i>
+                <span>Verification typically takes 1-2 working days.</span>
+            </div>
+            <div class="instruction-item">
+                <i class="fas fa-envelope"></i>
+                <span>You will receive an update once your account is verified.</span>
+            </div>
+        </div>
+
+        <a href="{% url 'login' %}" class="btn-home">
+            Return to Login <i class="fas fa-arrow-right"></i>
+        </a>
+    </div>
+</body>
+
+</html>

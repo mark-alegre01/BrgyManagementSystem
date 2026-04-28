@@ -164,3 +164,94 @@ class Resident(models.Model):
         ordering = ["last_name", "first_name"]
         verbose_name = "Resident"
         verbose_name_plural = "Residents"
+
+
+import uuid
+import random
+import string
+
+def generate_reference_number():
+    """Generate a unique tracking reference number (e.g. BRGY-2026-X1Y2Z3)."""
+    current_year = date.today().year
+    random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return f"BRGY-{current_year}-{random_str}"
+
+class ResidentRegistration(models.Model):
+    """Temporary storage for resident registration before verification."""
+    
+    STATUS_CHOICES = [
+        ("pending", "Pending Verification"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+    
+    # Tracking
+    reference_number = models.CharField(max_length=20, unique=True, default=generate_reference_number)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    
+    # Step 1: Personal Info
+    last_name = models.CharField(max_length=100)
+    first_name = models.CharField(max_length=100)
+    middle_name = models.CharField(max_length=100, blank=True)
+    suffix = models.CharField(max_length=20, blank=True)
+    birthdate = models.DateField()
+    birthplace = models.CharField(max_length=200, blank=True)
+    gender = models.CharField(max_length=1, choices=[("M", "Male"), ("F", "Female")])
+    civil_status = models.CharField(max_length=20, default="single")
+    nationality = models.CharField(max_length=100, default="Filipino")
+    religion = models.CharField(max_length=100, blank=True)
+    highest_education = models.CharField(max_length=100, blank=True)
+    occupation = models.CharField(max_length=200, blank=True)
+    
+    # Step 2: Contact & Address
+    mobile_number = models.CharField(max_length=20)
+    email = models.EmailField(blank=True)
+    house_number = models.CharField(max_length=100, blank=True)
+    street = models.CharField(max_length=100, blank=True)
+    purok = models.CharField(max_length=100, blank=True)
+    barangay = models.CharField(max_length=100, default="Sample Barangay")
+    municipality = models.CharField(max_length=100, blank=True)
+    city = models.CharField(max_length=100, default="Cagayan de Oro")
+    zip_code = models.CharField(max_length=10, default="9000")
+    years_of_residency = models.IntegerField(default=0)
+    philSys_number = models.CharField(max_length=12, blank=True, null=True)
+    
+    # Step 3: Household & Classification
+    is_joining_household = models.BooleanField(default=False)
+    household_number = models.CharField(max_length=50, blank=True, null=True)
+    is_pwd = models.BooleanField(default=False)
+    is_senior_citizen = models.BooleanField(default=False)
+    is_4ps_member = models.BooleanField(default=False)
+    is_sole_parent = models.BooleanField(default=False)
+    is_registered_voter = models.BooleanField(default=False)
+
+    
+    # Guardian (Dynamic for Minors)
+    guardian_name = models.CharField(max_length=200, blank=True, null=True)
+    guardian_relationship = models.CharField(max_length=100, blank=True, null=True)
+    guardian_contact = models.CharField(max_length=20, blank=True, null=True)
+    guardian_id_number = models.CharField(max_length=50, blank=True, null=True)
+    
+    # Step 4: Account & Documents
+    username = models.CharField(max_length=150, unique=True)
+    password = models.CharField(max_length=128) # Store plaintext for approval or hash? (Better to hash)
+    
+    # File Uploads
+    photo = models.ImageField(upload_to="registrations/photos/", blank=True, null=True)
+    id_card = models.ImageField(upload_to="registrations/ids/", blank=True, null=True)
+    birth_certificate = models.ImageField(upload_to="registrations/birth_certs/", blank=True, null=True)
+    proof_of_residency = models.ImageField(upload_to="registrations/residency/", blank=True, null=True)
+    
+    # Privacy
+    data_privacy_consent = models.BooleanField(default=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.reference_number} - {self.first_name} {self.last_name}"
+
+    class Meta:
+        verbose_name = "Resident Registration"
+        verbose_name_plural = "Resident Registrations"
+        ordering = ["-created_at"]

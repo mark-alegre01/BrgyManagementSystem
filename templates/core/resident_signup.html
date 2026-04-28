@@ -1,76 +1,915 @@
-{% extends 'base.html' %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="en">
 
-{% block title %}Resident Registration - {{ BARANGAY_NAME }}{% endblock %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resident Registration - Barangay Management System</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
 
-{% block content %}
-<div class="container py-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card shadow-lg border-0 rounded-lg">
-                <div class="card-header bg-primary text-white text-center py-4">
-                    <h2 class="h4 mb-0">Create Resident Account</h2>
-                    <p class="mb-0 opacity-75">Connect your profile to the Barangay System</p>
+        .portal-header {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 48px;
+        }
+
+        .portal-logo {
+            width: 56px;
+            height: 56px;
+            background: #FFFFFF;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .portal-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .portal-title h1 {
+            font-size: 20px;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: -0.5px;
+            color: var(--text-main);
+        }
+
+        .portal-title p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        /* Stepper Styles */
+        .stepper {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin-bottom: 64px;
+        }
+
+        .stepper::before {
+            content: '';
+            position: absolute;
+            top: 24px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--border);
+            z-index: 1;
+        }
+
+        .step-progress-bar {
+            position: absolute;
+            top: 24px;
+            left: 0;
+            height: 2px;
+            background: var(--primary);
+            z-index: 2;
+            transition: width 0.4s ease;
+            width: 0%;
+        }
+
+        .step-node {
+            position: relative;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            width: 120px;
+        }
+
+        .step-circle {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: var(--text-muted);
+            transition: all 0.3s ease;
+        }
+
+        .step-node.active .step-circle {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+            box-shadow: 0 0 20px rgba(44, 110, 73, 0.2);
+        }
+
+        .step-node.completed .step-circle {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .step-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-align: center;
+            transition: color 0.3s ease;
+        }
+
+        .step-node.active .step-label {
+            color: var(--primary);
+        }
+
+        /* Form Card */
+        .registration-card {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 48px;
+            width: 100%;
+            max-width: 900px;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border);
+        }
+
+        .step-header {
+            margin-bottom: 32px;
+        }
+
+        .step-header h2 {
+            font-size: 24px;
+            font-weight: 800;
+            margin: 0 0 8px 0;
+            color: var(--text-main);
+        }
+
+        .step-header p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .form-section {
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .col-2 {
+            grid-column: span 2;
+        }
+
+        .col-full {
+            grid-column: span 3;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            width: 100%;
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: var(--text-main);
+            font-size: 14px;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: #FFFFFF;
+            box-shadow: 0 0 0 4px var(--primary-light);
+        }
+
+        .form-control::placeholder {
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236B7280' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 24px;
+            padding: 12px 0;
+        }
+
+        .radio-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: var(--text-main);
+            font-size: 14px;
+        }
+
+        .radio-item input {
+            cursor: pointer;
+            accent-color: var(--primary);
+            width: 18px;
+            height: 18px;
+        }
+
+        .navigation-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 16px;
+            margin-top: 40px;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+        }
+
+        .btn-nav {
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: none;
+        }
+
+        .btn-prev {
+            background: var(--bg-main);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+        }
+
+        .btn-prev:hover {
+            background: var(--border-light);
+        }
+
+        .btn-next {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-next:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        .upload-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .upload-box {
+            background: var(--bg-main);
+            border: 2px dashed var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-box:hover {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
+
+        .upload-box i {
+            font-size: 32px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .upload-box p {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .minor-alert {
+            background: var(--primary-light);
+            border: 1px solid var(--primary);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 24px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            color: var(--primary);
+        }
+
+        .alert {
+            margin-bottom: 24px;
+            font-size: 13px;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: left;
+        }
+
+        .alert-error {
+            background: #FEE2E2;
+            color: #991B1B;
+            border: 1px solid #FECACA;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .col-2,
+            .col-full {
+                grid-column: span 1;
+            }
+
+            .registration-card {
+                padding: 32px 20px;
+            }
+
+            .stepper {
+                overflow-x: auto;
+                padding-bottom: 10px;
+            }
+        }
+    </style>
+    <script src="/static/js/ph-locations.js"></script>
+</head>
+
+<body>
+    <header class="portal-header">
+        <div class="portal-logo">
+            <img src="{% static 'images/logo.png' %}" alt="Logo">
+        </div>
+        <div class="portal-title">
+            <h1>Barangay Management System</h1>
+            <p>Resident Registration Portal</p>
+        </div>
+    </header>
+
+    <div class="stepper">
+        <div class="step-progress-bar" id="stepProgressBar"></div>
+        <div class="step-node active" id="node-1">
+            <div class="step-circle">1</div>
+            <div class="step-label">Personal info</div>
+        </div>
+        <div class="step-node" id="node-2">
+            <div class="step-circle">2</div>
+            <div class="step-label">Contact & address</div>
+        </div>
+        <div class="step-node" id="node-3">
+            <div class="step-circle">3</div>
+            <div class="step-label">Household</div>
+        </div>
+        <div class="step-node" id="node-4">
+            <div class="step-circle">4</div>
+            <div class="step-label">Account setup</div>
+        </div>
+    </div>
+
+    <form class="registration-card" id="signupForm" method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <!-- Step 1: Personal Information -->
+        <div class="form-section active" id="step-1">
+            <div class="step-header">
+                <h2>Personal information</h2>
+                <p>Enter the resident's legal name and basic details as shown on official ID.</p>
+            </div>
+
+            <div id="minorAlert" class="minor-alert">
+                <i class="fas fa-child"></i>
+                <span><strong>Minor Detected.</strong> Guardian information will be required in Step 3.</span>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>First name *</label>
+                    <input type="text" name="first_name" class="form-control" placeholder="Juan" required>
                 </div>
-                <div class="card-body p-4">
-                    <form method="post">
-                        {% csrf_token %}
+                <div class="form-group">
+                    <label>Middle name</label>
+                    <input type="text" name="middle_name" class="form-control" placeholder="Santos">
+                </div>
+                <div class="form-group">
+                    <label>Last name *</label>
+                    <input type="text" name="last_name" class="form-control" placeholder="Dela Cruz" required>
+                </div>
+                <div class="form-group">
+                    <label>Suffix</label>
+                    <select name="suffix" class="form-control">
+                        <option value="">None</option>
+                        <option value="Jr.">Jr.</option>
+                        <option value="Sr.">Sr.</option>
+                        <option value="I">I</option>
+                        <option value="II">II</option>
+                        <option value="III">III</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Date of birth *</label>
+                    <input type="date" name="birthdate" class="form-control" id="birthdateInput" required>
+                </div>
+                <div class="form-group">
+                    <label>Place of birth *</label>
+                    <input type="text" name="birthplace" class="form-control" placeholder="Cagayan de Oro City"
+                        required>
+                </div>
 
-                        {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
-                            {% for error in form.non_field_errors %}
-                            {{ error }}
-                            {% endfor %}
-                        </div>
-                        {% endif %}
+                <div class="form-group">
+                    <label>Sex *</label>
+                    <div class="radio-group">
+                        <label class="radio-item"><input type="radio" name="gender" value="M" checked> Male</label>
+                        <label class="radio-item"><input type="radio" name="gender" value="F"> Female</label>
+                    </div>
+                </div>
+                <div class="form-group col-2">
+                    <label>Civil status *</label>
+                    <select name="civil_status" class="form-control" required>
+                        <option value="">Select status</option>
+                        <option value="single">Single</option>
+                        <option value="married">Married</option>
+                        <option value="widowed">Widowed</option>
+                        <option value="separated">Separated</option>
+                    </select>
+                </div>
 
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label class="form-label">First Name</label>
-                                <input type="text" name="first_name" class="form-control" required placeholder="Juan">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Middle Name</label>
-                                <input type="text" name="middle_name" class="form-control" placeholder="Dela">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Last Name</label>
-                                <input type="text" name="last_name" class="form-control" required placeholder="Cruz">
-                            </div>
-                        </div>
+                <div class="form-group">
+                    <label>Citizenship *</label>
+                    <input type="text" name="citizenship" class="form-control" value="Filipino" required>
+                </div>
+                <div class="form-group col-2">
+                    <label>Religion</label>
+                    <input type="text" name="religion" class="form-control" placeholder="e.g. Roman Catholic">
+                </div>
 
-                        <div class="mt-3">
-                            <label class="form-label">PhilSys PSN (Optional)</label>
-                            <input type="text" name="philsys_id" class="form-control" placeholder="1234-5678-9012">
-                            <small class="text-muted">Used to link your account to your resident record.</small>
-                        </div>
-
-                        <div class="mt-3">
-                            <label class="form-label">Username</label>
-                            <input type="text" name="username" class="form-control" required
-                                placeholder="Choose a username">
-                        </div>
-
-                        <div class="row mt-3">
-                            <div class="col-md-6">
-                                <label class="form-label">Password</label>
-                                <input type="password" name="password1" class="form-control" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label">Confirm Password</label>
-                                <input type="password" name="password2" class="form-control" required>
-                            </div>
-                        </div>
-
-                        <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-primary py-2"> Register Account </button>
-                            <a href="{% url 'login' %}" class="btn btn-link text-muted">Already have an account?
-                                Login</a>
-                        </div>
-                    </form>
+                <div class="form-group">
+                    <label>Highest education</label>
+                    <select name="highest_education" class="form-control">
+                        <option value="">Select</option>
+                        <option value="elementary">Elementary</option>
+                        <option value="highschool">High School</option>
+                        <option value="vocational">Vocational</option>
+                        <option value="college">College Graduate</option>
+                        <option value="postgraduate">Post Graduate</option>
+                    </select>
+                </div>
+                <div class="form-group col-2">
+                    <label>Occupation</label>
+                    <input type="text" name="occupation" class="form-control" placeholder="e.g. Teacher">
                 </div>
             </div>
         </div>
+
+        <!-- Step 2: Contact & Address -->
+        <div class="form-section" id="step-2">
+            <div class="step-header">
+                <h2>Contact & address</h2>
+                <p>Provide contact details and complete residential information.</p>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Mobile number *</label>
+                    <input type="tel" name="mobile_number" class="form-control" placeholder="09XX XXX XXXX" required>
+                </div>
+                <div class="form-group col-2">
+                    <label>Email address</label>
+                    <input type="email" name="email" class="form-control" placeholder="juan@example.com">
+                </div>
+
+                <div class="form-group">
+                    <label>House / Unit #</label>
+                    <input type="text" name="house_number" class="form-control" placeholder="Bldg 123">
+                </div>
+                <div class="form-group">
+                    <label>Street</label>
+                    <input type="text" name="street" class="form-control" placeholder="Velez St.">
+                </div>
+                <div class="form-group">
+                    <label>Purok / Zone</label>
+                    <input type="text" name="purok" id="purokInput" class="form-control" placeholder="Purok 1">
+                </div>
+
+                <div class="form-group">
+                    <label>City / Province</label>
+                    <input type="text" name="city" id="cityInput" list="cityInputList" class="form-control"
+                        placeholder="Select City/Province" required>
+                    <datalist id="cityInputList">
+                        <option value="Metro Manila">
+                        <option value="Cebu">
+                        <option value="Davao Del Sur">
+                        <option value="Misamis Oriental">
+                        <option value="Surigao Del Norte">
+                        <option value="Agusan Del Norte">
+                        <option value="Lanao Del Norte">
+                    </datalist>
+                </div>
+                <div class="form-group">
+                    <label>Municipality</label>
+                    <input type="text" name="municipality" id="municipalityInput" list="municipalityInputList"
+                        class="form-control" placeholder="Select Municipality" required>
+                    <datalist id="municipalityInputList"></datalist>
+                </div>
+                <div class="form-group">
+                    <label>Barangay</label>
+                    <input type="text" name="barangay" id="barangayInput" list="barangayInputList" class="form-control"
+                        placeholder="Select Barangay" required>
+                    <datalist id="barangayInputList"></datalist>
+                </div>
+                <div class="form-group">
+                    <label>ZIP Code</label>
+                    <input type="text" name="zip_code" id="zipCodeInput" class="form-control" placeholder="ZIP Code"
+                        required readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Years of residency *</label>
+                    <input type="number" name="years_of_residency" class="form-control" min="0" required>
+                </div>
+                <div class="form-group col-2">
+                    <label>PhilSys Number (PSN) - Optional</label>
+                    <input type="text" name="philSys_number" class="form-control" placeholder="XXXX-XXXX-XXXX-XXXX">
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Household & Classification -->
+        <div class="form-section" id="step-3">
+            <div class="step-header">
+                <h2>Household & classification</h2>
+                <p>Indicate household membership and special classifications.</p>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group col-full">
+                    <label>Household membership *</label>
+                    <div class="radio-group">
+                        <label class="radio-item"><input type="radio" name="household_action" value="join" checked
+                                onchange="toggleHouseholdField()"> Join
+                            existing household</label>
+                        <label class="radio-item"><input type="radio" name="household_action" value="new"
+                                onchange="toggleHouseholdField()"> Household not registered</label>
+                    </div>
+                </div>
+                <div class="form-group col-full" id="householdNumberGroup">
+                    <label id="householdLabel">Head of household / Household number</label>
+                    <input type="text" name="household_number" id="householdInput" list="headsList" class="form-control"
+                        placeholder="Search Head of Household or Enter ID">
+                    <datalist id="headsList">
+                        {% for head in heads_of_households %}
+                        <option value="{{ head.household.household_no }}" data-purok="{{ head.purok }}">{{ head.full_name }} ({{ head.household.household_no }})</option>
+                        {% endfor %}
+                    </datalist>
+                </div>
+
+                <div class="form-group col-full">
+                    <label>Special Classifications</label>
+                    <div class="radio-group" style="flex-wrap: wrap;">
+                        <label class="radio-item"><input type="checkbox" name="is_pwd"> PWD</label>
+                        <label class="radio-item"><input type="checkbox" name="is_senior_citizen"> Senior
+                            citizen</label>
+                        <label class="radio-item"><input type="checkbox" name="is_4ps_member"> 4Ps member</label>
+                        <label class="radio-item"><input type="checkbox" name="is_sole_parent"> Sole parent</label>
+                        <label class="radio-item"><input type="checkbox" name="is_registered_voter"> Voter</label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="guardianSection"
+                style="display: none; border-top: 1px solid var(--border); padding-top: 32px; margin-top: 32px;">
+                <div class="step-header">
+                    <h2 style="font-size: 18px; color: var(--primary);">Parent / Guardian information</h2>
+                    <p>Required for residents under 18 years of age.</p>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group col-2">
+                        <label>Guardian's full name *</label>
+                        <input type="text" name="guardian_name" class="form-control" placeholder="Enter guardian name">
+                    </div>
+                    <div class="form-group">
+                        <label>Relationship *</label>
+                        <input type="text" name="guardian_relationship" class="form-control" placeholder="e.g. Mother">
+                    </div>
+                    <div class="form-group">
+                        <label>Contact number *</label>
+                        <input type="tel" name="guardian_contact" class="form-control" placeholder="09XX XXX XXXX">
+                    </div>
+                    <div class="form-group col-2">
+                        <label>Valid ID number *</label>
+                        <input type="text" name="guardian_id_number" class="form-control" placeholder="Enter ID number">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Account Setup -->
+        <div class="form-section" id="step-4">
+            <div class="step-header">
+                <h2>Account setup</h2>
+                <p>Create your login credentials and upload supporting documents.</p>
+            </div>
+
+            <div class="form-grid">
+                <div class="form-group col-full">
+                    <label>Username *</label>
+                    <input type="text" name="username" class="form-control" placeholder="Choose a unique username"
+                        required>
+                </div>
+                <div class="form-group">
+                    <label>Password *</label>
+                    <input type="password" name="password1" class="form-control" required>
+                </div>
+                <div class="form-group col-2">
+                    <label>Confirm Password *</label>
+                    <input type="password" name="password2" class="form-control" required>
+                </div>
+            </div>
+
+            <div class="step-header" style="margin-top: 40px;">
+                <h2 style="font-size: 18px;">Document uploads</h2>
+                <p>Upload clear copies of the following documents (Max 5MB each).</p>
+            </div>
+
+            <div class="upload-grid">
+                <div class="upload-box" onclick="document.getElementById('photoInput').click()">
+                    <i class="fas fa-camera"></i>
+                    <p>Profile photo</p>
+                    <input type="file" id="photoInput" name="photo" style="display: none;" accept="image/*">
+                </div>
+                <div class="upload-box" onclick="document.getElementById('idInput').click()">
+                    <i class="fas fa-id-card"></i>
+                    <p>Valid Government ID</p>
+                    <input type="file" id="idInput" name="id_card" style="display: none;"
+                        accept="image/*,application/pdf">
+                </div>
+                <div class="upload-box" id="birthCertUpload"
+                    onclick="document.getElementById('birthCertInput').click()">
+                    <i class="fas fa-file-invoice"></i>
+                    <p>Birth Certificate</p>
+                    <input type="file" id="birthCertInput" name="birth_certificate" style="display: none;"
+                        accept="image/*,application/pdf">
+                </div>
+                <div class="upload-box" onclick="document.getElementById('residencyInput').click()">
+                    <i class="fas fa-home"></i>
+                    <p>Proof of residency</p>
+                    <input type="file" id="residencyInput" name="proof_of_residency" style="display: none;"
+                        accept="image/*,application/pdf">
+                </div>
+            </div>
+
+            <div class="form-group col-full"
+                style="margin-top: 40px; background: var(--bg-main); padding: 20px; border-radius: 12px; border: 1px solid var(--border);">
+                <label class="radio-item">
+                    <input type="checkbox" name="data_privacy_consent" required>
+                    <span style="font-size: 13px; line-height: 1.5; color: var(--text-muted);">I hereby acknowledge that
+                        I have read and understood the Data Privacy Policy of the Barangay Management System and give my
+                        consent to process my information.</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="navigation-actions">
+            <button type="button" class="btn-nav btn-prev" id="btnPrev" style="visibility: hidden;">
+                <i class="fas fa-arrow-left"></i> Previous
+            </button>
+            <button type="button" class="btn-nav btn-next" id="btnNext">
+                Continue <i class="fas fa-arrow-right"></i>
+            </button>
+            <button type="submit" class="btn-nav btn-next" id="btnSubmit" style="display: none;">
+                Sign Up <i class="fas fa-check-circle"></i>
+            </button>
+        </div>
+    </form>
+
+    <div style="margin-top: 32px; text-align: center;">
+        <a href="{% url 'login' %}" style="color: var(--text-muted); font-size: 14px; text-decoration: none;">
+            Already have an account? <strong style="color: var(--primary);">Log In</strong>
+        </a>
     </div>
-</div>
-{% endblock %}
+
+    <script>
+        let currentStep = 1;
+        const totalSteps = 4;
+        const form = document.getElementById('signupForm');
+        const sections = document.querySelectorAll('.form-section');
+        const nodes = document.querySelectorAll('.step-node');
+        const progressBar = document.getElementById('stepProgressBar');
+        const btnPrev = document.getElementById('btnPrev');
+        const btnNext = document.getElementById('btnNext');
+        const btnSubmit = document.getElementById('btnSubmit');
+
+        const birthdateInput = document.getElementById('birthdateInput');
+        const minorAlert = document.getElementById('minorAlert');
+        const guardianSection = document.getElementById('guardianSection');
+        const birthCertUpload = document.getElementById('birthCertUpload');
+
+        function updateStep() {
+            sections.forEach((s, i) => s.classList.toggle('active', (i + 1) === currentStep));
+            nodes.forEach((n, i) => {
+                n.classList.toggle('active', (i + 1) === currentStep);
+                n.classList.toggle('completed', (i + 1) < currentStep);
+            });
+
+            progressBar.style.width = ((currentStep - 1) / (totalSteps - 1) * 100) + '%';
+            btnPrev.style.visibility = (currentStep === 1) ? 'hidden' : 'visible';
+
+            if (currentStep === totalSteps) {
+                btnNext.style.display = 'none';
+                btnSubmit.style.display = 'flex';
+            } else {
+                btnNext.style.display = 'flex';
+                btnSubmit.style.display = 'none';
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        btnNext.addEventListener('click', () => {
+            if (validateStep(currentStep)) {
+                currentStep++;
+                updateStep();
+            }
+        });
+
+        btnPrev.addEventListener('click', () => {
+            currentStep--;
+            updateStep();
+        });
+
+        function validateStep(step) {
+            const currentSection = document.getElementById('step-' + step);
+            const inputs = currentSection.querySelectorAll('input[required], select[required]');
+            let isValid = true;
+
+            inputs.forEach(input => {
+                if (!input.value) {
+                    isValid = false;
+                    input.style.borderColor = 'var(--danger)';
+                    input.addEventListener('input', () => {
+                        input.style.borderColor = 'var(--border)';
+                    }, { once: true });
+                }
+            });
+
+            return isValid;
+        }
+
+        birthdateInput.addEventListener('change', (e) => {
+            const birthdate = new Date(e.target.value);
+            const age = calculateAge(birthdate);
+
+            if (age < 18) {
+                minorAlert.style.display = 'flex';
+                guardianSection.style.display = 'block';
+                birthCertUpload.style.display = 'block';
+                guardianSection.querySelectorAll('input').forEach(i => i.setAttribute('required', ''));
+            } else {
+                minorAlert.style.display = 'none';
+                guardianSection.style.display = 'none';
+                birthCertUpload.style.display = 'none';
+                guardianSection.querySelectorAll('input').forEach(i => i.removeAttribute('required'));
+            }
+        });
+
+        function calculateAge(birthday) {
+            const ageDifMs = Date.now() - birthday.getTime();
+            const ageDate = new Date(ageDifMs);
+            return Math.abs(ageDate.getUTCFullYear() - 1970);
+        }
+
+        document.querySelectorAll('input[type="file"]').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const box = e.target.closest('.upload-box');
+                if (e.target.files.length > 0) {
+                    box.style.borderColor = 'var(--primary)';
+                    box.querySelector('p').textContent = e.target.files[0].name;
+                    box.querySelector('i').className = 'fas fa-check-circle';
+                    box.querySelector('i').style.color = 'var(--primary)';
+                }
+            });
+        });
+        function toggleHouseholdField() {
+            const action = document.querySelector('input[name="household_action"]:checked').value;
+            const group = document.getElementById('householdNumberGroup');
+            const input = document.getElementById('householdInput');
+
+            if (action === 'new') {
+                group.style.display = 'none';
+                input.removeAttribute('required');
+            } else {
+                group.style.display = 'block';
+                input.setAttribute('required', '');
+            }
+        }
+
+        // Filtering household heads by Purok
+        const purokInput = document.getElementById('purokInput');
+        const householdInput = document.getElementById('householdInput');
+        const headsList = document.getElementById('headsList');
+        const masterHeads = Array.from(headsList.options).map(opt => ({
+            value: opt.value,
+            text: opt.text,
+            purok: opt.getAttribute('data-purok')
+        }));
+
+        function filterHeads() {
+            const selectedPurok = purokInput.value.trim().toLowerCase();
+            // Clear current list
+            headsList.innerHTML = '';
+
+            // Filter and repopulate
+            masterHeads.forEach(head => {
+                if (!selectedPurok || head.purok.toLowerCase().includes(selectedPurok)) {
+                    const option = document.createElement('option');
+                    option.value = head.value;
+                    option.text = head.text;
+                    headsList.appendChild(option);
+                }
+            });
+        }
+
+        purokInput.addEventListener('input', filterHeads);
+
+        // Also filter on step change to step 3
+        btnNext.addEventListener('click', () => {
+            if (currentStep === 3) {
+                filterHeads();
+            }
+        });
+
+        // Initialize hierarchical address selectors
+        initAddressSelectors('cityInput', 'municipalityInput', 'barangayInput', 'zipCodeInput');
+
+        // Initialize household field visibility
+        toggleHouseholdField();
+    </script>
+</body>
+
+</html>

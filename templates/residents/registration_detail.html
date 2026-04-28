@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Review Registration: {{ registration.reference_number }} – Barangay Management System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .review-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+    }
+
+    .review-section {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    .review-section-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--primary);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .review-item {
+        margin-bottom: 16px;
+    }
+
+    .review-label {
+        font-size: 12px;
+        color: var(--text-muted);
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .review-value {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--text-main);
+    }
+
+    .doc-preview {
+        width: 100%;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        margin-top: 8px;
+        transition: transform 0.3s ease;
+        cursor: pointer;
+    }
+
+    .doc-preview:hover {
+        transform: scale(1.02);
+    }
+
+    .status-banner {
+        padding: 16px 24px;
+        border-radius: 16px;
+        margin-bottom: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .status-banner.pending {
+        background: rgba(255, 193, 7, 0.1);
+        border: 1px solid #FFC107;
+        color: #856404;
+    }
+
+    .status-banner.approved {
+        background: rgba(40, 167, 69, 0.1);
+        border: 1px solid #28A745;
+        color: #155724;
+    }
+
+    .status-banner.rejected {
+        background: rgba(220, 53, 69, 0.1);
+        border: 1px solid #DC3545;
+        color: #721c24;
+    }
+
+    .action-buttons {
+        position: sticky;
+        top: calc(var(--header-height) + 24px);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+    <a href="{% url 'residents:registration_list' %}"><i class="fas fa-arrow-left"></i> Back to Registrations</a>
+</div>
+
+<div class="page-header mt-3">
+    <div class="page-title">
+        <h1>Registration Review</h1>
+        <span>Reference: <strong>{{ registration.reference_number }}</strong></span>
+    </div>
+</div>
+
+<div class="status-banner {{ registration.status }}">
+    <div class="d-flex align-items-center gap-3">
+        <i
+            class="fas {% if registration.status == 'pending' %}fa-clock{% elif registration.status == 'approved' %}fa-check-circle{% else %}fa-times-circle{% endif %} fa-2x"></i>
+        <div>
+            <h4 class="mb-0">Status: {{ registration.get_status_display }}</h4>
+            <small>Submitted on {{ registration.created_at|date:"F d, Y P" }}</small>
+        </div>
+    </div>
+</div>
+
+<div class="review-grid">
+    <div class="review-left">
+        <!-- Step 1: Personal Info -->
+        <div class="review-section">
+            <h3 class="review-section-title"><i class="fas fa-user"></i> Personal Information</h3>
+            <div class="row">
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Full Name</span>
+                    <span class="review-value">
+                        {{ registration.first_name }} {{ registration.middle_name }} {{ registration.last_name }}{% if registration.suffix %} {{ registration.suffix }}{% endif %}
+                    </span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Birthdate</span>
+                    <span class="review-value">{{ registration.birthdate|date:"M d, Y" }}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Gender</span>
+                    <span class="review-value">{{ registration.get_gender_display }}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Civil Status</span>
+                    <span class="review-value text-capitalize">{{ registration.civil_status }}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Nationality</span>
+                    <span class="review-value">{{ registration.nationality }}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Occupation</span>
+                    <span class="review-value">{{ registration.occupation|default:"N/A" }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Contact & Address -->
+        <div class="review-section">
+            <h3 class="review-section-title"><i class="fas fa-map-marker-alt"></i> Contact & Address</h3>
+            <div class="row">
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Mobile Number</span>
+                    <span class="review-value">{{ registration.mobile_number }}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Email</span>
+                    <span class="review-value">{{ registration.email|default:"N/A" }}</span>
+                </div>
+                <div class="col-12 review-item">
+                    <span class="review-label">Complete Address</span>
+                    <span class="review-value">
+                        {% if registration.house_number %}{{ registration.house_number }} {% endif %}
+                        {% if registration.street %}{{ registration.street }}, {% endif %}
+                        {% if registration.purok %}{{ registration.purok }}, {% endif %}
+                        {% if registration.barangay %}{{ registration.barangay }}, {% endif %}
+                        {% if registration.municipality %}{{ registration.municipality }}{% if registration.city %}, {% endif %}{% endif %}
+                        {% if registration.city %}{{ registration.city }}{% endif %}
+                        {{ registration.zip_code }}
+                    </span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Purok</span>
+                    <span class="review-value">{{ registration.purok }}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Years of Residency</span>
+                    <span class="review-value">{{ registration.years_of_residency }} Year(s)</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Household & Classification -->
+        <div class="review-section">
+            <h3 class="review-section-title"><i class="fas fa-home"></i> Household & Classification</h3>
+            <div class="row">
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Household Number</span>
+                    <span class="review-value">{{ registration.household_number|default:"New Household" }}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">PWD Status</span>
+                    <span class="review-value">{% if registration.is_pwd %}Yes{% else %}No{% endif %}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Senior Citizen</span>
+                    <span class="review-value">{% if registration.is_senior_citizen %}Yes{% else %}No{% endif %}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">4Ps Member</span>
+                    <span class="review-value">{% if registration.is_4ps_member %}Yes{% else %}No{% endif %}</span>
+                </div>
+            </div>
+
+            {% if registration.guardian_name %}
+            <hr class="my-4">
+            <h4 class="mb-3" style="font-size: 14px; color: var(--text-muted);">Guardian Information (Minor)</h4>
+            <div class="row">
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Guardian Name</span>
+                    <span class="review-value">{{ registration.guardian_name }}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Relationship</span>
+                    <span class="review-value">{{ registration.guardian_relationship }}</span>
+                </div>
+                <div class="col-md-6 review-item">
+                    <span class="review-label">Guardian Contact</span>
+                    <span class="review-value">{{ registration.guardian_contact }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="review-right">
+        <!-- Documents -->
+        <div class="review-section">
+            <h3 class="review-section-title"><i class="fas fa-file-alt"></i> Uploaded Documents</h3>
+
+            <div class="review-item">
+                <span class="review-label">Resident Photo</span>
+                {% if registration.photo %}
+                <img src="{{ registration.photo.url }}" class="doc-preview" onclick="window.open(this.src)">
+                {% else %}
+                <span class="text-muted">No photo uploaded</span>
+                {% endif %}
+            </div>
+
+            <div class="review-item">
+                <span class="review-label">Valid ID</span>
+                {% if registration.id_card %}
+                <img src="{{ registration.id_card.url }}" class="doc-preview" onclick="window.open(this.src)">
+                {% else %}
+                <span class="text-muted">No ID uploaded</span>
+                {% endif %}
+            </div>
+
+            {% if registration.birth_certificate %}
+            <div class="review-item">
+                <span class="review-label">Birth Certificate (Minor)</span>
+                <img src="{{ registration.birth_certificate.url }}" class="doc-preview" onclick="window.open(this.src)">
+            </div>
+            {% endif %}
+
+            {% if registration.proof_of_residency %}
+            <div class="review-item">
+                <span class="review-label">Proof of Residency</span>
+                <img src="{{ registration.proof_of_residency.url }}" class="doc-preview"
+                    onclick="window.open(this.src)">
+            </div>
+            {% endif %}
+        </div>
+
+        {% if registration.status == 'pending' %}
+        <div class="action-buttons">
+            <form action="{% url 'residents:approve_registration' registration.pk %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-success btn-lg w-100"
+                    onclick="return confirm('Are you sure you want to approve this registration? This will create a new Resident and User account.')">
+                    <i class="fas fa-check-circle mr-2"></i> Approve Registration
+                </button>
+            </form>
+
+            <form action="{% url 'residents:reject_registration' registration.pk %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger btn-lg w-100"
+                    onclick="return confirm('Are you sure you want to reject this registration?')">
+                    <i class="fas fa-times-circle mr-2"></i> Reject Registration
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
