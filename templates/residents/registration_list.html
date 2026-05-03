@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Pending Registrations – Barangay Management System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Resident Registrations</h1>
+        <span>Review and verify new resident sign-ups</span>
+    </div>
+    <div class="header-actions">
+        <form method="get" class="d-flex gap-2">
+            <select name="status" class="form-control" onchange="this.form.submit()">
+                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                <option value="" {% if not status_filter %}selected{% endif %}>All</option>
+            </select>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Ref Number</th>
+                    <th>Name</th>
+                    <th>Date Submitted</th>
+                    <th>Purok</th>
+                    <th>Status</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reg in registrations %}
+                <tr>
+                    <td><span class="font-weight-bold">{{ reg.reference_number }}</span></td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            {% if reg.photo %}
+                            <img src="{{ reg.photo.url }}" alt="" class="avatar-sm rounded-circle mr-2"
+                                style="width: 32px; height: 32px; object-fit: cover;">
+                            {% else %}
+                            <div class="avatar-sm rounded-circle bg-light d-flex align-items-center justify-content-center mr-2"
+                                style="width: 32px; height: 32px;">
+                                <i class="fas fa-user text-muted"></i>
+                            </div>
+                            {% endif %}
+                            {{ reg.first_name }} {{ reg.last_name }}
+                        </div>
+                    </td>
+                    <td>{{ reg.created_at|date:"M d, Y" }} <small class="text-muted">{{ reg.created_at|time:"H:i" }}</small></td>
+                    <td>{{ reg.purok }}</td>
+                    <td>
+                        {% if reg.status == 'pending' %}
+                        <span class="badge badge-warning">Pending</span>
+                        {% elif reg.status == 'approved' %}
+                        <span class="badge badge-success">Approved</span>
+                        {% else %}
+                        <span class="badge badge-danger">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right">
+                        <a href="{% url 'residents:registration_detail' reg.pk %}"
+                            class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-search"></i> Review
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <i class="fas fa-user-clock fa-3x text-muted mb-3 d-block"></i>
+                        <p class="text-muted">No resident registrations found.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if registrations.has_other_pages %}
+    <div class="card-footer">
+        <nav aria-label="Page navigation">
+            <ul class="pagination mb-0">
+                {% if registrations.has_previous %}
+                <li class="page-item"><a class="page-link"
+                        href="?page={{ registrations.previous_page_number }}&status={{ status_filter }}">Previous</a>
+                </li>
+                {% endif %}
+
+                <li class="page-item active"><span class="page-link">{{ registrations.number }} of {{ registrations.paginator.num_pages }}</span></li>
+
+                {% if registrations.has_next %}
+                <li class="page-item"><a class="page-link"
+                        href="?page={{ registrations.next_page_number }}&status={{ status_filter }}">Next</a></li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

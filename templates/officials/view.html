@@ -36,7 +36,7 @@
         <span class="resident-id">Employee ID: {{ official.employee_id|default:"---" }}</span>
         <div class="status-tags">
           <span
-            class="badge {% if official.status ==   'active' %}badge-success{% else %}badge-warning{% endif %}">
+            class="badge {% if official.status ==  'active' %}badge-success{% else %}badge-warning{% endif %}">
             {{ official.get_status_display }}
           </span>
         </div>

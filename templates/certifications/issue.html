@@ -1,6 +1,14 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Issue Certificate - Barangay Management System{% endblock %}
+{% block title %}Issue Certificate - Barangay Management System
+<script src="{% static 'js/grammar_checker.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    GrammarChecker.init('purposeInput', 'grammarFeedback');
+  });
+</script>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -36,7 +44,9 @@
         <div class="form-row">
           <div class="form-group col-12">
             <label>Purpose*</label>
-            <input type="text" name="purpose" class="form-control" placeholder="e.g. For employment, ID, etc." required>
+            <input type="text" name="purpose" id="purposeInput" class="form-control"
+              placeholder="e.g. For employment, ID, etc." required>
+            <div id="grammarFeedback"></div>
           </div>
         </div>
 
@@ -154,6 +164,37 @@
           </div>
         </div>
 
+        <!-- Late Registration Fields (hidden by default) -->
+        <div class="form-section late-registration-fields" style="display: none;">
+          <h3>Late Registration of Birth</h3>
+          <div class="form-row">
+            <div class="form-group col-12">
+              <label>Full Name of Child</label>
+              <input type="text" name="child_name" class="form-control">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Date of Birth</label>
+              <input type="date" name="child_birth_date" class="form-control">
+            </div>
+            <div class="form-group col-6">
+              <label>Place of Birth</label>
+              <input type="text" name="child_birth_place" class="form-control">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Father's Full Name</label>
+              <input type="text" name="father_name" class="form-control">
+            </div>
+            <div class="form-group col-6">
+              <label>Mother's Full Name</label>
+              <input type="text" name="mother_name" class="form-control">
+            </div>
+          </div>
+        </div>
+
         <div class="form-section payment-section">
           <h3>Payment Information</h3>
           <div class="form-row">
@@ -189,7 +230,8 @@
   const taxpayerTypeSelect = document.getElementById('taxpayer_type');
   const businessFields = document.querySelector('.business-fields');
   const cedulaFields = document.querySelector('.cedula-fields');
-  const amountPaidInput = document.getElementById('id_amount_paid');
+  const lateRegistrationFields = document.querySelector('.late-registration-fields');
+  const amountPaidInput = document.querySelector('input[name="amount_paid"]');
   const amountLabel = document.getElementById('amount_label');
   const cedulaCalcs = document.querySelectorAll('.cedula-calc');
   const cedulaRaws = document.querySelectorAll('.cedula-raw');
@@ -206,7 +248,7 @@
   const valInc = document.getElementById('val_inc');
 
   function calculateCedula() {
-    const isIndiv = taxpayerTypeSelect.value ==   = 'individual';
+    const isIndiv = taxpayerTypeSelect.value === 'individual';
     const rate = isIndiv ? (1 / 1000) : (2 / 5000);
     const cap = isIndiv ? 5000 : 10000;
 
@@ -231,7 +273,7 @@
   }
 
   taxpayerTypeSelect.addEventListener('change', function () {
-    const isIndiv = this.value ==   = 'individual';
+    const isIndiv = this.value === 'individual';
     basicTaxInput.value = isIndiv ? "5.00" : "500.00";
 
     individualOnly.forEach(el => el.style.display = isIndiv ? 'flex' : 'none');
@@ -250,16 +292,19 @@
     // Reset all
     businessFields.style.display = 'none';
     cedulaFields.style.display = 'none';
+    lateRegistrationFields.style.display = 'none';
     amountPaidInput.readOnly = false;
     amountLabel.innerText = "Amount Paid (₱)";
 
-    if (this.value ==   = 'business_permit') {
+    if (this.value === 'business_permit') {
       businessFields.style.display = 'block';
-    } else if (this.value ==   = 'cedula') {
+    } else if (this.value === 'cedula') {
       cedulaFields.style.display = 'block';
       amountPaidInput.readOnly = true;
       amountLabel.innerText = "Total Amount (₱) - Auto Calculated";
       calculateCedula();
+    } else if (this.value === 'late_registration') {
+      lateRegistrationFields.style.display = 'block';
     }
 
     // Fetch next numbers
@@ -288,9 +333,22 @@
       const resp = await fetch(`/certifications/get-next-numbers/?type=${certType}`);
       const data = await resp.json();
       if (data.control_number) controlInput.value = data.control_number;
+
+      // Auto-fill CTC number if Cedula and empty
+      if (data.ctc_number && !ctcInput.value) {
+        ctcInput.value = data.ctc_number;
+        validateUniqueness('ctc_number', data.ctc_number, ctcStatus);
+      }
+
+      // Auto-fill OR number if empty
       if (data.or_number && !orInput.value && !isExemptCheckbox.checked) {
         orInput.value = data.or_number;
         validateUniqueness('or_number', data.or_number, orStatus);
+      }
+
+      // Auto-fill Amount Paid based on rate
+      if (data.rate && certType !== 'cedula') {
+        amountPaidInput.value = data.rate;
       }
     } catch (e) {
       console.error("Error fetching next numbers", e);

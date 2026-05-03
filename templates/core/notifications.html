@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}My Notifications{% endblock %}
+
+{% block breadcrumb %}
+<span><i class="fas fa-home"></i> / Notifications</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Notifications</h1>
+        <span>Updates from the barangay office</span>
+    </div>
+</div>
+
+<div class="card" style="max-width:700px;">
+    {% if notifications %}
+    <ul style="list-style:none;padding:0;margin:0;">
+        {% for notif in notifications %}
+        <li
+            style="padding:16px 20px;border-bottom:1px solid var(--border,#e2e8f0);display:flex;align-items:flex-start;gap:14px;{% if not notif.is_read %}background:#f0fdf4;{% endif %}">
+            <div
+                style="width:36px;height:36px;border-radius:50%;background:{% if not notif.is_read %}#dcfce7{% else %}#f1f5f9{% endif %};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i class="fas fa-bell"
+                    style="color:{% if not notif.is_read %}#16a34a{% else %}#94a3b8{% endif %};font-size:.9rem;"></i>
+            </div>
+            <div style="flex:1;">
+                <div style="font-size:.92rem;{% if not notif.is_read %}font-weight:600;{% endif %}">{{ notif.message }}
+                </div>
+                <div style="font-size:.78rem;color:var(--text-muted,#64748b);margin-top:4px;">{{ notif.created_at|date:"M d, Y g:i A" }}</div>
+            </div>
+            {% if notif.link %}
+            <a href="{{ notif.link }}" class="btn btn-outline btn-sm" style="flex-shrink:0;">View</a>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="text-center" style="padding:48px 24px;color:var(--text-muted,#64748b);">
+        <i class="fas fa-bell-slash" style="font-size:2.5rem;display:block;margin-bottom:14px;opacity:.3;"></i>
+        <div style="font-size:1rem;font-weight:600;">No notifications yet</div>
+        <div style="font-size:.85rem;margin-top:4px;">You'll be notified here when your certificate requests are
+            processed.</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

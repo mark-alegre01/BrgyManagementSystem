@@ -13,11 +13,129 @@
         <span>Manage and issue barangay clearances and certificates</span>
     </div>
     <div class="header-actions">
+        {% if user_role != 'resident' %}
         <a href="{% url 'certifications:issue' %}" class="btn btn-primary">
             <i class="fas fa-file-signature"></i> Issue New Certificate
         </a>
+        {% endif %}
     </div>
 </div>
+
+{% if is_resident_view %}
+<style>
+    .certificates-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 24px;
+        margin-top: 24px;
+    }
+
+    .cert-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .cert-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+        border-color: #2d7a50;
+    }
+
+    .cert-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 4px;
+        background: #2d7a50;
+    }
+
+    .cert-type-icon {
+        width: 48px;
+        height: 48px;
+        background: rgba(45, 122, 80, 0.1);
+        color: #2d7a50;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        margin-bottom: 16px;
+    }
+
+    .cert-card h3 {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: #1e293b;
+    }
+
+    .cert-control {
+        font-family: monospace;
+        font-size: 13px;
+        color: #64748b;
+        margin-bottom: 16px;
+    }
+
+    .cert-footer {
+        margin-top: auto;
+        padding-top: 16px;
+        border-top: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .cert-date {
+        font-size: 12px;
+        color: #94a3b8;
+    }
+</style>
+
+<div class="certificates-grid">
+    {% for cert in certificates %}
+    <div class="cert-card">
+        <div class="cert-type-icon">
+            <i class="fas fa-certificate"></i>
+        </div>
+        <h3>{{ cert.get_cert_type_display }}</h3>
+        <div class="cert-control">Control No: {{ cert.control_number }}</div>
+
+        <div style="margin-bottom: 20px;">
+            <div style="font-size: 13px; color: #475569; margin-bottom: 4px;">Purpose:</div>
+            <div style="font-size: 14px; color: #1e293b; line-height: 1.4;">{{ cert.purpose|truncatechars:60 }}</div>
+        </div>
+
+        <div class="cert-footer">
+            <span class="cert-date">{{ cert.date_issued|date:"M d, Y" }}</span>
+            <div class="btn-group">
+                <a href="{% url 'certifications:virtual_certificate' cert.pk %}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-eye"></i> View Virtual
+                </a>
+                <a href="{% url 'certifications:pdf' cert.pk %}" class="btn btn-outline btn-sm" target="_blank">
+                    <i class="fas fa-download"></i> PDF
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-span-full" style="padding: 60px; text-align: center; background: #fff; border-radius: 16px;">
+        <i class="fas fa-folder-open" style="font-size: 48px; color: #cbd5e1; margin-bottom: 16px;"></i>
+        <h3>No certificates found</h3>
+        <p style="color: #64748b;">You haven't been issued any certificates yet.</p>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
 
 <div class="card">
     <div class="card-header filter-card-header">
@@ -81,6 +199,12 @@
                                 title="Print/PDF">
                                 <i class="fas fa-print"></i>
                             </a>
+                            <a href="{% url 'certifications:virtual_certificate' cert.pk %}" class="btn-icon"
+                                title="Virtual View"
+                                style="color:var(--primary); background:rgba(45,122,80,0.1); border-radius:4px; padding:4px;">
+                                <i class="fas fa-certificate"></i>
+                            </a>
+                            {% if user_role != 'resident' %}
                             <form method="POST" action="{% url 'certifications:delete' cert.pk %}"
                                 onsubmit="return confirm('Delete {{ cert.control_number }}? This cannot be undone.');">
                                 {% csrf_token %}
@@ -88,6 +212,7 @@
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>
+                            {% endif %}
                         </div>
                     </td>
                 </tr>
@@ -100,5 +225,6 @@
         </table>
     </div>
 </div>
+{% endif %}
 
 {% endblock %}

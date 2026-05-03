@@ -33,6 +33,13 @@ class Certificate(models.Model):
     business_address = models.TextField(blank=True)
     business_type = models.CharField(max_length=200, blank=True)
 
+    # For late registration of birth
+    child_name = models.CharField(max_length=200, blank=True)
+    child_birth_date = models.DateField(null=True, blank=True)
+    child_birth_place = models.CharField(max_length=200, blank=True)
+    father_name = models.CharField(max_length=200, blank=True)
+    mother_name = models.CharField(max_length=200, blank=True)
+
     # Payment
     or_number = models.CharField(max_length=50, blank=True, null=True, unique=True, verbose_name='OR Number')
     amount_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -126,9 +133,23 @@ class Cedula(models.Model):
 
     def save(self, *args, **kwargs):
         # Set default basic tax if not provided
-        if self.basic_tax == 0:
+        if not self.basic_tax or self.basic_tax == 0:
             self.basic_tax = Decimal('5.00') if self.taxpayer_type == 'individual' else Decimal('500.00')
             
+        # Automatic calculation of additional taxes if they are zero but raw values exist
+        if self.taxpayer_type == 'individual':
+            if not self.additional_tax_property and self.raw_taxable_property:
+                self.additional_tax_property = (self.raw_taxable_property / 1000).quantize(Decimal('0.01'))
+            if not self.additional_tax_business and self.raw_taxable_business:
+                self.additional_tax_business = (self.raw_taxable_business / 1000).quantize(Decimal('0.01'))
+            if not self.additional_tax_income and self.raw_taxable_income:
+                self.additional_tax_income = (self.raw_taxable_income / 1000).quantize(Decimal('0.01'))
+        else:
+            if not self.additional_tax_property and self.raw_taxable_property:
+                self.additional_tax_property = ((self.raw_taxable_property / 5000) * 2).quantize(Decimal('0.01'))
+            if not self.additional_tax_business and self.raw_taxable_business:
+                self.additional_tax_business = ((self.raw_taxable_business / 5000) * 2).quantize(Decimal('0.01'))
+
         # Synchronize certificate amount_paid with total_amount
         self.certificate.amount_paid = self.total_amount
         self.certificate.save()
@@ -140,3 +161,71 @@ class Cedula(models.Model):
     class Meta:
         verbose_name = 'Cedula'
         verbose_name_plural = 'Cedulas'
+
+
+class CertificateRequest(models.Model):
+    """A resident's request for a barangay certificate."""
+
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('issued', 'Issued'),
+        ('rejected', 'Rejected'),
+    ]
+
+    resident = models.ForeignKey(
+        'residents.Resident',
+        on_delete=models.CASCADE,
+        related_name='certificate_requests',
+    )
+    cert_type = models.CharField(max_length=30, choices=Certificate.TYPE_CHOICES)
+    purpose = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    # Linked certificate once issued
+    certificate = models.OneToOneField(
+        Certificate,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='from_request',
+    )
+
+    # Specific details for the request
+    # Business
+    business_name = models.CharField(max_length=200, blank=True)
+    business_address = models.TextField(blank=True)
+    business_type = models.CharField(max_length=200, blank=True)
+
+    # Cedula
+    taxpayer_type = models.CharField(max_length=20, blank=True)
+    place_of_issue = models.CharField(max_length=200, blank=True)
+    height = models.CharField(max_length=20, blank=True)
+    weight = models.CharField(max_length=20, blank=True)
+    raw_taxable_property = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    raw_taxable_business = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    raw_taxable_income = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+
+    # Late Registration
+    child_name = models.CharField(max_length=200, blank=True)
+    child_birth_date = models.DateField(null=True, blank=True)
+    child_birth_place = models.CharField(max_length=200, blank=True)
+    father_name = models.CharField(max_length=200, blank=True)
+    mother_name = models.CharField(max_length=200, blank=True)
+
+    # Admin processing
+    notes = models.TextField(blank=True, help_text='Admin notes (shown to resident on rejection)')
+    processed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='processed_cert_requests',
+    )
+    processed_at = models.DateTimeField(null=True, blank=True)
+    requested_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Request #{self.pk} – {self.get_cert_type_display()} ({self.get_status_display()})"
+
+    class Meta:
+        ordering = ['-requested_at']
+        verbose_name = 'Certificate Request'
+        verbose_name_plural = 'Certificate Requests'

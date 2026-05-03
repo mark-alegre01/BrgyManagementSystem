@@ -99,7 +99,7 @@
       </div>
     </div>
 
-    {% if certificate.cert_type ==   'cedula' and certificate.cedula_details %}
+    {% if certificate.cert_type ==  'cedula' and certificate.cedula_details %}
     <div class="card mt-4">
       <div class="card-header">
         <h3>Cedula Information</h3>
@@ -118,7 +118,7 @@
             <span class="label">Taxpayer Type:</span>
             <span class="value">{{ certificate.cedula_details.get_taxpayer_type_display }}</span>
           </div>
-          {% if certificate.cedula_details.taxpayer_type ==   'individual' %}
+          {% if certificate.cedula_details.taxpayer_type ==  'individual' %}
           <div class="info-row">
             <span class="label">Height/Weight:</span>
             <span class="value">{{ certificate.cedula_details.height }} / {{ certificate.cedula_details.weight }}</span>
@@ -146,7 +146,7 @@
                 <td class="text-end">Fixed</td>
                 <td class="text-end">₱{{ certificate.cedula_details.basic_tax|floatformat:2 }}</td>
               </tr>
-              {% if certificate.cedula_details.taxpayer_type ==   'individual' %}
+              {% if certificate.cedula_details.taxpayer_type ==  'individual' %}
               <tr>
                 <td>(a) Profession/Occupation</td>
                 <td class="text-end">₱{{ certificate.cedula_details.raw_taxable_income|floatformat:2 }}</td>

@@ -25,8 +25,8 @@
         <div class="filter-select-wrapper">
           <i class="fas fa-toggle-on filter-icon"></i>
           <select name="status" class="form-control filter-select" onchange="this.form.submit();">
-            <option value="active" {% if selected_status ==   'active' %}selected{% endif %}>Active Officials</option>
-            <option value="inactive" {% if selected_status ==   'inactive' %}selected{% endif %}>Inactive/Past Officials
+            <option value="active" {% if selected_status ==  'active' %}selected{% endif %}>Active Officials</option>
+            <option value="inactive" {% if selected_status ==  'inactive' %}selected{% endif %}>Inactive/Past Officials
             </option>
           </select>
         </div>
@@ -34,9 +34,9 @@
         <div class="filter-select-wrapper">
           <i class="fas fa-briefcase filter-icon"></i>
           <select name="pos" class="form-control filter-select" onchange="this.form.submit();">
-            <option value="all" {% if selected_pos ==   'all' %}selected{% endif %}>All Positions</option>
+            <option value="all" {% if selected_pos ==  'all' %}selected{% endif %}>All Positions</option>
             {% for pos_code, pos_label in all_positions %}
-            <option value="{{ pos_code }}" {% if selected_pos ==   pos_code %}selected{% endif %}>{{ pos_label }}</option>
+            <option value="{{ pos_code }}" {% if selected_pos ==  pos_code %}selected{% endif %}>{{ pos_label }}</option>
             {% endfor %}
           </select>
         </div>
@@ -47,7 +47,7 @@
   {% for key, category in categories.items %}
   <div class="category-section">
     <div class="category-header">
-      <i class="fas {% if key ==   'council' %}fa-user-tie{% elif key ==   'sk' %}fa-users{% elif key ==   'tanod' %}fa-shield-alt{% elif key ==   'health' %}fa-file-medical{% else %}fa-user-cog{% endif %} mr-2"></i>
+      <i class="fas {% if key ==  'council' %}fa-user-tie{% elif key ==  'sk' %}fa-users{% elif key ==  'tanod' %}fa-shield-alt{% elif key ==  'health' %}fa-file-medical{% else %}fa-user-cog{% endif %} mr-2"></i>
       {{ category.title }}
     </div>
     <div class="table-responsive">
@@ -75,7 +75,7 @@
             <td>{{ official.term_start|date:"M d, Y" }}</td>
             <td>{{ official.term_end|date:"M d, Y"|default:"Present" }}</td>
             <td>
-              <span class="status-badge {% if official.status ==   'active' %}badge-active{% else %}badge-inactive{% endif %}">
+              <span class="status-badge {% if official.status ==  'active' %}badge-active{% else %}badge-inactive{% endif %}">
                 {{ official.get_status_display }}
               </span>
             </td>

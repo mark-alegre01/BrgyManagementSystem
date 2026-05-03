@@ -1,14 +1,16 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponse, FileResponse
+from django.http import HttpResponse, FileResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.db.models import Q
-from .models import Certificate, Cedula
+from .models import Certificate, Cedula, CertificateRequest
+from officials.models import Official
 from residents.models import Resident
 from datetime import date
 from decimal import Decimal
 import uuid
+from core.models import SystemSettings
 
 
 def generate_control_number(cert_type):
@@ -35,35 +37,88 @@ def generate_control_number(cert_type):
     return f"{prefix}-{count:03d}-{year}"
 
 
+def generate_or_number():
+    """Generate the next OR number by incrementing the last numeric one."""
+    # Find the most recent certificate that has a numeric OR number (ignoring EXEMPT, FREE, etc.)
+    # We order by ID to get the literal latest, then iterate back if needed to find a numeric base
+    certs = Certificate.objects.exclude(or_number__isnull=True).exclude(or_number='').order_by('-id')[:20]
+    
+    import re
+    base_or = None
+    for c in certs:
+        # Check if it ends in a number (the numeric part we can increment)
+        if re.search(r'\d+$', c.or_number):
+            base_or = c.or_number
+            break
+            
+    if not base_or:
+        return "OR-10001"
+    
+    try:
+        match = re.search(r'(\d+)$', base_or)
+        number_str = match.group(1)
+        number = int(number_str)
+        prefix = base_or[:match.start()]
+        return f"{prefix}{number + 1:0{len(number_str)}d}"
+    except Exception:
+        return "OR-10001"
+
+
+def generate_ctc_number():
+    """Generate the next CTC (Cedula) number."""
+    from certifications.models import Cedula
+    last_cedula = Cedula.objects.order_by('-id').first()
+    year = date.today().year
+    
+    if not last_cedula or not last_cedula.ctc_number:
+        return f"CCIC{year}001"
+        
+    import re
+    match = re.search(r'(\d+)$', last_cedula.ctc_number)
+    if match:
+        number_str = match.group(1)
+        # Handle cases where the year might be part of the number string
+        # e.g., 2026001. If it's too long, we might just want the last 3 digits.
+        # But let's assume the prefix is constant for the year
+        prefix = last_cedula.ctc_number[:match.start()]
+        number = int(number_str)
+        return f"{prefix}{number + 1:0{len(number_str)}d}"
+        
+    return f"CCIC{year}001"
+
+
+def get_certificate_rate(cert_type):
+    """Return the standard rate for a certificate type."""
+    rates = {
+        'clearance': Decimal('100.00'),
+        'residency': Decimal('50.00'),
+        'indigency': Decimal('0.00'),
+        'good_moral': Decimal('50.00'),
+        'business_permit': Decimal('500.00'),
+        'comelec': Decimal('50.00'),
+        'cedula': Decimal('0.00'),  # Calculated dynamically
+        'late_registration': Decimal('50.00'),
+    }
+    return rates.get(cert_type, Decimal('50.00'))
+
+
 @login_required
 def get_next_numbers(request):
     """AJAX view to suggest next Control and OR numbers."""
-    from django.http import JsonResponse
-    import re
-    
     cert_type = request.GET.get('type')
     if not cert_type:
         return JsonResponse({})
         
     next_control = generate_control_number(cert_type)
-    
-    # Logic for next OR Number: Find highest numeric OR number
-    latest_or_cert = Certificate.objects.exclude(or_number__in=[None, '', 'EXEMPT', 'FREE']).order_by('-id').first()
-    next_or = ""
-    if latest_or_cert and latest_or_cert.or_number:
-        # Try to find numeric part and increment it
-        match = re.search(r'(\d+)$', latest_or_cert.or_number)
-        if match:
-            num_str = match.group(1)
-            next_num = int(num_str) + 1
-            prefix = latest_or_cert.or_number[:match.start()]
-            next_or = f"{prefix}{next_num:0{len(num_str)}d}"
-        else:
-            next_or = latest_or_cert.or_number # Fallback to same if not incrementable
+    next_or = generate_or_number()
+    next_ctc = generate_ctc_number() if cert_type == 'cedula' else ""
+    rate = get_certificate_rate(cert_type)
             
     return JsonResponse({
         'control_number': next_control,
-        'or_number': next_or
+        'or_number': next_or,
+        'ctc_number': next_ctc,
+        'rate': format(rate, '.2f')
     })
 
 
@@ -90,6 +145,34 @@ def certificate_list(request):
     if date_to:
         certs = certs.filter(date_issued__lte=date_to)
 
+    # Residents can only see their own certificates
+    role = 'staff'
+    try:
+        role = request.user.profile.role
+    except Exception:
+        pass
+
+    if role == 'resident':
+        try:
+            own_resident = request.user.profile.resident
+            if own_resident:
+                certs = Certificate.objects.filter(resident=own_resident).select_related('resident', 'issued_by')
+            else:
+                certs = Certificate.objects.none()
+        except Exception:
+            certs = Certificate.objects.none()
+
+        paginator = Paginator(certs, 25)
+        page = request.GET.get('page')
+        certs = paginator.get_page(page)
+        return render(request, 'certifications/list.html', {
+            'certificates': certs,
+            'query': '',
+            'selected_type': '',
+            'cert_types': Certificate.TYPE_CHOICES,
+            'is_resident_view': True,
+        })
+
     paginator = Paginator(certs, 25)
     page = request.GET.get('page')
     certs = paginator.get_page(page)
@@ -105,25 +188,36 @@ def certificate_list(request):
 
 @login_required
 def certificate_issue(request):
-    """Issue a new certificate."""
+    """Issue a new certificate – admin/staff only."""
+    # Residents cannot issue certificates – refer to barangay office
+    role = 'staff'
+    try:
+        role = request.user.profile.role
+    except Exception:
+        pass
+
+    if role == 'resident':
+        messages.error(request, "Certificate issuance must be done at the barangay office. Please visit us in person.")
+        return redirect('core:dashboard')
+
     if request.method == 'POST':
         cert_type = request.POST.get('cert_type')
         resident_id = request.POST.get('resident')
         resident = get_object_or_404(Resident, pk=resident_id)
 
         # Validation for uniqueness
-        or_number = request.POST.get('or_number')
-        if or_number:
+        or_number = request.POST.get('or_number') or generate_or_number()
+        if or_number and or_number not in ['EXEMPT', 'FREE']:
             if Certificate.objects.filter(or_number=or_number).exists():
                 messages.error(request, f'OR Number "{or_number}" is already used by another certificate.')
-                return redirect('certifications:issue')
+                return redirect('certifications:certificate_issue')
 
         if cert_type == 'cedula':
             ctc_number = request.POST.get('ctc_number')
             if ctc_number:
                 if Cedula.objects.filter(ctc_number=ctc_number).exists():
                     messages.error(request, f'CTC Number "{ctc_number}" is already used.')
-                    return redirect('certifications:issue')
+                    return redirect('certifications:certificate_issue')
 
         def to_decimal(val):
             if not val: return Decimal('0.00')
@@ -134,16 +228,14 @@ def certificate_issue(request):
             except:
                 return Decimal('0.00')
 
-        control_number = request.POST.get('control_number')
-        if not control_number:
-            control_number = generate_control_number(cert_type)
+        control_number = request.POST.get('control_number') or generate_control_number(cert_type)
 
         cert = Certificate(
             cert_type=cert_type,
             control_number=control_number,
             resident=resident,
             purpose=request.POST.get('purpose', ''),
-            or_number=or_number or None, # Use None for blank to avoid unique "" conflict
+            or_number=or_number,
             amount_paid=to_decimal(request.POST.get('amount_paid', 0)),
             business_name=request.POST.get('business_name', ''),
             business_address=request.POST.get('business_address', ''),
@@ -151,11 +243,29 @@ def certificate_issue(request):
             issued_by=request.user,
             status='issued',
         )
+        
+        # Transfer Late Registration details
+        if cert_type == 'late_registration':
+            cert.child_name = request.POST.get('child_name', '')
+            cert.child_birth_date = request.POST.get('child_birth_date') or None
+            cert.child_birth_place = request.POST.get('child_birth_place', '')
+            cert.father_name = request.POST.get('father_name', '')
+            cert.mother_name = request.POST.get('mother_name', '')
+
+        # Transfer Late Registration details
+        if cert_type == 'late_registration':
+            cert.child_name = request.POST.get('child_name', '')
+            cert.child_birth_date = request.POST.get('child_birth_date') or None
+            cert.child_birth_place = request.POST.get('child_birth_place', '')
+            cert.father_name = request.POST.get('father_name', '')
+            cert.mother_name = request.POST.get('mother_name', '')
+
         cert.save()
 
         if cert_type == 'cedula':
             # Create Cedula details
-            cedula = Cedula.objects.create(
+            from certifications.models import Cedula
+            Cedula.objects.create(
                 certificate=cert,
                 ctc_number=request.POST.get('ctc_number'),
                 taxpayer_type=request.POST.get('taxpayer_type', 'individual'),
@@ -186,7 +296,6 @@ def certificate_issue(request):
             Q(first_name__icontains=query) |
             Q(last_name__icontains=query)
         )
-
     context = {
         'residents': residents[:50],
         'cert_types': Certificate.TYPE_CHOICES,
@@ -207,7 +316,13 @@ def certificate_pdf(request, pk):
     """Generate and download certificate PDF."""
     from .utils import generate_certificate_pdf
     cert = get_object_or_404(Certificate.objects.select_related('resident'), pk=pk)
-    pdf_buffer = generate_certificate_pdf(cert)
+    role = 'resident'
+    try:
+        role = request.user.profile.role
+    except Exception:
+        pass
+    
+    pdf_buffer = generate_certificate_pdf(cert, is_resident=(role == 'resident'))
     response = HttpResponse(pdf_buffer, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{cert.control_number}.pdf"'
     return response
@@ -259,10 +374,310 @@ def certificate_receipt_pdf(request, pk):
 
 @login_required
 def certificate_delete(request, pk):
-    """Delete a certificate (POST only)."""
+    """Delete a certificate (POST only) – admin/staff only."""
+    role = 'staff'
+    try:
+        role = request.user.profile.role
+    except Exception:
+        pass
+    if role == 'resident':
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('certifications:list')
     cert = get_object_or_404(Certificate, pk=pk)
     if request.method == 'POST':
         control_number = cert.control_number
         cert.delete()
         messages.success(request, f'Certificate {control_number} has been deleted.')
     return redirect('certifications:list')
+
+
+# ─── Certificate Requests ────────────────────────────────────────────────────
+
+@login_required
+def request_certificate(request):
+    """Resident submits a certificate request."""
+    role = 'staff'
+    own_resident = None
+    try:
+        role = request.user.profile.role
+        own_resident = request.user.profile.resident
+    except Exception:
+        pass
+
+    if role != 'resident':
+        messages.error(request, "This page is for residents only.")
+        return redirect('core:dashboard')
+
+    if own_resident is None:
+        messages.error(request, "Your account is not linked to a resident record. Please contact the barangay office.")
+        return redirect('core:dashboard')
+
+    if request.method == 'POST':
+        cert_type = request.POST.get('cert_type')
+        purpose = request.POST.get('purpose', '').strip()
+
+        if not cert_type or not purpose:
+            messages.error(request, "Please fill in all required fields.")
+        elif CertificateRequest.objects.filter(resident=own_resident, cert_type=cert_type, status='pending').exists():
+            messages.warning(request, "You already have a pending request for this certificate type.")
+        else:
+            CertificateRequest.objects.create(
+                resident=own_resident,
+                cert_type=cert_type,
+                purpose=purpose,
+                
+                # Business fields
+                business_name=request.POST.get('business_name', ''),
+                business_address=request.POST.get('business_address', ''),
+                business_type=request.POST.get('business_type', ''),
+                
+                # Cedula fields
+                taxpayer_type=request.POST.get('taxpayer_type', ''),
+                place_of_issue=request.POST.get('place_of_issue', ''),
+                height=request.POST.get('height', ''),
+                weight=request.POST.get('weight', ''),
+                raw_taxable_property=Decimal(request.POST.get('raw_taxable_property') or '0.00'),
+                raw_taxable_business=Decimal(request.POST.get('raw_taxable_business') or '0.00'),
+                raw_taxable_income=Decimal(request.POST.get('raw_taxable_income') or '0.00'),
+
+                # Late Registration details
+                child_name=request.POST.get('child_name', ''),
+                child_birth_date=request.POST.get('child_birth_date') or None,
+                child_birth_place=request.POST.get('child_birth_place', ''),
+                father_name=request.POST.get('father_name', ''),
+                mother_name=request.POST.get('mother_name', ''),
+            )
+            messages.success(request, "Your certificate request has been submitted! The barangay office will process it shortly.")
+            return redirect('certifications:my_requests')
+
+    return render(request, 'certifications/request_form.html', {
+        'cert_types': Certificate.TYPE_CHOICES,
+    })
+
+
+@login_required
+def my_requests(request):
+    """Resident's own certificate request history."""
+    role = 'staff'
+    own_resident = None
+    try:
+        role = request.user.profile.role
+        own_resident = request.user.profile.resident
+    except Exception:
+        pass
+
+    if role != 'resident':
+        return redirect('certifications:request_list')
+
+    reqs = CertificateRequest.objects.filter(resident=own_resident).order_by('-requested_at')
+    return render(request, 'certifications/my_requests.html', {'requests': reqs})
+
+
+@login_required
+def request_list(request):
+    """Admin view: list all certificate requests with status tabs."""
+    role = 'staff'
+    try:
+        role = request.user.profile.role
+    except Exception:
+        pass
+
+    if role == 'resident':
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+
+    status_filter = request.GET.get('status', 'pending')
+    reqs = CertificateRequest.objects.select_related('resident', 'processed_by').all()
+    if status_filter:
+        reqs = reqs.filter(status=status_filter)
+
+    paginator = Paginator(reqs, 20)
+    reqs = paginator.get_page(request.GET.get('page'))
+
+    pending_count = CertificateRequest.objects.filter(status='pending').count()
+
+    return render(request, 'certifications/request_list.html', {
+        'requests': reqs,
+        'status_filter': status_filter,
+        'pending_count': pending_count,
+    })
+
+
+@login_required
+def fulfill_request(request, pk):
+    """Admin: fulfill a pending request by issuing a certificate."""
+    from django.utils import timezone
+    from core.models import Notification
+
+    role = 'staff'
+    try:
+        role = request.user.profile.role
+    except Exception:
+        pass
+
+    if role == 'resident':
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+
+    cert_request = get_object_or_404(CertificateRequest, pk=pk)
+
+    if cert_request.status != 'pending':
+        messages.error(request, "This request has already been processed.")
+        return redirect('certifications:request_list')
+
+    if request.method == 'POST':
+        def to_decimal(val):
+            if not val:
+                return Decimal('0.00')
+            try:
+                return Decimal(str(val).replace(',', ''))
+            except Exception:
+                return Decimal('0.00')
+
+        control_number = request.POST.get('control_number') or generate_control_number(cert_request.cert_type)
+        or_number = request.POST.get('or_number') or None
+
+        if or_number and Certificate.objects.filter(or_number=or_number).exists():
+            messages.error(request, f'OR Number "{or_number}" is already used by another certificate.')
+            return redirect('certifications:fulfill_request', pk=pk)
+
+        cert = Certificate.objects.create(
+            cert_type=cert_request.cert_type,
+            control_number=control_number,
+            resident=cert_request.resident,
+            purpose=cert_request.purpose,
+            or_number=or_number,
+            amount_paid=to_decimal(request.POST.get('amount_paid', 0)),
+            issued_by=request.user,
+            status='issued',
+            business_name=request.POST.get('business_name', ''),
+            business_address=request.POST.get('business_address', ''),
+            business_type=request.POST.get('business_type', ''),
+        )
+
+        if cert.cert_type == 'cedula':
+            from certifications.models import Cedula
+            ctc_number = request.POST.get('ctc_number', '')
+            Cedula.objects.create(
+                certificate=cert,
+                ctc_number=ctc_number,
+                taxpayer_type=request.POST.get('taxpayer_type', 'individual'),
+                place_of_issue=request.POST.get('place_of_issue', 'Sico-Sico, Gigaquit'),
+                height=request.POST.get('height', ''),
+                weight=request.POST.get('weight', ''),
+                raw_taxable_property=to_decimal(request.POST.get('raw_taxable_property', 0)),
+                raw_taxable_business=to_decimal(request.POST.get('raw_taxable_business', 0)),
+                raw_taxable_income=to_decimal(request.POST.get('raw_taxable_income', 0)),
+            )
+
+        cert_request.status = 'issued'
+        cert_request.certificate = cert
+        cert_request.processed_by = request.user
+        cert_request.processed_at = timezone.now()
+        cert_request.save()
+
+        # Notify resident
+        try:
+            resident_user = cert_request.resident.user_profile.user
+            Notification.objects.create(
+                user=resident_user,
+                message=f'Your request for a {cert_request.get_cert_type_display()} has been issued! Control #: {cert.control_number}.',
+                link=f'/certifications/{cert.pk}/',
+            )
+        except Exception:
+            pass
+
+        messages.success(request, f'Certificate {cert.control_number} issued and resident notified.')
+        return redirect('certifications:request_list')
+
+    # GET: show the fulfillment form
+    return render(request, 'certifications/fulfill_form.html', {
+        'cert_request': cert_request,
+        'suggested_control': generate_control_number(cert_request.cert_type),
+        'suggested_or': generate_or_number(),
+        'suggested_ctc': generate_ctc_number() if cert_request.cert_type == 'cedula' else "",
+        'base_amount': get_certificate_rate(cert_request.cert_type),
+    })
+
+
+@login_required
+def reject_request(request, pk):
+    """Admin: reject a pending certificate request."""
+    from django.utils import timezone
+    from core.models import Notification
+
+    role = 'staff'
+    try:
+        role = request.user.profile.role
+    except Exception:
+        pass
+
+    if role == 'resident':
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+
+    cert_request = get_object_or_404(CertificateRequest, pk=pk)
+
+    if cert_request.status != 'pending':
+        messages.error(request, "This request has already been processed.")
+        return redirect('certifications:request_list')
+
+    if request.method == 'POST':
+        notes = request.POST.get('notes', '').strip()
+        cert_request.status = 'rejected'
+        cert_request.notes = notes
+        cert_request.processed_by = request.user
+        cert_request.processed_at = timezone.now()
+        cert_request.save()
+
+        # Notify resident
+        try:
+            resident_user = cert_request.resident.user_profile.user
+            note_text = f' Reason: {notes}' if notes else ''
+            Notification.objects.create(
+                user=resident_user,
+                message=f'Your request for a {cert_request.get_cert_type_display()} was not approved.{note_text}',
+                link='/certifications/my-requests/',
+            )
+        except Exception:
+            pass
+
+        messages.warning(request, f'Request #{pk} has been rejected.')
+        return redirect('certifications:request_list')
+
+    return redirect('certifications:request_list')
+
+
+@login_required
+def virtual_certificate(request, pk):
+    """View certificate as a 'virtual' document (card/styled)."""
+    cert = get_object_or_404(Certificate.objects.select_related('resident', 'issued_by'), pk=pk)
+    
+    # Check if resident owns this certificate
+    try:
+        role = request.user.profile.role
+        if role == 'resident':
+            if cert.resident != request.user.profile.resident:
+                messages.error(request, "Permission denied.")
+                return redirect('core:dashboard')
+    except Exception:
+        pass
+
+    settings = SystemSettings.objects.first()
+    
+    # Logic for current captain
+    captain = Official.objects.filter(position='captain', status='active').first()
+    captain_name = captain.resident.full_name if captain else "OFFICIAL CAPTAIN NAME"
+        
+    role = 'resident'
+    try:
+        role = request.user.profile.role
+    except Exception:
+        pass
+
+    return render(request, 'certifications/virtual_certificate.html', {
+        'certificate': cert,
+        'settings': settings,
+        'captain_name': captain_name,
+        'user_role': role
+    })

@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Certificate Requests{% endblock %}
+
+{% block breadcrumb %}
+<span><i class="fas fa-home"></i> / <a href="{% url 'certifications:list' %}">Certifications</a> / Requests</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Certificate Requests</h1>
+        <span>Review and process resident certificate requests</span>
+    </div>
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }}" style="margin-bottom:16px;">{{ message }}</div>
+{% endfor %}
+{% endif %}
+
+<!-- Status Tabs -->
+<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+    <a href="?status=pending"
+        class="btn {% if status_filter == 'pending' %}btn-primary{% else %}btn-outline{% endif %}">
+        ⏳ Pending
+        {% if pending_count > 0 %}<span
+            style="background:#ef4444;color:#fff;border-radius:20px;padding:1px 8px;font-size:.75rem;margin-left:4px;">{{
+            pending_count }}</span>{% endif %}
+    </a>
+    <a href="?status=issued" class="btn {% if status_filter == 'issued' %}btn-primary{% else %}btn-outline{% endif %}">✅
+        Issued</a>
+    <a href="?status=rejected"
+        class="btn {% if status_filter == 'rejected' %}btn-primary{% else %}btn-outline{% endif %}">❌ Rejected</a>
+    <a href="?status=" class="btn {% if not status_filter %}btn-primary{% else %}btn-outline{% endif %}">All</a>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Resident</th>
+                    <th>Certificate Type</th>
+                    <th>Purpose</th>
+                    <th>Requested</th>
+                    <th>Status</th>
+                    <th>Processed By</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requests %}
+                <tr>
+                    <td style="font-weight:600;color:var(--text-muted,#64748b);">{{ req.pk }}</td>
+                    <td>
+                        <div style="font-weight:600;">{{ req.resident.full_name }}</div>
+                        <div style="font-size:.8rem;color:var(--text-muted,#64748b);">Purok {{
+                            req.resident.purok|default:"—" }}</div>
+                    </td>
+                    <td>{{ req.get_cert_type_display }}</td>
+                    <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                        title="{{ req.purpose }}">{{ req.purpose }}</td>
+                    <td>{{ req.requested_at|date:"M d, Y g:i A" }}</td>
+                    <td>
+                        {% if req.status == 'pending' %}
+                        <span class="badge badge-warning">Pending</span>
+                        {% elif req.status == 'issued' %}
+                        <span class="badge badge-success">Issued</span>
+                        {% else %}
+                        <span class="badge badge-danger">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:.85rem;">
+                        {% if req.processed_by %}
+                        {{ req.processed_by.get_full_name|default:req.processed_by.username }}<br>
+                        <span style="color:var(--text-muted,#64748b);">{{ req.processed_at|date:"M d, Y" }}</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>
+                        {% if req.status == 'pending' %}
+                        <div class="btn-group">
+                            <a href="{% url 'certifications:fulfill_request' req.pk %}" class="btn btn-sm btn-primary"
+                                title="Issue Certificate">
+                                <i class="fas fa-check-circle"></i> Issue
+                            </a>
+                            <!-- Reject modal trigger -->
+                            <button type="button" class="btn btn-sm btn-outline"
+                                style="color:#dc2626;border-color:#dc2626;" onclick="openRejectModal({{ req.pk }})"
+                                title="Reject Request">
+                                <i class="fas fa-times-circle"></i> Reject
+                            </button>
+                        </div>
+                        {% elif req.status == 'issued' and req.certificate %}
+                        <a href="{% url 'certifications:view' req.certificate.pk %}" class="btn btn-sm btn-outline">
+                            <i class="fas fa-eye"></i> View Cert
+                        </a>
+                        {% else %}—{% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center" style="padding:36px 0;color:var(--text-muted,#64748b);">
+                        <i class="fas fa-inbox"
+                            style="font-size:2rem;display:block;margin-bottom:10px;opacity:.35;"></i>
+                        No {{ status_filter|default:"" }} requests found.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if requests.has_other_pages %}
+    <div style="padding:16px 0 8px;display:flex;gap:8px;justify-content:center;">
+        {% if requests.has_previous %}
+        <a href="?status={{ status_filter }}&page={{ requests.previous_page_number }}" class="btn btn-outline btn-sm">‹
+            Prev</a>
+        {% endif %}
+        <span style="padding:6px 12px;font-size:.85rem;">Page {{ requests.number }} of {{ requests.paginator.num_pages
+            }}</span>
+        {% if requests.has_next %}
+        <a href="?status={{ status_filter }}&page={{ requests.next_page_number }}" class="btn btn-outline btn-sm">Next
+            ›</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+    <div
+        style="background:var(--bg-card,#fff);border-radius:16px;padding:28px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+        <h3 style="margin:0 0 8px;"><i class="fas fa-times-circle" style="color:#dc2626;"></i> Reject Request</h3>
+        <p style="color:var(--text-muted,#64748b);margin: 0 0 16px;font-size:.9rem;">Optionally add a reason that will
+            be sent to the resident.</p>
+        <form method="POST" id="rejectForm" action="">
+            {% csrf_token %}
+            <textarea name="notes" id="rejectNotes" placeholder="Reason for rejection (optional)..."
+                style="width:100%;padding:10px 14px;border:1.5px solid var(--border,#e2e8f0);border-radius:8px;min-height:80px;resize:vertical;font-size:.9rem;box-sizing:border-box;margin-bottom:16px;"></textarea>
+            <div id="rejectGrammarFeedback"></div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
+                <button type="button" onclick="closeRejectModal()" class="btn btn-outline">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background:#dc2626;border-color:#dc2626;">Reject
+                    Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="{% static 'js/grammar_checker.js' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        GrammarChecker.init('rejectNotes', 'rejectGrammarFeedback');
+    });
+    function openRejectModal(pk) {
+        document.getElementById('rejectForm').action = '/certifications/requests/' + pk + '/reject/';
+        const m = document.getElementById('rejectModal');
+        m.style.display = 'flex';
+    }
+    function closeRejectModal() {
+        document.getElementById('rejectModal').style.display = 'none';
+    }
+    document.getElementById('rejectModal').addEventListener('click', function (e) {
+        if (e.target === this) closeRejectModal();
+    });
+</script>
+{% endblock %}

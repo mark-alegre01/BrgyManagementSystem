@@ -1,6 +1,6 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 
 <head>
   <meta charset="UTF-8">
@@ -36,80 +36,140 @@
       <div class="nav-section">
         <span class="nav-section-title">MAIN</span>
         <a href="{% url 'core:dashboard' %}"
-          class="nav-item {% if request.resolver_match.url_name ==   'dashboard' and request.resolver_match.app_name ==   'core' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.url_name ==  'dashboard' and request.resolver_match.app_name ==  'core' %}active{% endif %}">
           <i class="fas fa-tachometer-alt"></i><span>Dashboard</span>
         </a>
       </div>
 
+      {% if r == 'resident' %}
+      <!-- RESIDENT PORTAL -->
+      <div class="nav-section">
+        <span class="nav-section-title">MY PORTAL</span>
+        {% if user_profile.resident %}
+        <a href="{% url 'residents:view' user_profile.resident.pk %}"
+          class="nav-item {% if request.resolver_match.app_name == 'residents' %}active{% endif %}">
+          <i class="fas fa-user-circle"></i><span>My Profile</span>
+        </a>
+        {% endif %}
+        <a href="{% url 'certifications:request_certificate' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'request_certificate' %}active{% endif %}">
+          <i class="fas fa-file-signature"></i><span>Request Certificate</span>
+        </a>
+        <a href="{% url 'certifications:my_requests' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'my_requests' %}active{% endif %}">
+          <i class="fas fa-clipboard-list"></i><span>My Requests</span>
+        </a>
+        <a href="{% url 'certifications:list' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'list' and request.resolver_match.app_name == 'certifications' %}active{% endif %}">
+          <i class="fas fa-scroll"></i><span>My Certificates</span>
+        </a>
+        <a href="{% url 'core:notifications' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
+          <i class="fas fa-bell"></i>
+          <span>Notifications</span>
+          {% if unread_notifications_count > 0 %}
+          <span <span
+            style="margin-left:auto;background:#ef4444;color:#fff;border-radius:20px;padding:1px 7px;font-size:.72rem;font-weight:700;">{{ unread_notifications_count }}</span>
+          {% endif %}
+        </a>
+      </div>
+      {% endif %}
+
       <!-- MANAGEMENT -->
+      {% if s or r != 'resident' %}
       <div class="nav-section">
         <span class="nav-section-title">MANAGEMENT</span>
 
-        {% if s or r != 'resident' %}
         <a href="{% url 'residents:list' %}"
-          class="nav-item {% if request.resolver_match.app_name ==   'residents' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.app_name ==  'residents' %}active{% endif %}">
           <i class="fas fa-users"></i><span>Residents</span>
         </a>
-        {% endif %}
 
-        {% if s or r ==   'captain' or r ==   'admin' or r ==   'secretary' or r ==   'treasurer' %}
+        {% if s or r == 'captain' or r == 'admin' or r == 'secretary' or r == 'treasurer' %}
         <a href="{% url 'officials:list' %}"
-          class="nav-item {% if request.resolver_match.app_name ==   'officials' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.app_name ==  'officials' %}active{% endif %}">
           <i class="fas fa-user-tie"></i><span>Officials</span>
         </a>
         <a href="{% url 'officials:biometric_register' %}"
-          class="nav-item {% if request.resolver_match.url_name ==   'biometric_register' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.url_name ==  'biometric_register' %}active{% endif %}">
           <i class="fas fa-fingerprint"></i><span>Register for Biometric</span>
         </a>
         {% endif %}
 
-        {% if s or r ==   'captain' or r ==   'admin' or r ==   'secretary' %}
+        {% if s or r == 'captain' or r == 'admin' or r == 'secretary' %}
         <a href="{% url 'residents:household_list' %}"
-          class="nav-item {% if request.resolver_match.url_name ==   'household_list' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.url_name ==  'household_list' %}active{% endif %}">
           <i class="fas fa-home"></i><span>Households</span>
+        </a>
+        <a href="{% url 'residents:registration_list' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'registration_list' %}active{% endif %}">
+          <i class="fas fa-user-clock"></i><span>Pending Registrations</span>
+          {% if pending_registrations_count > 0 %}
+          <span class="badge badge-danger" style="margin-left: auto;">{{ pending_registrations_count }}</span>
+          {% endif %}
         </a>
         {% endif %}
       </div>
+      {% endif %}
 
       <!-- SERVICES -->
+      {% if s or r != 'lupon_member' and r != 'resident' %}
       <div class="nav-section">
         <span class="nav-section-title">SERVICES</span>
 
-        {% if s or r != 'lupon_member' and r != 'resident' %}
         <a href="{% url 'certifications:list' %}"
-          class="nav-item {% if request.resolver_match.app_name ==   'certifications' %}active{% endif %}">
-          <i class="fas fa-certificate"></i><span>Certifications</span>
+          class="nav-item {% if request.resolver_match.app_name == 'certifications' and request.resolver_match.url_name == 'list' %}active{% endif %}">
+          <i class="fas fa-file-certificate"></i><span>Certifications</span>
         </a>
-        {% endif %}
+        <a href="{% url 'certifications:request_list' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'request_list' %}active{% endif %}">
+          <i class="fas fa-inbox"></i>
+          <span>Cert. Requests</span>
+          {% if pending_cert_requests_count > 0 %}
+          <span <span
+            style="margin-left:auto;background:#ef4444;color:#fff;border-radius:20px;padding:1px 7px;font-size:.72rem;font-weight:700;">{{ pending_cert_requests_count }}</span>
+          {% endif %}
+        </a>
 
-        {% if s or r ==   'captain' or r ==   'admin' or r ==   'treasurer' %}
+        {% if s or r == 'captain' or r == 'admin' or r == 'treasurer' %}
         <a href="{% url 'attendance:dashboard' %}"
-          class="nav-item {% if request.resolver_match.app_name ==   'attendance' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.app_name ==  'attendance' %}active{% endif %}">
           <i class="fas fa-fingerprint"></i><span>Attendance &amp; DTR</span>
         </a>
         {% endif %}
       </div>
+      {% endif %}
 
       <!-- RECORDS -->
-      {% if s or r ==   'captain' or r ==   'admin' or r ==   'secretary' or r ==   'kagawad' or r ==   'lupon_member' %}
+      {% if s or r == 'captain' or r == 'admin' or r == 'secretary' or r == 'kagawad' or r == 'lupon_member' %}
       <div class="nav-section">
         <span class="nav-section-title">RECORDS</span>
 
         <a href="{% url 'ordinances:list' %}"
-          class="nav-item {% if request.resolver_match.app_name ==   'ordinances' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.app_name ==  'ordinances' %}active{% endif %}">
           <i class="fas fa-gavel"></i><span>Ordinances</span>
         </a>
 
-        {% if s or r ==   'captain' or r ==   'admin' %}
+        {% if s or r == 'captain' or r == 'admin' %}
         <a href="{% url 'census:dashboard' %}"
-          class="nav-item {% if request.resolver_match.app_name ==   'census' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.app_name ==  'census' %}active{% endif %}">
           <i class="fas fa-chart-pie"></i><span>Census</span>
         </a>
         <a href="{% url 'reports:dashboard' %}"
-          class="nav-item {% if request.resolver_match.app_name ==   'reports' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.app_name ==  'reports' %}active{% endif %}">
           <i class="fas fa-chart-bar"></i><span>Reports</span>
         </a>
         {% endif %}
+      </div>
+      {% endif %}
+      <!-- SYSTEM -->
+      {% if s or r == 'admin' or r == 'captain' or r == 'secretary' or r == 'treasurer' %}
+      <div class="nav-section">
+        <span class="nav-section-title">SYSTEM</span>
+        <a href="{% url 'core:backup_setup' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'backup_setup' %}active{% endif %}">
+          <i class="fas fa-database"></i><span>Backup Data</span>
+        </a>
       </div>
       {% endif %}
       {% endwith %}
@@ -122,12 +182,13 @@
           <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
           <span class="user-role">
             {% if request.user.is_superuser %}Administrator
-            {% elif user_role ==   'captain' %}Punong Barangay
-            {% elif user_role ==   'secretary' %}Barangay Secretary
-            {% elif user_role ==   'treasurer' %}Barangay Treasurer
-            {% elif user_role ==   'kagawad' %}Kagawad
-            {% elif user_role ==   'sk_chairperson' %}SK Chairperson
-            {% elif user_role ==   'lupong_member' %}Lupon Member
+            {% elif user_role == 'captain' %}Punong Barangay
+            {% elif user_role == 'secretary' %}Barangay Secretary
+            {% elif user_role == 'treasurer' %}Barangay Treasurer
+            {% elif user_role == 'kagawad' %}Kagawad
+            {% elif user_role == 'sk_chairperson' %}SK Chairperson
+            {% elif user_role == 'lupong_member' %}Lupon Member
+            {% elif user_role == 'resident' %}Resident
             {% else %}Staff{% endif %}
           </span>
         </div>
@@ -160,9 +221,9 @@
       {% for message in messages %}
       <div class="alert alert-{{ message.tags }}" id="alert-{{ forloop.counter }}">
         <div class="alert-content">
-          {% if message.tags ==   'success' %}<i class="fas fa-check-circle"></i>
-          {% elif message.tags ==   'error' %}<i class="fas fa-exclamation-circle"></i>
-          {% elif message.tags ==   'warning' %}<i class="fas fa-exclamation-triangle"></i>
+          {% if message.tags == 'success' %}<i class="fas fa-check-circle"></i>
+          {% elif message.tags == 'error' %}<i class="fas fa-exclamation-circle"></i>
+          {% elif message.tags == 'warning' %}<i class="fas fa-exclamation-triangle"></i>
           {% else %}<i class="fas fa-info-circle"></i>{% endif %}
           <span>{{ message }}</span>
         </div>

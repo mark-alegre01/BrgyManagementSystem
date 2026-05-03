@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resident Registration - Barangay Management System</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=2.1">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <style>
@@ -20,6 +20,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            overflow-x: hidden;
         }
 
         .portal-header {
@@ -147,13 +148,18 @@
 
         /* Form Card */
         .registration-card {
-            background: var(--bg-card);
-            border-radius: 24px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl);
             padding: 48px;
             width: 100%;
             max-width: 900px;
-            box-shadow: var(--shadow-md);
-            border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            animation: slideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            z-index: 10;
         }
 
         .step-header {
@@ -219,7 +225,7 @@
 
         .form-control {
             width: 100%;
-            background: var(--bg-main);
+            background: rgba(255, 255, 255, 0.6);
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 14px 16px;
@@ -234,6 +240,7 @@
             border-color: var(--primary);
             background: #FFFFFF;
             box-shadow: 0 0 0 4px var(--primary-light);
+            transform: translateY(-1px);
         }
 
         .form-control::placeholder {
@@ -395,6 +402,11 @@
 </head>
 
 <body>
+    <div class="auth-background">
+        <div class="auth-blob auth-blob-1"></div>
+        <div class="auth-blob auth-blob-2"></div>
+        <div class="auth-blob auth-blob-3"></div>
+    </div>
     <header class="portal-header">
         <div class="portal-logo">
             <img src="{% static 'images/logo.png' %}" alt="Logo">

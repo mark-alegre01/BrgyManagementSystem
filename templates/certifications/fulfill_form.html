@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Fulfill Request - {{ cert_request.child_name|default:cert_request.resident.full_name }}{% endblock %}
+
+{% block breadcrumb %}
+<span><i class="fas fa-home"></i> / <a href="{% url 'core:dashboard' %}">Dashboard</a> / <a
+        href="{% url 'certifications:list' %}">Certificates</a> / Fulfill Request</span>
+{% endblock %}
+
+{% block content %}
+<style>
+    .fulfill-container {
+        max-width: 900px;
+        margin: 20px auto;
+        padding: 0 20px;
+    }
+
+    .card {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+    }
+
+    .form-group { margin-bottom: 20px; }
+    .form-label {
+        display: block;
+        font-size: .75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 6px;
+    }
+
+    .form-control-sm {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: .9rem;
+    }
+
+    .btn-submit {
+        background: var(--primary);
+        color: #fff;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .data-box {
+        background: #f8fafc;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+    }
+</style>
+
+<div class="fulfill-container">
+    <div class="card">
+        <h2 style="margin-bottom: 24px; color: #1e293b;">Fulfill Certificate Request</h2>
+
+        <div class="grid">
+            <!-- Left: Request Info -->
+            <div class="data-box">
+                <h3 style="font-size: 1rem; margin-bottom: 16px;">Request Details</h3>
+                <div class="form-group">
+                    <label class="form-label">Resident</label>
+                    <p><strong>{{ cert_request.resident.full_name }}</strong></p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Certificate Type</label>
+                    <p>{{ cert_request.get_cert_type_display }}</p>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Purpose</label>
+                    <p>{{ cert_request.purpose }}</p>
+                </div>
+
+                {% if cert_request.cert_type == 'business_permit' %}
+                <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 16px;">
+                    <label class="form-label">Business Name</label>
+                    <p>{{ cert_request.business_name|default:"--" }}</p>
+                    <label class="form-label">Business Address</label>
+                    <p>{{ cert_request.business_address|default:"--" }}</p>
+                </div>
+                {% endif %}
+
+                {% if cert_request.cert_type == 'late_registration' %}
+                <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 16px;">
+                    <label class="form-label">Child Name</label>
+                    <p>{{ cert_request.child_name|default:"--" }}</p>
+                    <label class="form-label">Birth Date</label>
+                    <p>{{ cert_request.child_birth_date|default:"--" }}</p>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Right: Issuance Form -->
+            <form method="POST">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="form-label">Control Number (Automated)</label>
+                    <input type="text" name="control_number" class="form-control-sm" value="{{ suggested_control }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">OR Number*</label>
+                    <input type="text" name="or_number" class="form-control-sm" value="{{ suggested_or }}" required>
+                </div>
+
+                <!-- Specific Fields for Cedula if needed -->
+                {% if cert_request.cert_type == 'cedula' %}
+                <div class="form-group">
+                    <label class="form-label">Taxpayer Type</label>
+                    <select name="taxpayer_type" id="taxpayer_type_select" class="form-control-sm cedula-calc">
+                        <option value="individual" {% if cert_request.taxpayer_type == 'individual' %}selected{% endif %}>Individual</option>
+                        <option value="corporation" {% if cert_request.taxpayer_type == 'corporation' %}selected{% endif %}>Corporation</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">CTC Number*</label>
+                    <input type="text" name="ctc_number" class="form-control-sm" value="{{ suggested_ctc }}" required>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                  <div style="flex:1;">
+                    <label class="form-label">Basic (₱)</label>
+                    <input type="number" step="0.01" name="basic_tax" id="id_basic_tax" class="form-control-sm cedula-calc" value="5.00">
+                  </div>
+                  <div style="flex:1;">
+                    <label class="form-label">Interest (₱)</label>
+                    <input type="number" step="0.01" name="interest" class="form-control-sm cedula-calc" value="0.00">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Property Value (Cat A)</label>
+                    <div style="display:flex; gap:10px;">
+                      <input type="number" step="0.01" id="raw_prop" class="form-control-sm cedula-raw" placeholder="Value" value="{{ cert_request.raw_taxable_property|default:'0' }}">
+                      <input type="number" step="0.01" name="additional_tax_property" id="val_prop" class="form-control-sm" readonly style="width:100px; background:#f1f5f9;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Business Receipts (Cat B)</label>
+                    <div style="display:flex; gap:10px;">
+                      <input type="number" step="0.01" id="raw_bus" class="form-control-sm cedula-raw" placeholder="Receipts" value="{{ cert_request.raw_taxable_business|default:'0' }}">
+                      <input type="number" step="0.01" name="additional_tax_business" id="val_bus" class="form-control-sm" readonly style="width:100px; background:#f1f5f9;">
+                    </div>
+                </div>
+
+                <div class="form-group" id="income_group">
+                    <label class="form-label">Annual Income (Cat C)</label>
+                    <div style="display:flex; gap:10px;">
+                      <input type="number" step="0.01" id="raw_inc" class="form-control-sm cedula-raw" placeholder="Income" value="{{ cert_request.raw_taxable_income|default:'0' }}">
+                      <input type="number" step="0.01" name="additional_tax_income" id="val_inc" class="form-control-sm" readonly style="width:100px; background:#f1f5f9;">
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="form-group">
+                    <label class="form-label" id="amount_label">Amount Paid (₱)</label>
+                    <input type="number" step="0.01" name="amount_paid" id="id_amount_paid" class="form-control-sm" value="{{ base_amount }}" required {% if cert_request.cert_type == 'cedula' %}readonly style="background:#f1f5f9;"{% endif %}>
+                </div>
+
+                {% if cert_request.cert_type == 'late_registration' %}
+                <input type="hidden" name="child_name" value="{{ cert_request.child_name }}">
+                <input type="hidden" name="child_birth_date" value="{{ cert_request.child_birth_date|date:'Y-m-d' }}">
+                <input type="hidden" name="child_birth_place" value="{{ cert_request.child_birth_place }}">
+                <input type="hidden" name="father_name" value="{{ cert_request.father_name }}">
+                <input type="hidden" name="mother_name" value="{{ cert_request.mother_name }}">
+                {% endif %}
+
+                <div style="margin-top: 30px;">
+                    <button type="submit" class="btn-submit">
+                        <i class="fas fa-check-circle"></i> Issue & Fulfill
+                    </button>
+                    <a href="{% url 'certifications:list' %}" style="margin-left: 10px; color: #64748b; font-size: .9rem;">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if cert_request.cert_type == 'cedula' %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const taxpayerTypeSelect = document.getElementById('taxpayer_type_select');
+    const amountPaidInput = document.getElementById('id_amount_paid');
+    const basicTaxInput = document.getElementById('id_basic_tax');
+    const incomeGroup = document.getElementById('income_group');
+    
+    const rawProp = document.getElementById('raw_prop');
+    const valProp = document.getElementById('val_prop');
+    const rawBus = document.getElementById('raw_bus');
+    const valBus = document.getElementById('val_bus');
+    const rawInc = document.getElementById('raw_inc');
+    const valInc = document.getElementById('val_inc');
+
+    function calculateCedula() {
+        const isIndiv = taxpayerTypeSelect.value === 'individual';
+        const rate = isIndiv ? (1 / 1000) : (2 / 5000);
+        const cap = isIndiv ? 5000 : 10000;
+
+        const vProp = (parseFloat(rawProp.value) || 0) * rate;
+        const vBus = (parseFloat(rawBus.value) || 0) * rate;
+        const vInc = isIndiv ? (parseFloat(rawInc.value) || 0) * rate : 0;
+
+        valProp.value = vProp.toFixed(2);
+        valBus.value = vBus.toFixed(2);
+        if (isIndiv) valInc.value = vInc.toFixed(2);
+        else valInc.value = "0.00";
+
+        const basic = parseFloat(basicTaxInput.value) || 0;
+        const interest = parseFloat(document.querySelector('input[name="interest"]').value) || 0;
+
+        const additionalTotal = vProp + vBus + vInc;
+        const cappedAdditional = Math.min(additionalTotal, cap);
+        const total = basic + cappedAdditional + interest;
+
+        amountPaidInput.value = total.toFixed(2);
+    }
+
+    taxpayerTypeSelect.addEventListener('change', function() {
+        const isIndiv = this.value === 'individual';
+        basicTaxInput.value = isIndiv ? "5.00" : "500.00";
+        incomeGroup.style.display = isIndiv ? 'block' : 'none';
+        calculateCedula();
+    });
+
+    document.querySelectorAll('.cedula-raw, .cedula-calc').forEach(input => {
+        input.addEventListener('input', calculateCedula);
+    });
+
+    // Initial calculation
+    calculateCedula();
+});
+</script>
+{% endif %}
+{% endblock %}

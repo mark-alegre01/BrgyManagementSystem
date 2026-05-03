@@ -43,22 +43,22 @@
                         </td>
                         <td>
                             <span class="badge rounded-pill 
-                                {% if app.status ==   'approved' %}bg-success
-                                {% elif app.status ==   'pending' %}bg-warning text-dark
-                                {% elif app.status ==   'completed' %}bg-info
+                                {% if app.status ==  'approved' %}bg-success
+                                {% elif app.status ==  'pending' %}bg-warning text-dark
+                                {% elif app.status ==  'completed' %}bg-info
                                 {% else %}bg-secondary{% endif %}">
                                 {{ app.get_status_display }}
                             </span>
                         </td>
                         <td class="text-end pe-4">
-                            {% if app.status ==   'pending' %}
+                            {% if app.status ==  'pending' %}
                             <div class="btn-group">
                                 <a href="{% url 'appointment_status_update' app.pk 'approved' %}"
                                     class="btn btn-sm btn-outline-success">Approve</a>
                                 <a href="{% url 'appointment_status_update' app.pk 'cancelled' %}"
                                     class="btn btn-sm btn-outline-danger">Deny</a>
                             </div>
-                            {% elif app.status ==   'approved' %}
+                            {% elif app.status ==  'approved' %}
                             <a href="{% url 'appointment_status_update' app.pk 'completed' %}"
                                 class="btn btn-sm btn-success">Mark Completed</a>
                             {% else %}

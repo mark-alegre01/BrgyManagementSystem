@@ -1,0 +1,342 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Virtual Certificate - {{ certificate.control_number }}{% endblock %}
+
+{% block breadcrumb %}
+<span><a href="{% url 'certifications:list' %}">My Certificates</a> / Virtual Certificate</span>
+{% endblock %}
+
+{% block content %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Playfair+Display:wght@700;900&family=Inter:wght@400;700;800&display=swap');
+
+    .certificate-viewer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 40px 20px;
+        background: #f1f5f9;
+        min-height: calc(100vh - 120px);
+    }
+
+    .certificate-container {
+        width: 100%;
+        max-width: 850px;
+        background: #fff;
+        padding: 40px 60px;
+        position: relative;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 40px;
+        overflow: hidden;
+    }
+
+    /* Watermark */
+    .certificate-container::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 600px;
+        height: 600px;
+        transform: translate(-50%, -50%);
+        background-image: url("{% static 'images/logo.png' %}");
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        opacity: 0.08;
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .certificate-header {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+        margin-bottom: 30px;
+        border-bottom: 1px solid #000;
+        padding-bottom: 15px;
+    }
+
+    .header-logos {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        padding: 0 10px;
+    }
+
+    .logo-item {
+        height: 80px;
+        width: auto;
+        max-width: 150px;
+        object-fit: contain;
+    }
+
+    .header-text {
+        flex-grow: 1;
+        text-align: center;
+    }
+
+    .header-text p {
+        margin: 0;
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        text-transform: uppercase;
+        color: #000;
+        line-height: 1.2;
+    }
+
+    .header-text .country {
+        font-weight: 500;
+        font-size: 16px;
+    }
+
+    .header-text .brgy {
+        font-weight: 800;
+        font-size: 18px;
+        margin-top: 2px;
+    }
+
+    .office-title {
+        text-align: center;
+        margin: 25px 0 10px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .office-title h2 {
+        font-family: 'Inter', sans-serif;
+        font-size: 22px;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin: 0;
+        color: #000;
+        letter-spacing: 1px;
+    }
+
+    .cert-type-title {
+        text-align: center;
+        margin-bottom: 30px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .cert-type-title h1 {
+        font-family: 'Inter', sans-serif;
+        font-size: 48px;
+        font-weight: 900;
+        text-transform: uppercase;
+        margin: 0;
+        color: #000;
+        letter-spacing: 2px;
+        border-bottom: 3px solid #000;
+        display: inline-block;
+        padding-bottom: 5px;
+    }
+
+    .to-whom {
+        font-family: 'Inter', sans-serif;
+        font-weight: 900;
+        font-size: 20px;
+        margin-bottom: 25px;
+        position: relative;
+        z-index: 1;
+        text-transform: uppercase;
+    }
+
+    .certificate-content {
+        font-family: 'Inter', sans-serif;
+        font-size: 18px;
+        line-height: 1.6;
+        color: #000;
+        text-align: justify;
+        position: relative;
+        z-index: 1;
+    }
+
+    .certificate-content p {
+        margin-bottom: 25px;
+    }
+
+    .bold-name {
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .certificate-footer {
+        margin-top: 80px;
+        display: flex;
+        justify-content: flex-end;
+        position: relative;
+        z-index: 1;
+    }
+
+    .signatory {
+        text-align: center;
+        width: 320px;
+    }
+
+    .signatory-name {
+        font-weight: 900;
+        font-size: 19px;
+        text-transform: uppercase;
+        margin-bottom: 0;
+    }
+
+    .signatory-title {
+        font-size: 15px;
+        font-weight: 500;
+        border-top: 1px solid #000;
+        padding-top: 5px;
+    }
+
+    .actions-bar {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        width: 100%;
+        max-width: 850px;
+    }
+
+    @media print {
+            {% if user_role == 'resident' %}
+
+        body {
+            display: none !important;
+        }
+
+            {% else %}
+
+        .top-navbar,
+        .sidebar,
+        .actions-bar,
+        .breadcrumb,
+        .sidebar-overlay,
+        .menu-toggle {
+            display: none !important;
+        }
+
+        .main-content {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+        }
+
+        .certificate-viewer {
+            padding: 0;
+            background: #fff;
+        }
+
+        .certificate-container {
+            box-shadow: none;
+            border: none;
+            margin: 0;
+            padding: 20px 40px;
+        }
+
+        body {
+            background: white !important;
+        }
+
+            {% endif %}
+    }
+
+    /* Resident Watermark */
+    .not-valid-watermark {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-45deg);
+        font-size: 60px;
+        font-weight: 900;
+        color: rgba(220, 38, 38, 0.15);
+        z-index: 2;
+        pointer-events: none;
+        white-space: nowrap;
+        text-transform: uppercase;
+        border: 10px solid rgba(220, 38, 38, 0.15);
+        padding: 10px 30px;
+    }
+</style>
+
+<div class="certificate-viewer">
+    <div class="actions-bar">
+        {% if user_role != 'resident' %}
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="fas fa-print"></i> Print Certificate
+        </button>
+        {% endif %}
+        <a href="{% url 'certifications:pdf' certificate.pk %}" class="btn btn-outline" target="_blank">
+            <i class="fas fa-file-pdf"></i> Official PDF
+        </a>
+        <a href="{% url 'certifications:list' %}" class="btn btn-secondary">
+            <i class="fas fa-chevron-left"></i> Back
+        </a>
+    </div>
+
+    <div class="certificate-container">
+        {% if user_role == 'resident' %}
+        <div class="not-valid-watermark">NOT VALID WITHOUT SEAL</div>
+        {% endif %}
+        <div class="certificate-header">
+            <div class="header-logos">
+                <img src="{% static 'images/logo.png' %}" alt="Brgy Logo" class="logo-item">
+                <img src="{% static 'images/bagong_pilipinas.png' %}" alt="Bagong Pilipinas" class="logo-item">
+                <div class="header-text">
+                    <p class="country">REPUBLIC OF THE PHILIPPINES</p>
+                    <p>Province of Surigao del Norte</p>
+                    <p>Municipality of Gigaquit</p>
+                    <p class="brgy">BARANGAY SICO-SICO</p>
+                </div>
+                <img src="{% static 'images/gigaquit_logo.png' %}" alt="Municipality Logo" class="logo-item">
+            </div>
+        </div>
+
+        <div class="office-title">
+            <h2>OFFICE OF THE SANGGUNIANG BARANGAY</h2>
+        </div>
+
+        <div class="cert-type-title">
+            <h1>{{ certificate.get_cert_type_display }}</h1>
+        </div>
+
+        <div class="to-whom">
+            TO WHOM IT MAY CONCERN;
+        </div>
+
+        <div class="certificate-content">
+            <p>
+                This is to certify that <span class="bold-name">{{ certificate.resident.full_name }}</span>,
+                {{ certificate.resident.age|default:"--" }} years old,
+                {{ certificate.resident.civil_status|default:"Single"|title }},
+                Filipino,
+                is a bonafide resident of Barangay Sico-Sico, Gigaquit, Surigao del Norte.
+            </p>
+
+            <p>
+                This certification is issued upon the request of the above-named person for
+                <strong>{{ certificate.purpose|default:"General Purposes" }}</strong>.
+            </p>
+
+            <p>
+                Certification is issued for whatever legal purpose it may serve him/her best.
+            </p>
+
+            <p style="margin-top: 50px;">
+                Given this <strong>{{ certificate.date_issued|date:"jS" }}</strong> day of
+                <strong>{{ certificate.date_issued|date:"F" }}, {{ certificate.date_issued|date:"Y" }}</strong>,
+                at the Office of Punong Barangay of Barangay Sico-Sico, Gigaquit, Surigao del Norte.
+            </p>
+        </div>
+
+        <div class="certificate-footer">
+            <div class="signatory">
+                <p class="signatory-name">HON. {{ captain_name|default:"NO ACTIVE CAPTAIN" }}</p>
+                <div class="signatory-title">Punong Barangay</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

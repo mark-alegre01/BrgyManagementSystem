@@ -20,14 +20,68 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     resident = models.OneToOneField("residents.Resident", on_delete=models.SET_NULL, null=True, blank=True, related_name="user_profile")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="resident")
-    middle_name = models.CharField(max_length=150, blank=True)
-    phone = models.CharField(max_length=20, blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
-    philSys_id = models.CharField(max_length=50, blank=True, null=True, unique=True)
-    is_philsys_verified = models.BooleanField(default=False)
-    philsys_verified_at = models.DateTimeField(blank=True, null=True)
-    fingerprint_template = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def middle_name(self):
+        return self.resident.middle_name if self.resident else ""
+
+    @middle_name.setter
+    def middle_name(self, value):
+        if self.resident:
+            self.resident.middle_name = value
+            self.resident.save()
+
+    @property
+    def phone(self):
+        return self.resident.contact_number if self.resident else ""
+
+    @phone.setter
+    def phone(self, value):
+        if self.resident:
+            self.resident.contact_number = value
+            self.resident.save()
+
+    @property
+    def philSys_id(self):
+        return self.resident.philSys_number if self.resident else None
+
+    @philSys_id.setter
+    def philSys_id(self, value):
+        if self.resident:
+            self.resident.philSys_number = value
+            self.resident.save()
+
+    @property
+    def is_philsys_verified(self):
+        return self.resident.is_philsys_verified if self.resident else False
+
+    @is_philsys_verified.setter
+    def is_philsys_verified(self, value):
+        if self.resident:
+            self.resident.is_philsys_verified = value
+            self.resident.save()
+
+    @property
+    def philsys_verified_at(self):
+        return self.resident.philsys_verified_at if self.resident else None
+
+    @philsys_verified_at.setter
+    def philsys_verified_at(self, value):
+        if self.resident:
+            self.resident.philsys_verified_at = value
+            self.resident.save()
+
+    @property
+    def fingerprint_template(self):
+        return self.resident.fingerprint_template if self.resident else None
+
+    @fingerprint_template.setter
+    def fingerprint_template(self, value):
+        if self.resident:
+            self.resident.fingerprint_template = value
+            self.resident.save()
 
     def __str__(self):
         return f"{self.user.get_full_name()} - {self.get_role_display()}"
@@ -45,9 +99,6 @@ class SystemSettings(models.Model):
     province = models.CharField(max_length=200, default="Province of Sample")
     region = models.CharField(max_length=200, default="Region Sample")
     barangay_logo = models.ImageField(upload_to="settings/", blank=True, null=True)
-    captain_name = models.CharField(max_length=200, blank=True)
-    secretary_name = models.CharField(max_length=200, blank=True)
-    treasurer_name = models.CharField(max_length=200, blank=True)
 
     def __str__(self):
         return self.barangay_name
@@ -55,3 +106,22 @@ class SystemSettings(models.Model):
     class Meta:
         verbose_name = "System Settings"
         verbose_name_plural = "System Settings"
+
+
+class Notification(models.Model):
+    """In-app notification for a specific user."""
+    user = models.ForeignKey(
+        'auth.User', on_delete=models.CASCADE, related_name='notifications'
+    )
+    message = models.TextField()
+    link = models.CharField(max_length=300, blank=True, help_text='Optional URL path for the notification')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Notification for {self.user.username}: {self.message[:50]}"
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Notification'
+        verbose_name_plural = 'Notifications'

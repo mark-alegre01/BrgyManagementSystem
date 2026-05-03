@@ -69,6 +69,7 @@ def main():
     parser.add_argument("--url", default="http://127.0.0.1:8001", help="Django base URL")
     parser.add_argument("--request-id", dest="request_id", help="Biometric request id for browser-session correlation")
     parser.add_argument("--role", dest="role", default="", help="Filter templates by role (captain/secretary/treasurer)")
+    parser.add_argument("--username", dest="username", default="", help="Filter templates by specific username")
     args = parser.parse_args()
 
     print("="*50)
@@ -78,9 +79,15 @@ def main():
     try:
         # Fetch all templates from Django first
         role = (args.role or "").strip()
+        username = (args.username or "").strip()
         templates_url = f"{args.url}/biometric-templates/"
-        if role:
-            templates_url = f"{templates_url}?role={role}"
+        
+        params = []
+        if role: params.append(f"role={role}")
+        if username: params.append(f"username={username}")
+        
+        if params:
+            templates_url = f"{templates_url}?{'&'.join(params)}"
 
         print(f"[*] Fetching templates from {templates_url}...")
         response = requests.get(templates_url, timeout=10)

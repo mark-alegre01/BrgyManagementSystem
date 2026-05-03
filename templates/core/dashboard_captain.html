@@ -58,11 +58,17 @@
       <span class="label">Households</span>
     </div>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon icon-teal"><i class="fas fa-fingerprint"></i></div>
+  <div class="stat-card clickable" onclick="location.href='{% url 'residents:registration_list' %}'"
+    style="cursor: pointer;">
+    <div class="stat-icon" style="background: rgba(255, 152, 0, 0.1); color: #ff9800;">
+      <i class="fas fa-user-clock"></i>
+    </div>
     <div class="stat-info">
-      <span class="value">{{ attendance_today }}</span>
-      <span class="label">Staff Present Today</span>
+      <span class="value">{{ pending_registrations_count }}</span>
+      <span class="label">Pending Registrations</span>
+      {% if pending_registrations_today > 0 %}
+      <small class="text-success" style="font-size: 10px;">+{{ pending_registrations_today }} new today</small>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -212,10 +218,10 @@
   const attendanceStatus = document.getElementById('attendance-status');
 
   if (btnAttendance) {
-    btnAttendance.addEventListener('click', function() {
+    btnAttendance.addEventListener('click', function () {
       btnAttendance.disabled = true;
       btnAttendance.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Scanner...';
-      
+
       fetch("{% url 'core:biometric_verify_login_start' %}")
         .then(async response => {
           const data = await response.json();
@@ -239,27 +245,27 @@
       fetch("{% url 'core:biometric_status_check' %}")
         .then(response => response.json())
         .then(data => {
-          if (data.status ==   = 'authenticated') {
-            clearInterval(pollInterval);
-            attendanceStatus.innerHTML = '<span class="badge badge-success">Attendance Recorded!</span>';
-            setTimeout(() => location.reload(), 2000);
-          } else if (data.status ==   = 'failed') {
-            clearInterval(pollInterval);
-            btnAttendance.disabled = false;
-            btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
-            attendanceStatus.innerHTML = '<span class="badge badge-danger">Not Recognized</span>';
-          }
+          if (data.status === 'authenticated') {
+        clearInterval(pollInterval);
+        attendanceStatus.innerHTML = '<span class="badge badge-success">Attendance Recorded!</span>';
+        setTimeout(() => location.reload(), 2000);
+      } else if (data.status === 'failed') {
+        clearInterval(pollInterval);
+    btnAttendance.disabled = false;
+    btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
+    attendanceStatus.innerHTML = '<span class="badge badge-danger">Not Recognized</span>';
+  }
         });
     }, 2000);
-    
-    setTimeout(() => {
-      clearInterval(pollInterval);
-      if (btnAttendance.disabled) {
-        btnAttendance.disabled = false;
-        btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
-        attendanceStatus.innerHTML = '';
-      }
-    }, 30000);
+
+  setTimeout(() => {
+    clearInterval(pollInterval);
+    if (btnAttendance.disabled) {
+      btnAttendance.disabled = false;
+      btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
+      attendanceStatus.innerHTML = '';
+    }
+  }, 30000);
   }
 </script>
 {% endblock %}

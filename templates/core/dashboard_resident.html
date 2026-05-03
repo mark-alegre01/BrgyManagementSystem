@@ -1,0 +1,373 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Portal – Barangay Resident{% endblock %}
+
+{% block content %}
+<style>
+    /* ── Resident Portal Premium Aesthetic ── */
+    .dashboard-wrapper {
+        position: relative;
+        z-index: 1;
+    }
+
+    .resident-hero {
+        background: linear-gradient(135deg, #1e4a31 0%, #2d7a50 100%);
+        border-radius: 24px;
+        padding: 40px;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 32px;
+        margin-bottom: 32px;
+        box-shadow: 0 10px 30px rgba(45, 122, 80, 0.15);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .resident-hero::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+
+    .resident-hero-avatar {
+        width: 90px;
+        height: 90px;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        color: #fff;
+        flex-shrink: 0;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        overflow: hidden;
+    }
+
+    .glass-panel-card {
+        background: rgba(255, 255, 255, 0.65);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 24px;
+        box-shadow: 0 8px 32px rgba(31, 38, 135, 0.05);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        margin-bottom: 30px;
+        overflow: hidden;
+    }
+
+    .glass-panel-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 40px rgba(31, 38, 135, 0.08);
+        background: rgba(255, 255, 255, 0.75);
+    }
+
+    .panel-header {
+        padding: 24px 30px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .panel-header h3 {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .panel-body {
+        padding: 24px 30px;
+    }
+
+    .info-chip-modern {
+        background: rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        border-radius: 12px;
+        padding: 10px 18px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #475569;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+    }
+
+    .info-chip-modern:hover {
+        border-color: var(--primary, #2d7a50);
+        color: var(--primary, #2d7a50);
+        background: #fff;
+    }
+
+    .bg-blobs {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .blob {
+        position: absolute;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(circle, rgba(45, 122, 80, 0.08) 0%, rgba(45, 122, 80, 0) 70%);
+        border-radius: 50%;
+        filter: blur(60px);
+    }
+</style>
+
+<div class="bg-blobs">
+    <div class="blob" style="top: -10%; left: -10%;"></div>
+    <div class="blob"
+        style="bottom: 0%; right: -5%; background: radial-gradient(circle, rgba(20, 184, 166, 0.07) 0%, rgba(20, 184, 166, 0) 70%);">
+    </div>
+</div>
+
+<div class="dashboard-wrapper">
+    <!-- Hero Banner -->
+    <div class="resident-hero">
+        <div class="resident-hero-avatar">
+            {% if resident_record and resident_record.photo %}
+            <img src="{{ resident_record.photo.url }}" alt="Photo">
+            {% else %}
+            <i class="fas fa-user"></i>
+            {% endif %}
+        </div>
+        <div class="resident-hero-info">
+            <h1 style="font-weight: 800; letter-spacing: -0.5px;">Hello, {{ request.user.first_name|default:request.user.username }}!</h1>
+            <p style="font-size: 1.05rem; opacity: 0.9;">
+                {% if resident_record %}
+                Purok {{ resident_record.purok|default:"—" }} &nbsp;·&nbsp;
+                {{ resident_record.address|default:"" }}
+                {% else %}
+                Manage your barangay services and requests here.
+                {% endif %}
+            </p>
+        </div>
+        <span class="resident-hero-badge"
+            style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; font-weight: 700;">
+            <i class="fas fa-certificate"></i>&nbsp; VERIFIED RESIDENT
+        </span>
+    </div>
+
+    {% if not resident_record %}
+    <div class="glass-panel-card"
+        style="background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.2); margin-bottom: 24px;">
+        <div class="panel-body" style="display: flex; align-items: center; gap: 16px; color: #1e40af;">
+            <i class="fas fa-info-circle" style="font-size: 1.5rem;"></i>
+            <div>
+                <strong>Account pending linkage</strong> — Your account is waiting to be linked to a verified resident
+                record.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick Info Chips -->
+    {% if resident_record %}
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 32px;">
+        <div class="info-chip-modern"><i class="fas fa-venus-mars"></i> {{ resident_record.get_gender_display|default:"—" }}</div>
+        <div class="info-chip-modern"><i class="fas fa-birthday-cake"></i> {{ resident_record.birthdate|date:"M d,       Y"|default:"—" }}</div>
+        <div class="info-chip-modern"><i class="fas fa-ring"></i> {{ resident_record.get_civil_status_display|default:"—" }}</div>
+        {% if resident_record.is_pwd %}<div class="info-chip-modern" style="color: #ef4444;"><i
+                class="fas fa-wheelchair"></i> PWD</div>{% endif %}
+        {% if resident_record.is_senior_citizen %}<div class="info-chip-modern" style="color: #f59e0b;"><i
+                class="fas fa-user-clock"></i> Senior Citizen</div>{% endif %}
+        {% if resident_record.is_registered_voter %}<div class="info-chip-modern" style="color: #2d7a50;"><i
+                class="fas fa-vote-yea"></i> Registered Voter</div>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="charts-grid">
+        <!-- Certificate Services -->
+        <div class="glass-panel-card">
+            <div class="panel-header">
+                <h3><i class="fas fa-file-signature" style="color:var(--primary,#2d7a50)"></i> Certificate Services</h3>
+                <a href="{% url 'certifications:request_certificate' %}" class="btn btn-primary btn-sm"
+                    style="border-radius: 10px;">
+                    <i class="fas fa-plus"></i> Request New
+                </a>
+            </div>
+            <div class="panel-body">
+                <div
+                    style="background: rgba(45, 122, 80, 0.05); border-radius: 16px; padding: 20px; display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; border: 1px solid rgba(45, 122, 80, 0.1);">
+                    <div style="font-size: 1.8rem;">📜</div>
+                    <div>
+                        <div style="font-weight: 800; color: #15803d; margin-bottom: 4px; font-size: 0.95rem;">Fast
+                            Document Processing</div>
+                        <p style="margin: 0; color: #166534; font-size: 0.85rem; line-height: 1.5;">
+                            Submit your request today. We'll verify and issue your certificates within 24-48 hours.
+                        </p>
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                    {% for type_code, type_label in cert_types|slice:":4" %}
+                    <div
+                        style="background: rgba(255,255,255,0.4); border: 1px solid rgba(226, 232, 240, 0.6); border-radius: 12px; padding: 12px; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-check-circle" style="color: #2d7a50; font-size: 0.7rem;"></i>
+                        {{ type_label }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div style="padding: 8px 0 16px;">
+            <div
+                style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:20px 24px;display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;">
+                <div style="font-size:2rem;line-height:1;">🏛️</div>
+                <div>
+                    <div style="font-weight:700;font-size:1rem;color:#15803d;margin-bottom:6px;">Visit the Barangay Hall
+                        to Request a Certificate</div>
+                    <p style="margin:0;color:#166534;font-size:.9rem;line-height:1.6;">
+                        All certificate requests are processed in person at the barangay office.
+                        Please bring a valid ID and any supporting documents required for your request.
+                    </p>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;">
+                {% for type_code, type_label in cert_types %}
+                <div
+                    style="background:var(--bg-subtle,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:10px;">
+                    <i class="fas fa-certificate" style="color:var(--primary,#2d7a50);font-size:.9rem;"></i>
+                    <span style="font-size:.85rem;font-weight:500;">{{ type_label }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- My Certificates -->
+    <div class="glass-panel-card">
+        <div class="panel-header">
+            <h3><i class="fas fa-scroll" style="color:var(--primary,#2d7a50)"></i> My Certificates</h3>
+            <a href="{% url 'certifications:list' %}" class="btn btn-secondary btn-sm" style="border-radius: 10px;">View
+                All</a>
+        </div>
+        <div class="table-responsive">
+            <table class="table-modern-simple">
+                <thead>
+                    <tr>
+                        <th>Control No.</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cert in my_certificates %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'certifications:view' cert.pk %}"
+                                style="color:var(--primary,#2d7a50); font-weight:700; text-decoration: none;">
+                                {{ cert.control_number }}
+                            </a>
+                        </td>
+                        <td style="font-weight: 500;">{{ cert.get_cert_type_display }}</td>
+                        <td style="font-size: 0.85rem; color: #64748b;">{{ cert.date_issued|date:"M d, Y" }}</td>
+                        <td>
+                            <span
+                                class="badge {% if cert.status == 'issued' %}badge-success{% else %}badge-warning{% endif %}"
+                                style="border-radius: 8px;">
+                                {{ cert.status|capfirst }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center" style="color:#94a3b8; padding:32px 0;">
+                            <i class="fas fa-inbox"
+                                style="font-size:1.5rem; display:block; margin-bottom:8px; opacity:.4;"></i>
+                            No certificates yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- My Profile Quick View -->
+{% if resident_record %}
+<div class="glass-panel-card">
+    <div class="panel-header">
+        <h3><i class="fas fa-user-circle" style="color:var(--primary,#2d7a50)"></i> My Profile</h3>
+        <a href="{% url 'residents:view' resident_record.pk %}" class="btn btn-secondary btn-sm"
+            style="border-radius: 10px;">
+            <i class="fas fa-eye"></i> Full Profile
+        </a>
+    </div>
+    <div class="panel-body">
+        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
+            <div>
+                <div
+                    style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px; font-weight: 700;">
+                    Account Name</div>
+                <div style="font-weight: 700; color: #0f172a;">{{ resident_record.full_name }}</div>
+            </div>
+            <div>
+                <div
+                    style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px; font-weight: 700;">
+                    Location</div>
+                <div style="font-weight: 700; color: #0f172a;">Purok {{ resident_record.purok|default:"—" }}</div>
+            </div>
+            <div>
+                <div
+                    style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px; font-weight: 700;">
+                    Contact Details</div>
+                <div style="font-weight: 700; color: #0f172a;">{{ resident_record.contact_number|default:"—" }}</div>
+            </div>
+            <div>
+                <div
+                    style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px; font-weight: 700;">
+                    Current Occupation</div>
+                <div style="font-weight: 700; color: #0f172a;">{{ resident_record.occupation|default:"—" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+</div>
+
+<style>
+    .table-modern-simple {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .table-modern-simple th {
+        text-align: left;
+        padding: 16px 30px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+    }
+
+    .table-modern-simple td {
+        padding: 18px 30px;
+        font-size: 0.9rem;
+        border-bottom: 1px solid rgba(241, 245, 249, 0.5);
+    }
+</style>
+{% endblock %}

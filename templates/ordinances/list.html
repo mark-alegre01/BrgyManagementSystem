@@ -35,7 +35,7 @@
           <select name="category" class="form-control filter-select">
             <option value="">All Categories</option>
             {% for code, label in categories %}
-            <option value="{{ code }}" {% if code ==   selected_category %}selected{% endif %}>{{ label }}</option>
+            <option value="{{ code }}" {% if code ==  selected_category %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
         </div>
@@ -66,7 +66,7 @@
           <td>{{ ord.date_enacted|date:"M d, Y" }}</td>
           <td>{{ ord.author }}</td>
           <td>
-            <span class="status-badge {% if ord.status ==   'active' %}badge-active{% elif ord.status ==   'pending' %}badge-pending{% else %}badge-inactive{% endif %}">
+            <span class="status-badge {% if ord.status ==  'active' %}badge-active{% elif ord.status ==  'pending' %}badge-pending{% else %}badge-inactive{% endif %}">
               {{ ord.get_status_display }}
             </span>
           </td>

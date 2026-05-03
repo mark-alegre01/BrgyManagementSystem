@@ -62,7 +62,7 @@
           <td>{{ log.time_out|time:"h:i A"|default:"---" }}</td>
           <td>
             <span
-              class="badge {% if log.status ==   'present' %}badge-success{% elif log.status ==   'late' %}badge-warning{% else %}badge-danger{% endif %}">
+              class="badge {% if log.status ==  'present' %}badge-success{% elif log.status ==  'late' %}badge-warning{% else %}badge-danger{% endif %}">
               {{ log.get_status_display }}
             </span>
           </td>

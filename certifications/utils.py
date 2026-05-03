@@ -12,7 +12,7 @@ from django.conf import settings
 from django.contrib.staticfiles import finders
 
 
-def draw_watermark(canvas, doc):
+def draw_watermark(canvas, doc, is_resident=False):
     """Draw a faded logo as a watermark in the center of the page."""
     canvas.saveState()
     # Path to the barangay logo
@@ -29,10 +29,20 @@ def draw_watermark(canvas, doc):
         x = (letter[0] - img_width) / 2
         y = (letter[1] - img_height) / 2
         canvas.drawImage(logo_path, x, y, width=img_width, height=img_height, mask='auto')
+    
+    # Add text watermark if resident
+    if is_resident:
+        canvas.setFillAlpha(0.15)
+        canvas.setFont('Helvetica-Bold', 60)
+        canvas.setFillColor(colors.red)
+        canvas.translate(letter[0]/2, letter[1]/2)
+        canvas.rotate(45)
+        canvas.drawCentredString(0, 0, "NOT VALID WITHOUT SEAL")
+        
     canvas.restoreState()
 
 
-def generate_certificate_pdf(certificate):
+def generate_certificate_pdf(certificate, is_resident=False):
     """Generate a styled PDF for any certificate type."""
     if certificate.cert_type == 'cedula':
         return generate_cedula_pdf(certificate)
@@ -76,9 +86,9 @@ def generate_certificate_pdf(certificate):
     logo_h = 0.85 * inch
 
     # Header Components
-    img_sico = Image(sico_logo_path, width=logo_w, height=logo_h) if os.path.exists(sico_logo_path) else Spacer(logo_w, logo_h)
-    img_bagong = Image(bagong_pilipinas_path, width=logo_w, height=logo_h) if os.path.exists(bagong_pilipinas_path) else Spacer(logo_w, logo_h)
-    img_gigaquit = Image(gigaquit_logo_path, width=logo_w, height=logo_h) if os.path.exists(gigaquit_logo_path) else Spacer(logo_w, logo_h)
+    img_sico = Image(sico_logo_path, width=logo_w, height=logo_h, kind='proportional') if os.path.exists(sico_logo_path) else Spacer(logo_w, logo_h)
+    img_bagong = Image(bagong_pilipinas_path, width=logo_w, height=logo_h, kind='proportional') if os.path.exists(bagong_pilipinas_path) else Spacer(logo_w, logo_h)
+    img_gigaquit = Image(gigaquit_logo_path, width=logo_w, height=logo_h, kind='proportional') if os.path.exists(gigaquit_logo_path) else Spacer(logo_w, logo_h)
 
     brgy_name = getattr(settings, 'BARANGAY_NAME', 'Sico-Sico')
     municipality = getattr(settings, 'BARANGAY_MUNICIPALITY', 'Gigaquit')
@@ -162,7 +172,9 @@ def generate_certificate_pdf(certificate):
     elements.append(Spacer(1, 40))
     
     # Captain Signature - Optimized for full width to prevent clipping
-    captain_name = getattr(settings, 'BARANGAY_CAPTAIN', 'HON. MARITES R. MANONGAS')
+    from officials.models import Official
+    captain = Official.objects.filter(position='captain', status='active').first()
+    captain_name = f"HON. {captain.resident.full_name.upper()}" if captain else getattr(settings, 'BARANGAY_CAPTAIN', 'NO ACTIVE CAPTAIN')
     sig_content = [
         Paragraph(captain_name, styles['CertSignName']),
         Paragraph('Punong Barangay', styles['CertSignPos'])
@@ -179,12 +191,14 @@ def generate_certificate_pdf(certificate):
     elements.append(Paragraph('“NOT VALID WITHOUT SEAL”', styles['CertWarning']))
 
     # Build PDF
-    doc.build(elements, onFirstPage=draw_watermark, onLaterPages=draw_watermark)
+    from functools import partial
+    watermark_func = partial(draw_watermark, is_resident=is_resident)
+    doc.build(elements, onFirstPage=watermark_func, onLaterPages=watermark_func)
     buffer.seek(0)
     return buffer
 
 
-def generate_cedula_pdf(certificate):
+def generate_cedula_pdf(certificate, is_resident=False):
     """Generate an authentic-looking Cedula (Community Tax Certificate)."""
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
@@ -351,7 +365,9 @@ def generate_cedula_pdf(certificate):
     ]))
     elements.append(sig_table)
     
-    doc.build(elements, onFirstPage=draw_watermark)
+    from functools import partial
+    watermark_func = partial(draw_watermark, is_resident=is_resident)
+    doc.build(elements, onFirstPage=watermark_func)
     buffer.seek(0)
     return buffer
 

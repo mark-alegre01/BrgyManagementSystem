@@ -51,7 +51,7 @@ ROLE_TEMPLATE_MAP = {
     'lupong_member': 'core/dashboard_lupon.html',
     'bhw': 'core/dashboard_default.html',
     'staff': 'core/dashboard_default.html',
-    'resident': 'core/dashboard_default.html',
+    'resident': 'core/dashboard_resident.html',
 }
 
 
@@ -112,6 +112,23 @@ def dashboard(request):
 
     elif role == 'lupong_member':
         context['recent_ordinances'] = Ordinance.objects.order_by('-date_enacted')[:5]
+
+    elif role == 'resident':
+        # Personalized resident portal context
+        from certifications.models import Certificate as Cert
+        try:
+            resident_record = request.user.profile.resident
+            context['resident_record'] = resident_record
+            if resident_record:
+                context['my_certificates'] = Cert.objects.filter(
+                    resident=resident_record
+                ).order_by('-date_issued')[:5]
+            else:
+                context['my_certificates'] = []
+        except Exception:
+            context['resident_record'] = None
+            context['my_certificates'] = []
+        context['cert_types'] = Cert.TYPE_CHOICES
 
     template = ROLE_TEMPLATE_MAP.get(role, 'core/dashboard_default.html')
     return render(request, template, context)
@@ -635,3 +652,26 @@ def backup_setup(request):
         
     destinations = get_backup_destinations()
     return render(request, 'core/backup_choice.html', {'destinations': destinations})
+
+
+# ─── Notifications ────────────────────────────────────────────────────────────
+
+@login_required
+def notifications_view(request):
+    """Full notifications list for the current user."""
+    from .models import Notification
+    notifs = Notification.objects.filter(user=request.user).order_by('-created_at')
+    # Mark all as read on page open
+    Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+    return render(request, 'core/notifications.html', {'notifications': notifs})
+
+
+@login_required
+def mark_notification_read(request, pk):
+    """Mark a single notification as read (AJAX or redirect)."""
+    from .models import Notification
+    notif = get_object_or_404(Notification, pk=pk, user=request.user)
+    notif.is_read = True
+    notif.save()
+    next_url = request.GET.get('next') or notif.link or '/'
+    return redirect(next_url)

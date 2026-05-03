@@ -35,7 +35,7 @@
             <label>Position*</label>
             <select name="position" class="form-control" required>
               {% for code, label in positions %}
-              <option value="{{ code }}" {% if official.position ==   code %}selected{% endif %}>{{ label }}</option>
+              <option value="{{ code }}" {% if official.position ==  code %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
           </div>
@@ -76,8 +76,8 @@
           <div class="form-group col-6">
             <label>Status*</label>
             <select name="status" class="form-control">
-              <option value="active" {% if official.status ==   'active' %}selected{% endif %}>Active</option>
-              <option value="inactive" {% if official.status ==   'inactive' %}selected{% endif %}>Inactive</option>
+              <option value="active" {% if official.status ==  'active' %}selected{% endif %}>Active</option>
+              <option value="inactive" {% if official.status ==  'inactive' %}selected{% endif %}>Inactive</option>
             </select>
           </div>
         </div>

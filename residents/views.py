@@ -15,6 +15,14 @@ import json
 import subprocess
 import os
 
+def is_resident_role(request):
+    """Return True if the logged-in user has the 'resident' role."""
+    try:
+        return request.user.profile.role == 'resident'
+    except Exception:
+        return False
+
+
 @login_required
 def resident_list(request):
     """List all residents with search and filters."""
@@ -59,7 +67,10 @@ def resident_list(request):
 
 @login_required
 def resident_add(request):
-    """Add a new resident."""
+    """Add a new resident – admin/staff only."""
+    if is_resident_role(request):
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('core:dashboard')
     if request.method == 'POST':
         is_official = request.POST.get('is_official') == 'on'
         occupation = request.POST.get('occupation', '')
@@ -121,6 +132,15 @@ def resident_add(request):
 @login_required
 def resident_view(request, pk):
     """View resident details."""
+    # Residents may only view their own record
+    if is_resident_role(request):
+        try:
+            own_pk = request.user.profile.resident.pk
+        except Exception:
+            own_pk = None
+        if own_pk is None or pk != own_pk:
+            messages.error(request, "You can only view your own profile.")
+            return redirect('core:dashboard')
     resident = get_object_or_404(Resident, pk=pk)
     certificates = resident.certificates.all()[:10]
     return render(request, 'residents/view.html', {
@@ -131,7 +151,10 @@ def resident_view(request, pk):
 
 @login_required
 def resident_edit(request, pk):
-    """Edit a resident."""
+    """Edit a resident – admin/staff only."""
+    if is_resident_role(request):
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('core:dashboard')
     resident = get_object_or_404(Resident, pk=pk)
 
     if request.method == 'POST':
@@ -211,7 +234,10 @@ import json
 
 @login_required
 def resident_capture_fingerprint(request, pk):
-    """Launch local fingerprint service for a resident."""
+    """Launch local fingerprint service – admin/staff only."""
+    if is_resident_role(request):
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('core:dashboard')
     resident = get_object_or_404(Resident, pk=pk)
     
     # Identify paths
@@ -249,7 +275,9 @@ def resident_capture_fingerprint(request, pk):
 @login_required
 @csrf_exempt
 def resident_update_fingerprint(request, pk):
-    """Update resident fingerprint template."""
+    """Update resident fingerprint – admin/staff only."""
+    if is_resident_role(request):
+        return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
     resident = get_object_or_404(Resident, pk=pk)
     if request.method == 'POST':
         try:
@@ -266,7 +294,10 @@ def resident_update_fingerprint(request, pk):
 @login_required
 @transaction.atomic
 def resident_delete(request, pk):
-    """Totally delete a resident and their associated User/UserProfile accounts."""
+    """Delete a resident – admin/staff only."""
+    if is_resident_role(request):
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('core:dashboard')
     resident = get_object_or_404(Resident, pk=pk)
     if request.method == 'POST':
         full_name = resident.full_name
@@ -289,7 +320,10 @@ def resident_delete(request, pk):
 
 @login_required
 def household_list(request):
-    """List all households."""
+    """List all households – admin/staff only."""
+    if is_resident_role(request):
+        messages.error(request, "You do not have permission to access this area.")
+        return redirect('core:dashboard')
     households = Household.objects.all()
     paginator = Paginator(households, 25)
     page = request.GET.get('page')
@@ -299,7 +333,10 @@ def household_list(request):
 
 @login_required
 def household_add(request):
-    """Add a new household."""
+    """Add a new household – admin/staff only."""
+    if is_resident_role(request):
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('core:dashboard')
     if request.method == 'POST':
         household = Household(
             household_no=request.POST.get('household_no'),
@@ -314,7 +351,10 @@ def household_add(request):
 
 @login_required
 def household_view(request, pk):
-    """View household details."""
+    """View household details – admin/staff only."""
+    if is_resident_role(request):
+        messages.error(request, "You do not have permission to access this area.")
+        return redirect('core:dashboard')
     household = get_object_or_404(Household, pk=pk)
     members = household.members.all().distinct()
     return render(request, 'residents/household_view.html', {
@@ -437,8 +477,6 @@ def approve_registration(request, pk):
                 user=user,
                 resident=resident,
                 role="resident",
-                phone=registration.mobile_number,
-                philSys_id=registration.philSys_number or None,
             )
 
             # 5. Update Registration Status

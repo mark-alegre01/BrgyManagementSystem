@@ -16,6 +16,8 @@ urlpatterns = [
     path("login/", core_views.login_view, name="login"),
     path("logout/", core_views.logout_view, name="logout"),
     path("signup/", core_views.signup_view, name="signup"),
+    path("resident-signup/", core_views.resident_signup_view, name="resident_signup"),
+    path("registration-success/<str:ref>/", core_views.registration_success_view, name="registration_success"),
     path(
         "dashboard/",
         lambda request: __import__("residents.views", fromlist=["dashboard"]).dashboard(

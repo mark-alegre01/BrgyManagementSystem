@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Backup Data - Choose Destination{% endblock %}
+
+{% block breadcrumb %}
+<span><i class="fas fa-home"></i> Dashboard</span> / <span><i class="fas fa-database"></i> Backup</span>
+{% endblock %}
+
+{% block content %}
+<div class="backup-container">
+    <div class="page-header">
+        <div class="header-content">
+            <h1><i class="fas fa-file-export"></i> Choose Backup Destination</h1>
+            <p>Select the drive where you want to save the backup of the system data and media files.</p>
+        </div>
+    </div>
+
+    <div class="destinations-grid">
+        {% for dest in destinations %}
+        <div
+            class="destination-card {% if dest.is_external %}external{% else %}local{% endif %} {% if not dest.is_mounted %}unmounted{% endif %}">
+            <div class="card-icon">
+                {% if dest.is_external %}
+                {% if dest.is_mounted %}
+                <i class="fas fa-hdd"></i>
+                {% else %}
+                <i class="fas fa-plug text-muted"></i>
+                {% endif %}
+                {% else %}
+                <i class="fas fa-server"></i>
+                {% endif %}
+            </div>
+            <div class="card-info">
+                <h3>
+                    {% if dest.is_external %}
+                    External Drive {% if not dest.is_mounted %}(Detected){% endif %}
+                    {% else %}
+                    Local Storage
+                    {% endif %}
+                </h3>
+                <code class="path">
+                    {% if dest.is_mounted %}
+                        {{ dest.path }}
+                    {% else %}
+                        Device: {{ dest.device }}
+                    {% endif %}
+                </code>
+                <p class="description">
+                    {% if dest.is_external %}
+                    {% if dest.is_mounted %}
+                    Recommended for off-site security. Save to USB/SSD/SD Card plugged into the system.
+                    {% else %}
+                    <span class="text-warning"><i class="fas fa-exclamation-circle"></i> This drive is plugged in but
+                        not active. Click below to mount it.</span>
+                    {% endif %}
+                    {% else %}
+                    Internal storage backup. Quick and easy but less secure against hardware failure.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="card-actions">
+                {% if dest.is_mounted %}
+                <form action="{% url 'core:backup_execute' %}" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="target_path" value="{{ dest.path }}">
+                    <button type="submit" class="btn btn-primary btn-lg w-100"
+                        onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i> Saving...'; this.form.submit();">
+                        <i class="fas fa-save"></i> Save to this location
+                    </button>
+                </form>
+                {% else %}
+                <form action="{% url 'core:backup_mount_drive' %}" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="device" value="{{ dest.device }}">
+                    <input type="hidden" name="perform_backup" value="true">
+                    <button type="submit" class="btn btn-warning btn-lg w-100"
+                        onclick="this.disabled=true; this.innerHTML='<i class=\'fas fa-spinner fa-spin\'></i> Activating...'; this.form.submit();">
+                        <i class="fas fa-bolt"></i> Activate & Start Backup
+                    </button>
+                    <p class="mt-2 small text-muted">This will wake up your drive and save the backup immediately.</p>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="no-destinations">
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>No writeable backup destinations found. Please ensure your external drive is properly mounted and has
+                write permissions.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="alternate-option mt-5">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h3><i class="fas fa-cloud-download-alt"></i> Want to download instead?</h3>
+                <p>You can also download the backup file directly to your computer/phone.</p>
+                <a href="{% url 'core:backup_download' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-download"></i> Download to this device
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .backup-container {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    .page-header {
+        margin-bottom: 30px;
+        text-align: center;
+    }
+
+    .page-header h1 {
+        font-size: 2rem;
+        color: var(--primary-color);
+        margin-bottom: 10px;
+    }
+
+    .destinations-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 25px;
+    }
+
+    .destination-card {
+        background: var(--card-bg, #ffffff);
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border: 2px solid transparent;
+        height: 100%;
+    }
+
+    .destination-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        border-color: var(--primary-color);
+    }
+
+    .card-icon {
+        font-size: 3rem;
+        color: var(--primary-color);
+        margin-bottom: 20px;
+        background: rgba(var(--primary-rgb), 0.1) !important;
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .destination-card.external .card-icon {
+        color: #10b981;
+        background: rgba(16, 185, 129, 0.1) !important;
+    }
+
+    .card-info h3 {
+        margin-bottom: 10px;
+        font-weight: 700;
+        color: #1e293b;
+        /* Dark Slate */
+    }
+
+    .path {
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: #475569;
+        /* Slate 600 */
+        display: block;
+        margin-bottom: 15px;
+        word-break: break-all;
+        font-family: 'JetBrains Mono', 'Courier New', monospace;
+    }
+
+    .description {
+        color: #64748b;
+        /* Slate 500 */
+        font-size: 0.95rem;
+        margin-bottom: 25px;
+        line-height: 1.5;
+    }
+
+    .card-actions {
+        margin-top: auto;
+        width: 100%;
+    }
+
+    .no-destinations {
+        grid-column: 1 / -1;
+        background: rgba(225, 29, 72, 0.1);
+        border: 1px solid #fecdd3;
+        padding: 40px;
+        border-radius: 15px;
+        color: #e11d48;
+        text-align: center;
+    }
+
+    .alternate-option {
+        margin-top: 50px;
+    }
+
+    .mt-5 {
+        margin-top: 3rem;
+    }
+
+    .card.bg-light {
+        background: rgba(0, 0, 0, 0.02);
+        border: 1px dashed var(--primary-color);
+        border-radius: 15px;
+    }
+
+    .destination-card.unmounted {
+        border: 2px dashed #cbd5e1;
+        opacity: 0.85;
+    }
+
+    .destination-card.unmounted:hover {
+        border-color: #f59e0b;
+        opacity: 1;
+    }
+
+    .text-warning {
+        color: #d97706;
+    }
+
+    .btn-warning {
+        background-color: #f59e0b;
+        color: white;
+        border: none;
+    }
+
+    .btn-warning:hover {
+        background-color: #d97706;
+    }
+</style>
+
+<script>
+    let lastDestsCount = {{ destinations| length }};
+    let isInteracting = false;
+
+    // Monitor for user interactions to avoid disruptive refreshes
+    document.addEventListener('submit', () => isInteracting = true);
+
+    function pollDestinations() {
+        if (isInteracting) return;
+
+        fetch('{% url "core:backup_check_dests" %}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.destinations && data.destinations.length !== lastDestsCount) {
+                    // New drive detected or removed! Refresh to update UI
+                    window.location.reload();
+                }
+            })
+            .catch(err => console.error('Polling error:', err));
+    }
+
+    // Poll every 3 seconds for new drives
+    setInterval(pollDestinations, 3000);
+</script>
+{% endblock %}

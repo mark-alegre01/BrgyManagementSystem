@@ -6,7 +6,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login - Barangay Management System</title>
-  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <link rel="stylesheet" href="{% static 'css/style.css' %}?v=2.1">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
   <style>
@@ -14,31 +14,36 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 100vh;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      min-height: 100vh;
       margin: 0;
+      padding: 20px;
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
     }
 
     .login-card {
-      background: rgba(30, 41, 59, 0.7);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 20px;
-      padding: 40px;
+      position: relative;
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-xl);
+      padding: 48px;
       width: 100%;
-      max-width: 420px;
+      max-width: 460px;
       text-align: center;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      box-shadow: var(--shadow-lg);
+      animation: slideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 10;
     }
 
     .login-logo-container {
-      width: 100px;
-      height: 100px;
-      margin: 0 auto 20px;
-      background: white;
-      border-radius: 50%;
-      padding: 5px;
-      box-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: var(--primary-light);
+      border-radius: 20px;
+      padding: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -52,21 +57,24 @@
     }
 
     .login-card h2 {
-      font-size: 28px;
-      margin-bottom: 8px;
-      color: white;
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 4px;
+      color: var(--text-main);
+      letter-spacing: -0.5px;
     }
 
     .login-card p {
       color: var(--text-muted);
-      margin-bottom: 30px;
+      font-size: 14px;
+      margin-bottom: 32px;
     }
 
     .login-tabs {
       display: flex;
-      background: rgba(15, 23, 42, 0.5);
-      border-radius: 12px;
-      padding: 4px;
+      background: var(--bg-main);
+      border-radius: 14px;
+      padding: 6px;
       margin-bottom: 24px;
       border: 1px solid var(--border);
     }
@@ -89,17 +97,17 @@
     }
 
     .login-tab:hover {
-      color: white;
+      color: var(--primary);
     }
 
     .login-tab.active {
-      background: var(--primary);
-      color: white;
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+      background: #FFFFFF;
+      color: var(--primary);
+      box-shadow: var(--shadow-md);
     }
 
     .login-tab i {
-      font-size: 16px;
+      font-size: 15px;
     }
 
     .login-content {
@@ -110,11 +118,38 @@
       display: block;
     }
 
+    .form-control {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.5);
+      transition: var(--transition);
+      font-size: 14px;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #FFFFFF;
+      box-shadow: 0 0 0 4px var(--primary-light);
+      transform: translateY(-1px);
+    }
+
     .login-btn {
       width: 100%;
-      padding: 14px;
+      padding: 16px;
       margin-top: 10px;
       font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      border-radius: 12px;
+      transition: var(--transition);
+    }
+
+    .login-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(44, 110, 73, 0.25);
     }
 
     .alert {
@@ -125,15 +160,15 @@
     }
 
     .alert-error {
-      background: rgba(239, 68, 68, 0.15);
-      color: #fca5a5;
-      border: 1px solid rgba(239, 68, 68, 0.3);
+      background: #FEE2E2;
+      color: #991B1B;
+      border: 1px solid #FECACA;
     }
 
     .alert-success {
-      background: rgba(16, 185, 129, 0.15);
-      color: #6ee7b7;
-      border: 1px solid rgba(16, 185, 129, 0.3);
+      background: #DCFCE7;
+      color: #166534;
+      border: 1px solid #BBF7D0;
     }
 
     .divider {
@@ -157,13 +192,20 @@
     }
 
     .qr-scanner-container {
-      background: rgba(15, 23, 42, 0.5);
-      border: 2px dashed var(--border);
-      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.4);
+      border: 2px dashed rgba(44, 110, 73, 0.3);
+      border-radius: 20px;
       padding: 30px 20px;
       margin-bottom: 20px;
       position: relative;
       overflow: hidden;
+      transition: var(--transition);
+    }
+
+    .qr-scanner-container.active {
+      border-style: solid;
+      border-color: var(--primary);
+      background: rgba(44, 110, 73, 0.05);
     }
 
     .qr-scanner-placeholder {
@@ -177,7 +219,7 @@
       width: 100%;
       max-width: 200px;
       height: 200px;
-      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      background: white;
       border-radius: 12px;
       display: flex;
       align-items: center;
@@ -195,8 +237,8 @@
       right: 0;
       bottom: 0;
       background:
-        linear-gradient(90deg, transparent 49%, rgba(79, 70, 229, 0.3) 50%, transparent 51%),
-        linear-gradient(0deg, transparent 49%, rgba(79, 70, 229, 0.3) 50%, transparent 51%);
+        linear-gradient(90deg, transparent 49%, rgba(44, 110, 73, 0.1) 50%, transparent 51%),
+        linear-gradient(0deg, transparent 49%, rgba(44, 110, 73, 0.1) 50%, transparent 51%);
       background-size: 20px 20px;
     }
 
@@ -225,6 +267,7 @@
       font-size: 60px;
       color: var(--primary);
       z-index: 1;
+      filter: drop-shadow(0 0 10px rgba(44, 110, 73, 0.3));
     }
 
     .qr-instructions {
@@ -234,7 +277,7 @@
     }
 
     .qr-instructions strong {
-      color: white;
+      color: var(--text-main);
     }
 
     .philsys-branding {
@@ -244,9 +287,9 @@
       gap: 12px;
       margin-bottom: 20px;
       padding: 12px;
-      background: rgba(79, 70, 229, 0.1);
+      background: var(--primary-light);
       border-radius: 10px;
-      border: 1px solid rgba(79, 70, 229, 0.2);
+      border: 1px solid var(--border);
     }
 
     .philsys-logo {
@@ -273,7 +316,7 @@
     }
 
     .philsys-text strong {
-      color: white;
+      color: var(--text-main);
       font-size: 14px;
     }
 
@@ -317,8 +360,8 @@
     }
 
     .manual-entry-toggle:hover {
-      color: white;
-      background: rgba(255, 255, 255, 0.05);
+      color: var(--primary);
+      background: var(--primary-light);
     }
 
     .manual-entry-toggle i {
@@ -351,6 +394,12 @@
 </head>
 
 <body>
+  <div class="auth-background">
+    <div class="auth-blob auth-blob-1"></div>
+    <div class="auth-blob auth-blob-2"></div>
+    <div class="auth-blob auth-blob-3"></div>
+  </div>
+
   <div class="login-card">
     <div class="login-logo-container">
       <img src="{% static 'images/logo.png' %}" alt="Logo" class="login-logo-img">
@@ -366,21 +415,45 @@
     {% endfor %}
     {% endif %}
 
+    <div class="login-tabs" id="user-type-tabs">
+      <button type="button" class="login-tab active" data-type="official">
+        <i class="fas fa-user-tie"></i>
+        <span>Official</span>
+      </button>
+      <button type="button" class="login-tab" data-type="resident">
+        <i class="fas fa-users"></i>
+        <span>Resident</span>
+      </button>
+    </div>
+
+    <!-- Hidden role for resident mode -->
     <div id="credentials-content">
       <form method="POST">
         {% csrf_token %}
-        <div class="form-group">
-          <label>Role</label>
-          <select name="role" class="form-control" required autofocus>
-            <option value="">Select role</option>
-            <option value="captain">Barangay Captain</option>
-            <option value="secretary">Secretary</option>
-            <option value="treasurer">Treasurer</option>
-            <option value="bhw">Barangay BHW</option>
-          </select>
+        <input type="hidden" name="user_type" id="user-type-hidden" value="official">
+
+        <div id="official-fields">
+          <div class="form-group">
+            <label>Official Role</label>
+            <select name="role" id="official-role-select" class="form-control" autofocus>
+              <option value="">Select role</option>
+              <option value="captain">Barangay Captain</option>
+              <option value="secretary">Secretary</option>
+              <option value="treasurer">Treasurer</option>
+              <option value="bhw">Barangay BHW</option>
+            </select>
+          </div>
         </div>
 
-        <div class="form-group">
+        <div id="resident-fields" style="display: none;">
+          <div class="form-group">
+            <label>Resident Username</label>
+            <input type="text" name="username" id="resident-username-input" class="form-control"
+              placeholder="Enter your username">
+          </div>
+        </div>
+
+        <div id="login-method-section" class="form-group">
           <label>Login Method</label>
           <div id="login-method-buttons" class="login-tabs" style="margin-bottom: 0;">
             <button type="button" id="btn-method-password" class="login-tab active" data-method="password">
@@ -398,7 +471,8 @@
         <div id="password-credentials">
           <div class="form-group">
             <label>Password</label>
-            <input id="password-input" type="password" name="password" class="form-control" placeholder="Enter password" required>
+            <input id="password-input" type="password" name="password" class="form-control" placeholder="Enter password"
+              required>
           </div>
           <button type="submit" id="btn-password-login" class="btn btn-primary login-btn">
             <i class="fas fa-sign-in-alt"></i>
@@ -407,11 +481,13 @@
         </div>
 
         <div id="biometric-credentials" style="display: none;">
-          <div class="qr-scanner-container" style="border-style: solid; border-color: #10b981;">
+          <div class="qr-scanner-container">
             <div class="qr-scanner-placeholder">
-              <div class="qr-camera-view" style="border-color: #10b981;">
-                <i class="fas fa-fingerprint qr-camera-icon" style="color: #10b981;"></i>
-                <div class="scan-line" style="background: linear-gradient(90deg, transparent, #10b981, transparent); box-shadow: 0 0 10px #10b981;"></div>
+              <div class="qr-camera-view">
+                <i class="fas fa-fingerprint qr-camera-icon"></i>
+                <div class="scan-line"
+                  style="background: linear-gradient(90deg, transparent, var(--primary), transparent); box-shadow: 0 0 10px var(--primary);">
+                </div>
               </div>
               <p class="qr-instructions" id="biometric-status">
                 <strong>Ready to Scan</strong><br>
@@ -420,23 +496,69 @@
             </div>
           </div>
 
-          <button type="button" id="btn-biometric-login" class="btn btn-primary login-btn" style="background: #10b981; border-color: #059669;">
+          <button type="button" id="btn-biometric-login" class="btn btn-primary login-btn">
             <i class="fas fa-play mr-2"></i>
             Start Biometric Scan
           </button>
-          
+
           <div id="biometric-error" class="alert alert-error mt-3 d-none"></div>
         </div>
       </form>
 
-      <div style="margin-top: 24px; text-align: center;">
-        <a href="{% url 'signup' %}" style="color: inherit; text-decoration: underline;">Create an account</a>
+      <div
+        style="margin-top: 32px; text-align: center; display: flex; flex-direction: column; gap: 12px; padding-top: 24px; border-top: 1px solid var(--border);">
+        <a href="{% url 'resident_signup' %}"
+          style="color: var(--primary); font-weight: 700; text-decoration: none; font-size: 14px; transition: var(--transition);"
+          onmouseover="this.style.color='var(--primary-hover)'" onmouseout="this.style.color='var(--primary)'">
+          Are you a Resident? <span style="text-decoration: underline;">Register here</span>
+        </a>
+        <a href="{% url 'signup' %}"
+          style="color: var(--text-muted); font-size: 13px; text-decoration: none; transition: var(--transition);"
+          onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">
+          Official Signup
+        </a>
       </div>
     </div>
   </div>
 
+  <div style="position: fixed; bottom: 20px; color: var(--text-muted); font-size: 12px; opacity: 0.7;">
+    &copy; 2026 SICO-SICO Barangay Management System
+  </div>
+
   <script>
     document.addEventListener('DOMContentLoaded', function () {
+      const userTypeTabs = document.querySelectorAll('#user-type-tabs .login-tab');
+      const userTypeHidden = document.getElementById('user-type-hidden');
+      const officialFields = document.getElementById('official-fields');
+      const residentFields = document.getElementById('resident-fields');
+      const officialRoleSelect = document.getElementById('official-role-select');
+      const residentUsernameInput = document.getElementById('resident-username-input');
+      const loginMethodSection = document.getElementById('login-method-section');
+
+      userTypeTabs.forEach(tab => {
+        tab.addEventListener('click', function () {
+          const type = this.dataset.type;
+          userTypeHidden.value = type;
+
+          userTypeTabs.forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+
+          if (type === 'resident') {
+            officialFields.style.display = 'none';
+            residentFields.style.display = 'block';
+            loginMethodSection.style.display = 'none';
+            setLoginMethod('password'); // Residents only use password
+            officialRoleSelect.required = false;
+            residentUsernameInput.required = true;
+          } else {
+            officialFields.style.display = 'block';
+            residentFields.style.display = 'none';
+            loginMethodSection.style.display = 'block';
+            officialRoleSelect.required = true;
+            residentUsernameInput.required = false;
+          }
+        });
+      });
       const loginMethodHidden = document.getElementById('login-method');
       const methodPasswordBtn = document.getElementById('btn-method-password');
       const methodBiometricBtn = document.getElementById('btn-method-biometric');
@@ -480,7 +602,7 @@
 
       function applyLoginMethod() {
         const method = loginMethodHidden ? loginMethodHidden.value : 'password';
-        if (method ==   = 'biometric') {
+        if (method === 'biometric') {
           if (passwordCredentials) passwordCredentials.style.display = 'none';
           if (biometricCredentials) biometricCredentials.style.display = 'block';
           if (passwordInput) passwordInput.required = false;
@@ -495,9 +617,19 @@
       function setLoginMethod(method) {
         if (loginMethodHidden) loginMethodHidden.value = method;
         if (methodPasswordBtn && methodBiometricBtn) {
-          methodPasswordBtn.classList.toggle('active', method ==   = 'password');
-          methodBiometricBtn.classList.toggle('active', method ==   = 'biometric');
+          methodPasswordBtn.classList.toggle('active', method === 'password');
+          methodBiometricBtn.classList.toggle('active', method === 'biometric');
         }
+
+        const scannerContainer = document.querySelector('.qr-scanner-container');
+        if (scannerContainer) {
+          if (method === 'biometric') {
+            scannerContainer.classList.add('active');
+          } else {
+            scannerContainer.classList.remove('active');
+          }
+        }
+
         applyLoginMethod();
       }
 
@@ -512,10 +644,12 @@
       setLoginMethod('password');
 
       if (btnBio) {
-        btnBio.addEventListener('click', function() {
-          const selectedRole = roleSelect ? (roleSelect.value || '').trim() : '';
-          if (!selectedRole) {
-            resetBiometricUI('Please select a role first.');
+        btnBio.addEventListener('click', function () {
+          const type = userTypeHidden.value;
+          const identifier = type === 'resident' ? residentUsernameInput.value : officialRoleSelect.value;
+
+          if (!identifier) {
+            resetBiometricUI(type === 'resident' ? 'Please enter your username first.' : 'Please select a role first.');
             return;
           }
 
@@ -528,7 +662,10 @@
           fetch("/biometric-login-start/", {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role: selectedRole }),
+            body: JSON.stringify({
+              role: type === 'official' ? identifier : 'resident',
+              username: type === 'resident' ? identifier : null
+            }),
           })
             .then(async response => {
               const data = await response.json();
@@ -559,10 +696,10 @@
           fetch("/biometric-status-check/")
             .then(response => response.json())
             .then(data => {
-              if (data.status ==   = 'authenticated') {
+              if (data.status === 'authenticated') {
                 resetBiometricUI();
                 window.location.href = "{% url 'dashboard' %}";
-              } else if (data.status ==   = 'failed') {
+              } else if (data.status === 'failed') {
                 resetBiometricUI(data.reason || 'Finger not recognized. Try again.');
                 btnBio.disabled = false;
                 btnBio.innerHTML = '<i class="fas fa-play mr-2"></i> Start Biometric Scan';

@@ -14,4 +14,9 @@ urlpatterns = [
     path('households/<int:pk>/', views.household_view, name='household_view'),
     path('<int:pk>/capture/', views.resident_capture_fingerprint, name='capture_fingerprint'),
     path('<int:pk>/fingerprint/', views.resident_update_fingerprint, name='update_fingerprint'),
+    # Registration Verification
+    path('registrations/', views.registration_list, name='registration_list'),
+    path('registrations/<int:pk>/', views.registration_detail, name='registration_detail'),
+    path('registrations/<int:pk>/approve/', views.approve_registration, name='approve_registration'),
+    path('registrations/<int:pk>/reject/', views.reject_registration, name='reject_registration'),
 ]
