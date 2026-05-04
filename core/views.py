@@ -2,7 +2,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+User = get_user_model()
 from django.http import JsonResponse, FileResponse
 from django import forms
 from django.utils.text import slugify
@@ -20,6 +21,7 @@ from attendance.models import AttendanceLog
 from ordinances.models import Ordinance
 from datetime import date
 from .utils.backup import perform_backup, get_backup_destinations, create_backup_archive
+from biometrics.utils import get_biometric_provider
 
 
 OFFICIAL_ROLE_CHOICES = [
@@ -231,37 +233,27 @@ def biometric_verify_login(request):
 
 @login_required
 def biometric_verify_login_start(request):
-    """View to launch the biometric verification service."""
+    """View to initiate biometric verification."""
     try:
         request_id = secrets.token_urlsafe(16)
         request.session['biometric_request_id'] = request_id
         cache.set(f"biometric:{request_id}", {"status": "pending"}, timeout=120)
         
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # Use BiometricProvider interface
+        provider = get_biometric_provider()
+        result = provider.verify(user_id=request.user.id, scan_data={'request_id': request_id})
         
-        # Use current python executable instead of hardcoded venv32
-        venv_python = sys.executable
-        service_path = os.path.join(base_dir, 'core', 'zk_verify.py')
-        
-        popen_args = [
-            venv_python,
-            service_path,
-            '--url', request.build_absolute_uri('/')[:-1],
-            '--request-id', request_id,
-        ]
-
-        if os.name == 'nt':
-            subprocess.Popen(popen_args, creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0))
-        else:
-            subprocess.Popen(popen_args)
-        
-        return JsonResponse({'status': 'success', 'message': 'Verification service launched', 'request_id': request_id})
+        return JsonResponse({
+            'status': 'success', 
+            'message': result.get('message', 'Verification service initiated'), 
+            'request_id': request_id
+        })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @csrf_exempt
 def biometric_login_start(request):
-    """Public view to launch the biometric verification service for login."""
+    """Public view to initiate biometric verification for login."""
     try:
         role = ''
         if request.method == 'POST':
@@ -281,29 +273,16 @@ def biometric_login_start(request):
         request.session['biometric_request_id'] = request_id
         cache.set(f"biometric:{request_id}", {"status": "pending", "role": role}, timeout=120)
         
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # Use BiometricProvider interface
+        provider = get_biometric_provider()
+        # For the stub, this is a no-op that might immediately return success or just log
+        result = provider.verify(user_id=None, scan_data={'role': role, 'username': username, 'request_id': request_id})
         
-        # Use current python executable instead of hardcoded venv32
-        venv_python = sys.executable
-        service_path = os.path.join(base_dir, 'core', 'zk_verify.py')
-        
-        popen_args = [
-            venv_python,
-            service_path,
-            '--url', request.build_absolute_uri('/')[:-1],
-            '--request-id', request_id,
-        ]
-        if role:
-            popen_args += ['--role', role]
-        if username:
-            popen_args += ['--username', username]
-
-        if os.name == 'nt':
-            subprocess.Popen(popen_args, creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0))
-        else:
-            subprocess.Popen(popen_args)
-        
-        return JsonResponse({'status': 'success', 'message': 'Verification service launched', 'request_id': request_id})
+        return JsonResponse({
+            'status': 'success', 
+            'message': result.get('message', 'Biometric verification initiated'), 
+            'request_id': request_id
+        })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
@@ -366,70 +345,8 @@ def login_view(request):
 
 
 def signup_view(request):
-    if request.user.is_authenticated:
-        return redirect('dashboard')
-
-    class SignupForm(forms.Form):
-        first_name = forms.CharField(max_length=150)
-        middle_name = forms.CharField(max_length=150, required=False)
-        last_name = forms.CharField(max_length=150)
-        role = forms.ChoiceField(choices=OFFICIAL_ROLE_CHOICES)
-        password1 = forms.CharField(widget=forms.PasswordInput)
-        password2 = forms.CharField(widget=forms.PasswordInput)
-
-        def clean(self):
-            cleaned = super().clean()
-            p1 = cleaned.get('password1')
-            p2 = cleaned.get('password2')
-            if p1 and p2 and p1 != p2:
-                raise forms.ValidationError('Passwords do not match.')
-            return cleaned
-
-    def _role_to_username(role: str) -> str:
-        return OFFICIAL_USERNAME_BY_ROLE.get(role, '')
-
-    if request.method == 'POST':
-        form = SignupForm(request.POST)
-        if form.is_valid():
-            first_name = form.cleaned_data['first_name'].strip()
-            middle_name = (form.cleaned_data.get('middle_name') or '').strip()
-            last_name = form.cleaned_data['last_name'].strip()
-            role = form.cleaned_data['role']
-            password = form.cleaned_data['password1']
-
-            username = _role_to_username(role)
-            if not username:
-                form.add_error('role', 'Invalid role selected.')
-                return render(request, 'core/signup.html', {'form': form})
-            if User.objects.filter(username=username).exists():
-                form.add_error('role', 'An account for this role already exists.')
-                return render(request, 'core/signup.html', {'form': form})
-
-            user = User.objects.create_user(username=username, password=password)
-            user.first_name = first_name
-            user.last_name = last_name
-            user.save(update_fields=['first_name', 'last_name'])
-
-            profile, _created = UserProfile.objects.get_or_create(
-                user=user,
-                defaults={'role': role, 'middle_name': middle_name},
-            )
-            updates = []
-            if profile.role != role:
-                profile.role = role
-                updates.append('role')
-            if (profile.middle_name or '') != middle_name:
-                profile.middle_name = middle_name
-                updates.append('middle_name')
-            if updates:
-                profile.save(update_fields=updates)
-
-            login(request, user)
-            messages.success(request, 'Account created successfully.')
-            return redirect('dashboard')
-    else:
-        form = SignupForm()
-    return render(request, 'core/signup.html', {'form': form})
+    messages.info(request, 'Public registration for officials is disabled. Please contact the Captain for an invite.')
+    return redirect('core:login')
 
 
 def resident_signup_view(request):

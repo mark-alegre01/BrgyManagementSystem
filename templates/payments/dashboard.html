@@ -1,0 +1,224 @@
+{% extends 'base.html' %}
+
+{% block title %}Certificate Payments Dashboard - SICO-SICO{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Payment Management</h1>
+        <span>Verify and process official receipts for certificate requests</span>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom: 24px;">
+    <div class="card-header">
+        <form method="GET" class="filter-form" style="display: flex; gap: 15px; align-items: center;">
+            <select name="status" class="form-control" onchange="this.form.submit()">
+                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending Verification
+                </option>
+                <option value="unpaid" {% if status_filter == 'unpaid' %}selected{% endif %}>Unpaid (Cash at Hall)
+                </option>
+                <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Paid</option>
+                <option value="waived" {% if status_filter == 'waived' %}selected{% endif %}>Waived</option>
+            </select>
+            <select name="method" class="form-control" onchange="this.form.submit()">
+                <option value="">All Methods</option>
+                <option value="cash" {% if method_filter == 'cash' %}selected{% endif %}>Cash</option>
+                <option value="gcash" {% if method_filter == 'gcash' %}selected{% endif %}>GCash</option>
+            </select>
+            <a href="{% url 'payments:dashboard' %}" class="btn btn-secondary btn-sm">Reset</a>
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Tracking Code</th>
+                    <th>Resident</th>
+                    <th>Certificate Type</th>
+                    <th>Amount</th>
+                    <th>Method</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for payment in payments %}
+                <tr>
+                    <td><strong>{{ payment.certificate_request.tracking_code }}</strong></td>
+                    <td>{{ payment.certificate_request.resident.full_name }}</td>
+                    <td>{{ payment.certificate_request.get_cert_type_display }}</td>
+                    <td>₱{{ payment.amount|floatformat:2 }}</td>
+                    <td>
+                        <span
+                            class="badge badge-{% if payment.method == 'gcash' %}info{% elif payment.method == 'cash' %}warning{% else %}secondary{% endif %}">
+                            {{ payment.get_method_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if payment.status == 'unpaid' and payment.method == 'cash' %}
+                        <button class="btn btn-primary btn-sm"
+                            onclick="showPayModal('{{ payment.id }}', '{{ payment.amount }}')">Mark as Paid</button>
+                        {% elif payment.status == 'pending' and payment.method == 'gcash' %}
+                        <button class="btn btn-info btn-sm"
+                            onclick="showConfirmGcashModal('{{ payment.id }}', '{{ payment.proof_screenshot.url }}')">Verify
+                            Proof</button>
+                        {% elif payment.status == 'paid' %}
+                        <a href="{% url 'payments:download_receipt' payment.id %}" class="btn btn-success btn-sm">
+                            <i class="fas fa-file-pdf"></i> View OR
+                        </a>
+                        {% endif %}
+
+                        {% if payment.status != 'waived' and payment.status != 'paid' %}
+                        <button class="btn btn-link btn-sm text-danger"
+                            onclick="showWaiveModal('{{ payment.id }}')">Waive Fee</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">No records found for the selected filters.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Cash Payment Modal -->
+<div id="payModal" class="modal">
+    <div class="modal-content">
+        <h3>Mark as Paid</h3>
+        <p>Confirm cash received at the hall counter.</p>
+        <form method="POST" id="payForm">
+            {% csrf_token %}
+            <div class="form-group pb-3">
+                <label>Manual OR Number (Leave blank for auto-generate)</label>
+                <input type="text" name="or_number" class="form-control" placeholder="OR-YYYY-XXXXX">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModals()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Confirm & Issue Receipt</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- GCash Verification Modal -->
+<div id="gcashModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <h3>Verify GCash Payment</h3>
+        <div id="proofContainer" style="margin-bottom: 15px;">
+            <img id="proofImg" src="" style="width: 100%; border-radius: 8px; border: 1px solid #ddd;">
+        </div>
+        <form method="POST" id="gcashForm">
+            {% csrf_token %}
+            <div class="form-group pb-3">
+                <label>GCash Reference Number</label>
+                <input type="text" name="gcash_ref_number" class="form-control" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModals()">Cancel</button>
+                <button type="submit" class="btn btn-info">Approve Payment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Waiver Modal -->
+<div id="waiveModal" class="modal">
+    <div class="modal-content">
+        <h3>Waive Fee</h3>
+        <form method="POST" id="waiveForm">
+            {% csrf_token %}
+            <div class="form-group pb-3">
+                <label>Reason for Waiver</label>
+                <textarea name="reason" class="form-control" required
+                    placeholder="e.g. Indigent Resident / PWD"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModals()">Cancel</button>
+                <button type="submit" class="btn btn-danger">Confirm Waiver</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-content {
+        background: white;
+        margin: 10% auto;
+        padding: 30px;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 400px;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .pb-3 {
+        padding-bottom: 15px;
+    }
+
+    .badge {
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .badge-info {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .badge-warning {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    .badge-secondary {
+        background: #f3f4f6;
+        color: #374151;
+    }
+</style>
+
+<script>
+    function showPayModal(id) {
+        document.getElementById('payForm').action = "/payments/" + id + "/pay-cash/";
+        document.getElementById('payModal').style.display = 'block';
+    }
+
+    function showConfirmGcashModal(id, imgUrl) {
+        document.getElementById('gcashForm').action = "/payments/" + id + "/confirm-gcash/";
+        document.getElementById('proofImg').src = imgUrl;
+        document.getElementById('gcashModal').style.display = 'block';
+    }
+
+    function showWaiveModal(id) {
+        document.getElementById('waiveForm').action = "/payments/" + id + "/waive/";
+        document.getElementById('waiveModal').style.display = 'block';
+    }
+
+    function closeModals() {
+        document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+    }
+</script>
+{% endblock %}

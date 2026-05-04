@@ -1,10 +1,13 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AbstractUser, Group
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.contrib.auth.models import AbstractUser
+from django.conf import settings
 
 
-class UserProfile(models.Model):
-    """Extended user profile with role-based access."""
 
+class User(AbstractUser):
     ROLE_CHOICES = [
         ("captain", "Barangay Captain"),
         ("secretary", "Barangay Secretary"),
@@ -12,16 +15,41 @@ class UserProfile(models.Model):
         ("kagawad", "Kagawad"),
         ("sk_chairperson", "SK Chairperson"),
         ("lupong_member", "Lupon Member"),
+        ("bhw", "Barangay BHW"),
         ("resident", "Resident"),
         ("admin", "Administrator"),
         ("staff", "Staff"),
     ]
-
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
-    resident = models.OneToOneField("residents.Resident", on_delete=models.SET_NULL, null=True, blank=True, related_name="user_profile")
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="resident")
+
+    def get_permission_level(self):
+        level_1 = ['captain', 'secretary', 'treasurer', 'admin']
+        level_2 = ['kagawad', 'sk_chairperson', 'bhw', 'lupong_member', 'staff']
+        
+        if self.role in level_1:
+            return 1
+        elif self.role in level_2:
+            return 2
+        else:
+            return 3
+
+class UserProfile(models.Model):
+    """Extended user profile with role-based access."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
+    resident = models.OneToOneField("residents.Resident", on_delete=models.SET_NULL, null=True, blank=True, related_name="user_profile")
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def role(self):
+        return self.user.role
+        
+    @role.setter
+    def role(self, value):
+        self.user.role = value
+        self.user.save()
+
 
     @property
     def middle_name(self):
@@ -84,7 +112,7 @@ class UserProfile(models.Model):
             self.resident.save()
 
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.get_role_display()}"
+        return f"{self.user.get_full_name()} - {self.user.get_role_display()}"
 
     class Meta:
         verbose_name = "User Profile"
@@ -111,7 +139,7 @@ class SystemSettings(models.Model):
 class Notification(models.Model):
     """In-app notification for a specific user."""
     user = models.ForeignKey(
-        'auth.User', on_delete=models.CASCADE, related_name='notifications'
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications'
     )
     message = models.TextField()
     link = models.CharField(max_length=300, blank=True, help_text='Optional URL path for the notification')
@@ -125,3 +153,21 @@ class Notification(models.Model):
         ordering = ['-created_at']
         verbose_name = 'Notification'
         verbose_name_plural = 'Notifications'
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def assign_user_group(sender, instance, created, **kwargs):
+    """Assign users to proper groups based on permission level."""
+    level = instance.get_permission_level()
+    group_name = None
+    if level == 1:
+        group_name = "Admin"
+    elif level == 2:
+        group_name = "Staff"
+    elif level == 3:
+        group_name = "Resident"
+        
+    if group_name:
+        group, _ = Group.objects.get_or_create(name=group_name)
+        # Clear existing groups to strictly enforce current role level
+        instance.groups.clear()
+        instance.groups.add(group)

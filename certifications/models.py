@@ -1,6 +1,13 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
 from decimal import Decimal
+
+def generate_tracking_code():
+    """Generate a random 9-character alphanumeric tracking code."""
+    import string
+    import random
+    chars = string.ascii_uppercase + string.digits
+    return "".join(random.choices(chars, k=9))
 
 
 class Certificate(models.Model):
@@ -46,7 +53,7 @@ class Certificate(models.Model):
 
     # Status
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='issued')
-    issued_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='certificates_issued')
+    issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='certificates_issued')
 
     # Document
     pdf_file = models.FileField(upload_to='certificates/', blank=True, null=True)
@@ -177,9 +184,18 @@ class CertificateRequest(models.Model):
         on_delete=models.CASCADE,
         related_name='certificate_requests',
     )
+    tracking_code = models.CharField(max_length=20, unique=True, default=generate_tracking_code)
     cert_type = models.CharField(max_length=30, choices=Certificate.TYPE_CHOICES)
     purpose = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+
+    # Payment integration
+    payment = models.OneToOneField(
+        'payments.Payment',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='certificate_request'
+    )
 
     # Linked certificate once issued
     certificate = models.OneToOneField(
@@ -213,8 +229,7 @@ class CertificateRequest(models.Model):
 
     # Admin processing
     notes = models.TextField(blank=True, help_text='Admin notes (shown to resident on rejection)')
-    processed_by = models.ForeignKey(
-        User,
+    processed_by = models.ForeignKey(settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='processed_cert_requests',

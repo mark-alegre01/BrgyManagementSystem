@@ -97,6 +97,8 @@ class Resident(models.Model):
     is_pwd = models.BooleanField(default=False, verbose_name="Person with Disability")
     is_senior_citizen = models.BooleanField(default=False)
     is_4ps_member = models.BooleanField(default=False, verbose_name="4Ps Member")
+    is_indigent = models.BooleanField(default=False)
+    is_solo_parent = models.BooleanField(default=False)
     is_official = models.BooleanField(default=False, verbose_name="Barangay Functionary")
 
     # Photo

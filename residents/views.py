@@ -8,7 +8,8 @@ from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 from .models import Resident, Household, ResidentRegistration
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+User = get_user_model()
 from core.models import UserProfile
 from officials.models import Official
 import json
@@ -365,7 +366,7 @@ def household_view(request, pk):
 @login_required
 def registration_list(request):
     """List pending registrations for officials."""
-    if not request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin']:
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin'])):
         messages.error(request, "Permission denied.")
         return redirect('core:dashboard')
     
@@ -386,7 +387,7 @@ def registration_list(request):
 @login_required
 def registration_detail(request, pk):
     """Review a specific registration."""
-    if not request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin']:
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin'])):
         messages.error(request, "Permission denied.")
         return redirect('core:dashboard')
         
@@ -398,7 +399,7 @@ def registration_detail(request, pk):
 @login_required
 def approve_registration(request, pk):
     """Approve a registration and create Resident/User/Profile."""
-    if not request.user.profile.role in ["captain", "secretary", "treasurer", "admin"]:
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin'])):
         messages.error(request, "Permission denied.")
         return redirect("core:dashboard")
 
@@ -496,7 +497,7 @@ def approve_registration(request, pk):
 @login_required
 def reject_registration(request, pk):
     """Reject a registration."""
-    if not request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin']:
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin'])):
         messages.error(request, "Permission denied.")
         return redirect('core:dashboard')
         

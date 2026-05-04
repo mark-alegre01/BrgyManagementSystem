@@ -1,0 +1,235 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Official Documents - SICO-SICO</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=2.1">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .auth-card {
+            position: relative;
+            background: var(--glass-bg, rgba(255, 255, 255, 0.7));
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.5));
+            border-radius: var(--radius-xl, 20px);
+            padding: 48px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+
+        .header-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: rgba(44, 110, 73, 0.1);
+            color: #2c6e49;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 8px;
+            color: #1f2937;
+        }
+
+        p.subtitle {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .file-upload {
+            position: relative;
+            display: block;
+            width: 100%;
+            height: 120px;
+            border: 2px dashed #9ca3af;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.5);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .file-upload:hover {
+            border-color: #2c6e49;
+            background: rgba(44, 110, 73, 0.05);
+        }
+
+        .file-upload input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-upload-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .file-upload-content i {
+            font-size: 24px;
+            color: #9ca3af;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .file-upload-content span {
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 16px;
+            margin-top: 10px;
+            font-size: 16px;
+            font-weight: 700;
+            background: #2c6e49;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(44, 110, 73, 0.25);
+        }
+
+        .alert-error {
+            background: #FEE2E2;
+            color: #991B1B;
+            border: 1px solid #FECACA;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Background elements common in SICO login -->
+    <div class="auth-background"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:1; overflow:hidden;">
+        <div
+            style="position:absolute; width:600px; height:600px; background:radial-gradient(circle, rgba(44,110,73,0.1) 0%, transparent 70%); top:-200px; left:-200px; border-radius:50%;">
+        </div>
+        <div
+            style="position:absolute; width:500px; height:500px; background:radial-gradient(circle, rgba(79,70,229,0.05) 0%, transparent 70%); bottom:-100px; right:-100px; border-radius:50%;">
+        </div>
+    </div>
+
+    <div class="auth-card">
+        <div class="header-icon">
+            <i class="fas fa-file-signature"></i>
+        </div>
+        <h2>Welcome, {{ invite.first_name }}!</h2>
+        <p class="subtitle">To continue your onboarding as <strong>{{ invite.get_position_display }}</strong>, please
+            upload the required verification documents.</p>
+
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert-error">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label>1. Appointment Letter</label>
+                <div class="file-upload" id="upload-appointment">
+                    <input type="file" name="appointment_letter" required accept="image/*,.pdf"
+                        onchange="updateLabel(this, 'label-appointment')">
+                    <div class="file-upload-content">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <span id="label-appointment">Click or drag file here</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>2. Valid Government ID</label>
+                <div class="file-upload" id="upload-id">
+                    <input type="file" name="valid_id" required accept="image/*,.pdf"
+                        onchange="updateLabel(this, 'label-id')">
+                    <div class="file-upload-content">
+                        <i class="fas fa-id-card"></i>
+                        <span id="label-id">Click or drag file here</span>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">
+                <i class="fas fa-check-circle"></i> Submit Documents
+            </button>
+        </form>
+    </div>
+
+    <script>
+        function updateLabel(input, labelId) {
+            const label = document.getElementById(labelId);
+            if (input.files && input.files.length > 0) {
+                label.textContent = input.files[0].name;
+                label.parentElement.parentElement.style.borderColor = '#2c6e49';
+                label.parentElement.parentElement.style.background = 'rgba(44, 110, 73, 0.1)';
+            }
+        }
+    </script>
+</body>
+
+</html>

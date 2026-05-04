@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+
+{% block title %}Onboarding Approvals - Barangay Management System{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h1>Onboarding Approvals</h1>
+        <span>Review documents and approve new official invitations</span>
+    </div>
+    <div class="page-actions">
+        <a href="{% url 'officials:invite_official' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Invite New Official
+        </a>
+    </div>
+</div>
+
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }}"
+    style="margin-bottom: 20px; padding: 15px; border-radius: 10px; background: #e0faea; color: #166534; border: 1px solid #bbf7d0;">
+    {{ message }}
+</div>
+{% endfor %}
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h3>Pending Approvals (Requires Action)</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Documents</th>
+                    <th>Captain Approval</th>
+                    <th>Secretary Approval</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invite in pending_approval %}
+                <tr>
+                    <td>
+                        <strong>{{ invite.first_name }} {{ invite.last_name }}</strong><br>
+                        <small class="text-muted">{{ invite.phone_number }}</small>
+                    </td>
+                    <td><span class="badge badge-primary">{{ invite.get_position_display }}</span></td>
+                    <td>
+                        <div class="d-flex" style="gap: 10px; margin-top: 5px;">
+                            {% if invite.appointment_letter %}
+                            <a href="{{ invite.appointment_letter.url }}" target="_blank" class="badge badge-info"><i
+                                    class="fas fa-file-alt"></i> Letter</a>
+                            {% endif %}
+                            {% if invite.valid_id %}
+                            <a href="{{ invite.valid_id.url }}" target="_blank" class="badge badge-info"><i
+                                    class="fas fa-id-card"></i> ID</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        {% if invite.captain_approved %}<span style="color: #10b981;"><i
+                                class="fas fa-check-circle"></i> Yes</span>
+                        {% else %}<span style="color: #ef4444;"><i class="fas fa-clock"></i> Pending</span>{% endif %}
+                    </td>
+                    <td>
+                        {% if invite.secretary_approved %}<span style="color: #10b981;"><i
+                                class="fas fa-check-circle"></i> Yes</span>
+                        {% else %}<span style="color: #ef4444;"><i class="fas fa-clock"></i> Pending</span>{% endif %}
+                    </td>
+                    <td>
+                        <form method="POST" action="{% url 'officials:onboard_approve' invite.token %}"
+                            style="margin: 0;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-success">
+                                <i class="fas fa-thumbs-up"></i> Approve
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center" style="padding: 30px;">
+                        <div class="empty-state">
+                            <i class="fas fa-check-double"
+                                style="font-size: 30px; color: #cbd5e1; margin-bottom: 10px;"></i>
+                            <p>No actions required. All uploaded documents have been processed.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px;">
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Awaiting Documents</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <tbody>
+                    {% for invite in pending_documents %}
+                    <tr>
+                        <td>
+                            <strong>{{ invite.first_name }} {{ invite.last_name }}</strong><br>
+                            <small>{{ invite.get_position_display }}</small>
+                        </td>
+                        <td class="text-right">
+                            <span class="badge badge-warning">Waiting for upload</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="2" class="text-center text-muted">None</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Pending OTP & Recent Activations</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="table">
+                <tbody>
+                    {% for invite in pending_otp %}
+                    <tr style="background-color: #f8fafc;">
+                        <td>
+                            <strong>{{ invite.first_name }} {{ invite.last_name }}</strong>
+                        </td>
+                        <td class="text-right">
+                            <span class="badge badge-warning"><i class="fas fa-key"></i> Pending OTP</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% for invite in recent_activated %}
+                    <tr>
+                        <td>
+                            <strong>{{ invite.first_name }} {{ invite.last_name }}</strong>
+                        </td>
+                        <td class="text-right">
+                            <span class="badge badge-success"><i class="fas fa-check"></i> Activated</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    {% if not pending_otp %}
+                    <tr>
+                        <td colspan="2" class="text-center text-muted">None</td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<style>
+    .badge {
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-block;
+    }
+
+    .badge-primary {
+        background: #e0e7ff;
+        color: #4338ca;
+    }
+
+    .badge-warning {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    .badge-success {
+        background: #d1fae5;
+        color: #059669;
+    }
+
+    .badge-info {
+        background: #e0f2fe;
+        color: #0369a1;
+        text-decoration: none;
+    }
+
+    .badge-info:hover {
+        text-decoration: underline;
+    }
+
+    .empty-state {
+        text-align: center;
+        color: #64748b;
+    }
+</style>
+{% endblock %}

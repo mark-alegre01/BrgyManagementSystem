@@ -8,6 +8,7 @@ from datetime import date, datetime, time
 from .models import AttendanceLog, FaceEncoding
 from officials.models import Official
 import json
+from biometrics.utils import get_biometric_provider
 
 
 @login_required
@@ -196,19 +197,21 @@ import requests
 
 def match_1_to_n(target_template, target_type='official'):
     """
-    Simulate or implement 1:N matching.
-    In a production EXE with ZK9500, the 32-bit service handles the actual matching.
+    Perform 1:N biometric matching using the configured provider.
     """
     if not target_template:
         return None
 
+    provider = get_biometric_provider()
+    # Note: In this architecture, we pass the template to the provider's verify method.
+    # The provider decides how to match it against candidates.
+    
     if target_type == 'official':
-        # Get all officials with templates
         candidates = Official.objects.exclude(fingerprint_template__isnull=True).exclude(fingerprint_template='')
         for cand in candidates:
-            # This is a placeholder for actual SDK matching logic (e.g., score > threshold)
-            # In a real ZK environment, the 32-bit service would send the matched ID directly.
-            if cand.fingerprint_template == target_template:
+            # We use the provider to verify the scan data against each candidate's stored template
+            result = provider.verify(user_id=cand.id, scan_data={'template': target_template, 'stored_template': cand.fingerprint_template})
+            if result.get('status') == 'success':
                 return cand
     return None
 

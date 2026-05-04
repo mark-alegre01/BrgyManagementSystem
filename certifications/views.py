@@ -421,7 +421,7 @@ def request_certificate(request):
         elif CertificateRequest.objects.filter(resident=own_resident, cert_type=cert_type, status='pending').exists():
             messages.warning(request, "You already have a pending request for this certificate type.")
         else:
-            CertificateRequest.objects.create(
+            cert_req = CertificateRequest.objects.create(
                 resident=own_resident,
                 cert_type=cert_type,
                 purpose=purpose,
@@ -447,8 +447,8 @@ def request_certificate(request):
                 father_name=request.POST.get('father_name', ''),
                 mother_name=request.POST.get('mother_name', ''),
             )
-            messages.success(request, "Your certificate request has been submitted! The barangay office will process it shortly.")
-            return redirect('certifications:my_requests')
+            messages.success(request, f"Your request for a {cert_type} has been submitted! Tracking Code: {cert_req.tracking_code}")
+            return redirect('payments:choose_payment', request_id=cert_req.id)
 
     return render(request, 'certifications/request_form.html', {
         'cert_types': Certificate.TYPE_CHOICES,
@@ -525,6 +525,11 @@ def fulfill_request(request, pk):
         messages.error(request, "This request has already been processed.")
         return redirect('certifications:request_list')
 
+    # Bypassed payment status blocker to allow admin to open fulfillment form
+    if not hasattr(cert_request, 'payment') or not cert_request.payment:
+        # If for some reason no payment object exists, we should probably create one or handle it
+        pass
+
     if request.method == 'POST':
         def to_decimal(val):
             if not val:
@@ -575,6 +580,12 @@ def fulfill_request(request, pk):
         cert_request.processed_by = request.user
         cert_request.processed_at = timezone.now()
         cert_request.save()
+
+        # Mark payment as paid upon issuance if it was unpaid/pending
+        if hasattr(cert_request, 'payment') and cert_request.payment:
+            if cert_request.payment.status not in ['paid', 'waived']:
+                cert_request.payment.status = 'paid'
+                cert_request.payment.save()
 
         # Notify resident
         try:

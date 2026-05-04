@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
 
 
 class Official(models.Model):
@@ -26,7 +26,7 @@ class Official(models.Model):
     ]
 
     resident = models.OneToOneField('residents.Resident', on_delete=models.CASCADE, related_name='official_record')
-    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='official_profile')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='official_profile')
     position = models.CharField(max_length=30, choices=POSITION_CHOICES)
     committee = models.CharField(max_length=200, blank=True, help_text='Committee assignment')
     term_start = models.DateField()
@@ -76,3 +76,64 @@ class Official(models.Model):
         ordering = ['position']
         verbose_name = 'Official'
         verbose_name_plural = 'Officials'
+
+
+import uuid
+from django.utils import timezone
+
+class OfficialInvite(models.Model):
+    """Model to track official invitations and onboarding."""
+    STATUS_CHOICES = [
+        ('pending_documents', 'Pending Documents'),
+        ('pending_approval', 'Pending Approval'),
+        ('pending_otp', 'Pending OTP'),
+        ('activated', 'Activated'),
+        ('rejected', 'Rejected'),
+    ]
+
+    token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='sent_official_invites')
+    
+    first_name = models.CharField(max_length=150)
+    last_name = models.CharField(max_length=150)
+    position = models.CharField(max_length=30, choices=Official.POSITION_CHOICES)
+    phone_number = models.CharField(max_length=20)
+    
+    # Document Uploads
+    appointment_letter = models.FileField(upload_to='official_docs/appointment/', null=True, blank=True)
+    valid_id = models.FileField(upload_to='official_docs/id/', null=True, blank=True)
+    
+    # Approvals
+    captain_approved = models.BooleanField(default=False)
+    secretary_approved = models.BooleanField(default=False)
+    
+    # OTP Tracking
+    otp_code = models.CharField(max_length=6, null=True, blank=True)
+    otp_expires_at = models.DateTimeField(null=True, blank=True)
+    
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending_documents')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def is_otp_valid(self, code):
+        if not self.otp_code or not self.otp_expires_at:
+            return False
+        if timezone.now() > self.otp_expires_at:
+            return False
+        return self.otp_code == code.strip()
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} - {self.get_position_display()} ({self.status})"
+
+
+class OnboardingAuditLog(models.Model):
+    """To track the exact steps of an official invite activation."""
+    invite = models.ForeignKey(OfficialInvite, on_delete=models.CASCADE, related_name='logs')
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    action = models.CharField(max_length=255)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+         return f"{self.invite.first_name} - {self.action} at {self.created_at}"

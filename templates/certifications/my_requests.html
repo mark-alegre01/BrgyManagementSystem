@@ -133,29 +133,37 @@
                     <tr>
                         <th>ID</th>
                         <th>Document Type</th>
-                        <th>Purpose</th>
-                        <th>Submitted On</th>
+                        <th>Payment Status</th>
                         <th>Current Status</th>
                         <th>Control No.</th>
-                        <th>Admin Notes</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for req in requests %}
                     <tr>
-                        <td style="color:#94a3b8; font-family: monospace; font-weight: 600;">#{{ req.pk }}</td>
+                        <td style="color:#94a3b8; font-family: monospace; font-weight: 600;">#{{ req.pk }} <br>
+                            <small>Code: {{ req.tracking_code }}</small>
+                        </td>
                         <td>
                             <div style="font-weight: 700; color: #0f172a;">{{ req.get_cert_type_display }}</div>
+                            <small class="text-muted">{{ req.requested_at|date:"M d, Y" }}</small>
                         </td>
                         <td>
-                            <div style="max-width: 240px; color: #475569; font-size: 13px; line-height: 1.5;"
-                                title="{{ req.purpose }}">
-                                {{ req.purpose }}
-                            </div>
-                        </td>
-                        <td style="color: #64748b; font-size: 13px;">
-                            <i class="far fa-calendar-alt" style="margin-right: 4px; opacity: 0.7;"></i>
-                            {{ req.requested_at|date:"M d, Y" }}
+                            {% if req.payment %}
+                            <span
+                                class="badge badge-{% if req.payment.status == 'paid' %}success{% elif req.payment.status == 'waived' %}info{% elif req.payment.status == 'pending' %}warning{% else %}secondary{% endif %}"
+                                style="padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+                                {{ req.payment.get_status_display }}
+                            </span>
+                            {% if req.payment.status == 'unpaid' %}
+                            <br><a href="{% url 'payments:choose_payment' req.id %}"
+                                style="font-size: 11px; color: var(--primary);">Pay Now</a>
+                            {% endif %}
+                            {% else %}
+                            <a href="{% url 'payments:choose_payment' req.id %}" class="btn btn-primary btn-sm"
+                                style="font-size: 10px; padding: 2px 6px;">Set Payment</a>
+                            {% endif %}
                         </td>
                         <td>
                             {% if req.status == 'pending' %}
@@ -178,12 +186,22 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if req.notes %}
-                            <div
-                                style="font-size: 12px; color: #64748b; max-width: 180px; overflow: hidden; text-overflow: ellipsis;">
-                                {{ req.notes }}</div>
+                            {% if req.status == 'issued' and req.certificate %}
+                            {% if req.payment.status == 'paid' %}
+                            <a href="{% url 'payments:download_receipt' req.payment.id %}"
+                                class="btn btn-secondary btn-sm" style="font-size: 11px;">
+                                <i class="fas fa-download"></i> Receipt
+                            </a>
+                            {% elif req.payment.status == 'waived' %}
+                            <a href="{% url 'payments:download_receipt' req.payment.id %}"
+                                class="btn btn-secondary btn-sm" style="font-size: 11px;">
+                                <i class="fas fa-download"></i> Receipt
+                            </a>
                             {% else %}
-                            <span style="color: #cbd5e1;">—</span>
+                            <span style="font-size: 11px; color: #64748b;">{{ req.notes|default:"No notes" }}</span>
+                            {% endif %}
+                            {% else %}
+                            <span style="font-size: 11px; color: #64748b;">{{ req.notes|default:"No notes" }}</span>
                             {% endif %}
                         </td>
                     </tr>

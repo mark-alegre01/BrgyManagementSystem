@@ -25,8 +25,9 @@
             {% else %}
             <select name="resident" class="form-control" required>
               <option value="">Select Resident...</option>
-              {% for r in residents %}
-              <option value="{{ r.pk }}">{{ r.last_name }}, {{ r.first_name }}{% if r.middle_name %} {{ r.middle_name }}{% endif %}{% if r.suffix %} {{ r.suffix }}{% endif %}{% if r.purok %} — {{ r.purok }}{% endif %}</option>
+              {% for r in residents_data %}
+              <option value="{{ r.pk }}" data-has-account="{{ r.has_account|yesno:" true,false" }}">{{ r.name }}
+              </option>
               {% endfor %}
             </select>
             {% endif %}
@@ -35,7 +36,7 @@
             <label>Position*</label>
             <select name="position" class="form-control" required>
               {% for code, label in positions %}
-              <option value="{{ code }}" {% if official.position ==  code %}selected{% endif %}>{{ label }}</option>
+              <option value="{{ code }}" {% if official.position == code %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
           </div>
@@ -76,13 +77,41 @@
           <div class="form-group col-6">
             <label>Status*</label>
             <select name="status" class="form-control">
-              <option value="active" {% if official.status ==  'active' %}selected{% endif %}>Active</option>
-              <option value="inactive" {% if official.status ==  'inactive' %}selected{% endif %}>Inactive</option>
+              <option value="active" {% if official.status == 'active' %}selected{% endif %}>Active</option>
+              <option value="inactive" {% if official.status == 'inactive' %}selected{% endif %}>Inactive</option>
             </select>
           </div>
         </div>
         {% endif %}
       </div>
+
+      {% if not editing %}
+      <div class="form-section" id="account-setup-section" style="display: none;">
+        <h3><i class="fas fa-user-shield"></i> System Account Setup</h3>
+        <p class="text-muted" style="margin-bottom: 15px; font-size: 13px;">
+          This resident does not have a user account yet. You can create one for them now so they can log in to the
+          system.
+        </p>
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label>Username (Optional)</label>
+            <input type="text" name="username" class="form-control account-field" placeholder="Enter username">
+          </div>
+          <div class="form-group col-6">
+            <label>Temporary Password (Optional)</label>
+            <input type="password" name="password" class="form-control account-field" placeholder="Enter password">
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section" id="account-update-section" style="display: none;">
+        <h3><i class="fas fa-user-check"></i> System Account</h3>
+        <div class="alert alert-info" style="margin-bottom: 0;">
+          <i class="fas fa-info-circle"></i> This resident already has a user account. Their access role will be
+          automatically upgraded to reflect their new position.
+        </div>
+      </div>
+      {% endif %}
     </div>
 
     <div class="form-footer">
@@ -130,4 +159,40 @@
     text-align: right;
   }
 </style>
+
+{% if not editing %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const residentSelect = document.querySelector('select[name="resident"]');
+    const setupSection = document.getElementById('account-setup-section');
+    const updateSection = document.getElementById('account-update-section');
+    const accountFields = document.querySelectorAll('.account-field');
+
+    residentSelect.addEventListener('change', function () {
+      const selectedOption = this.options[this.selectedIndex];
+      if (!selectedOption.value) {
+        setupSection.style.display = 'none';
+        updateSection.style.display = 'none';
+        accountFields.forEach(field => field.required = false);
+        return;
+      }
+
+      const hasAccount = selectedOption.getAttribute('data-has-account') === 'true';
+
+      if (hasAccount) {
+        setupSection.style.display = 'none';
+        updateSection.style.display = 'block';
+        accountFields.forEach(field => {
+          field.required = false;
+          field.value = '';
+        });
+      } else {
+        setupSection.style.display = 'block';
+        updateSection.style.display = 'none';
+        // Note: Not setting required so admin isn't forced, allowing blank saves gracefully
+      }
+    });
+  });
+</script>
+{% endif %}
 {% endblock %}

@@ -15,4 +15,11 @@ urlpatterns = [
     path('profile/<int:pk>/update-fingerprint/', views.profile_update_fingerprint, name='profile_update_fingerprint'),
     path('<int:pk>/edit/', views.official_edit, name='edit'),
     path('<int:pk>/delete/', views.official_delete, name='delete'),
+    
+    # Onboarding Flows
+    path('onboarding/invite/', views.invite_official, name='invite_official'),
+    path('onboarding/approvals/', views.onboard_approvals_list, name='onboard_approvals_list'),
+    path('onboarding/<uuid:token>/upload/', views.onboard_upload_docs, name='onboard_upload_docs'),
+    path('onboarding/<uuid:token>/approve/', views.onboard_approve, name='onboard_approve'),
+    path('onboarding/<uuid:token>/activate/', views.onboard_verify_otp, name='onboard_verify_otp'),
 ]

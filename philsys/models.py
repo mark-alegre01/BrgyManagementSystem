@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
 
 
 class PhilSysVerificationAttempt(models.Model):
@@ -16,8 +16,7 @@ class PhilSysVerificationAttempt(models.Model):
         ("biometric", "Biometric"),
     ]
 
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="philsys_attempts"
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="philsys_attempts"
     )
     resident = models.ForeignKey(
         "residents.Resident",
