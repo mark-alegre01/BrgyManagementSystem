@@ -6,17 +6,17 @@ def test_hardware():
     VID = 0x1b55
     PID = 0x0124
     
-    print(f"Searching for ZK9500 (ID {VID:04x}:{PID:04x})...")
+    print(f"Searching for registered fingerprint USB hardware (ID {VID:04x}:{PID:04x})...")
     
     # Find device
     dev = usb.core.find(idVendor=VID, idProduct=PID)
     
     if dev is None:
-        print("Error: ZK9500 device NOT found on USB bus.")
+        print("Error: fingerprint hardware NOT found on USB bus.")
         print("Please ensure it is plugged in and check 'lsusb' output.")
         return
     
-    print("Success: ZK9500 hardware DETECTED!")
+    print("Success: fingerprint hardware DETECTED!")
     
     try:
         # Check if we can read the device descriptor

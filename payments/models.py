@@ -5,11 +5,23 @@ from datetime import date
 class OfficialReceipt(models.Model):
     """Stores information about the issued Official Receipt (OR)."""
     or_number = models.CharField(max_length=50, unique=True, verbose_name="OR Number")
-    resident_name = models.CharField(max_length=255)
+    resident = models.ForeignKey(
+        'residents.Resident',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='official_receipts',
+    )
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     particulars = models.TextField(help_text="Description of what is being paid for (e.g. Barangay Clearance)")
     issued_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="issued_receipts")
-    issued_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def resident_name(self):
+        """Backward-compat property for templates/code still reading resident_name."""
+        return self.resident.full_name if self.resident else "N/A"
 
     def __str__(self):
         return f"{self.or_number} - {self.resident_name}"
@@ -32,7 +44,7 @@ class OfficialReceipt(models.Model):
     class Meta:
         verbose_name = "Official Receipt"
         verbose_name_plural = "Official Receipts"
-        ordering = ["-issued_at"]
+        ordering = ["-created_at"]
 
 class Payment(models.Model):
     """Handles the payment transaction details."""

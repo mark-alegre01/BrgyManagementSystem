@@ -2,54 +2,71 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, Group
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.contrib.auth.models import AbstractUser
 from django.conf import settings
 
 
+class Role(models.Model):
+    """Lookup table for user roles."""
+    name = models.CharField(max_length=30, unique=True)
+    display_name = models.CharField(max_length=100)
+    permission_level = models.IntegerField(
+        default=3,
+        help_text="1=Admin, 2=Staff, 3=Resident",
+    )
+
+    def __str__(self):
+        return self.display_name
+
+    class Meta:
+        ordering = ['permission_level', 'name']
+        verbose_name = 'Role'
+        verbose_name_plural = 'Roles'
+
 
 class User(AbstractUser):
-    ROLE_CHOICES = [
-        ("captain", "Barangay Captain"),
-        ("secretary", "Barangay Secretary"),
-        ("treasurer", "Barangay Treasurer"),
-        ("kagawad", "Kagawad"),
-        ("sk_chairperson", "SK Chairperson"),
-        ("lupong_member", "Lupon Member"),
-        ("bhw", "Barangay BHW"),
-        ("resident", "Resident"),
-        ("admin", "Administrator"),
-        ("staff", "Staff"),
-    ]
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="resident")
+    role = models.ForeignKey(
+        Role,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='users',
+    )
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
 
     def get_permission_level(self):
-        level_1 = ['captain', 'secretary', 'treasurer', 'admin']
-        level_2 = ['kagawad', 'sk_chairperson', 'bhw', 'lupong_member', 'staff']
-        
-        if self.role in level_1:
-            return 1
-        elif self.role in level_2:
-            return 2
-        else:
-            return 3
+        if self.role:
+            return self.role.permission_level
+        return 3
+
+    def get_role_display(self):
+        if self.role:
+            return self.role.display_name
+        return "Resident"
+
 
 class UserProfile(models.Model):
-    """Extended user profile with role-based access."""
+    """Extended user profile – bridges User ↔ Resident."""
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile")
     resident = models.OneToOneField("residents.Resident", on_delete=models.SET_NULL, null=True, blank=True, related_name="user_profile")
-    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property
     def role(self):
-        return self.user.role
-        
+        return self.user.role.name if self.user.role else None
+
     @role.setter
     def role(self, value):
-        self.user.role = value
-        self.user.save()
+        try:
+            role_obj = Role.objects.get(name=value)
+            self.user.role = role_obj
+            self.user.save()
+        except Role.DoesNotExist:
+            pass
 
+    @property
+    def avatar(self):
+        return self.user.avatar
 
     @property
     def middle_name(self):

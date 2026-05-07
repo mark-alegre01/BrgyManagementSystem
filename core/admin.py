@@ -1,5 +1,10 @@
 from django.contrib import admin
-from .models import UserProfile, SystemSettings
+from .models import Role, UserProfile, SystemSettings
+
+@admin.register(Role)
+class RoleAdmin(admin.ModelAdmin):
+    list_display = ('name', 'display_name', 'permission_level')
+    search_fields = ('name', 'display_name')
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):

@@ -31,10 +31,11 @@ class PhilSysVerificationAttempt(models.Model):
         max_length=20, choices=VERIFICATION_METHOD_CHOICES
     )
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
-    response_data = models.JSONField(blank=True, null=True)
+    response_payload = models.JSONField(blank=True, null=True, help_text='Raw API response for audit purposes')
     error_message = models.TextField(blank=True)
     ip_address = models.GenericIPAddressField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     completed_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:

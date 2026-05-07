@@ -30,7 +30,7 @@ def generate_control_number(cert_type):
     
     # Count all certificates of this type in the current year
     count = Certificate.objects.filter(
-        cert_type=cert_type,
+        certificate_request__cert_type=cert_type,
         created_at__year=year
     ).count() + 1
     
@@ -38,22 +38,17 @@ def generate_control_number(cert_type):
 
 
 def generate_or_number():
-    """Generate the next OR number by incrementing the last numeric one."""
-    # Find the most recent certificate that has a numeric OR number (ignoring EXEMPT, FREE, etc.)
-    # We order by ID to get the literal latest, then iterate back if needed to find a numeric base
-    certs = Certificate.objects.exclude(or_number__isnull=True).exclude(or_number='').order_by('-id')[:20]
-    
+    """Generate the next OR number by incrementing the last numeric one from OfficialReceipt."""
+    from payments.models import OfficialReceipt
     import re
+    receipts = OfficialReceipt.objects.order_by('-id')[:20]
     base_or = None
-    for c in certs:
-        # Check if it ends in a number (the numeric part we can increment)
-        if re.search(r'\d+$', c.or_number):
-            base_or = c.or_number
+    for r in receipts:
+        if re.search(r'\d+$', r.or_number):
+            base_or = r.or_number
             break
-            
     if not base_or:
-        return "OR-10001"
-    
+        return OfficialReceipt.generate_next_or_number()
     try:
         match = re.search(r'(\d+)$', base_or)
         number_str = match.group(1)
@@ -61,7 +56,7 @@ def generate_or_number():
         prefix = base_or[:match.start()]
         return f"{prefix}{number + 1:0{len(number_str)}d}"
     except Exception:
-        return "OR-10001"
+        return OfficialReceipt.generate_next_or_number()
 
 
 def generate_ctc_number():
@@ -205,24 +200,9 @@ def certificate_issue(request):
         resident_id = request.POST.get('resident')
         resident = get_object_or_404(Resident, pk=resident_id)
 
-        # Validation for uniqueness
-        or_number = request.POST.get('or_number') or generate_or_number()
-        if or_number and or_number not in ['EXEMPT', 'FREE']:
-            if Certificate.objects.filter(or_number=or_number).exists():
-                messages.error(request, f'OR Number "{or_number}" is already used by another certificate.')
-                return redirect('certifications:certificate_issue')
-
-        if cert_type == 'cedula':
-            ctc_number = request.POST.get('ctc_number')
-            if ctc_number:
-                if Cedula.objects.filter(ctc_number=ctc_number).exists():
-                    messages.error(request, f'CTC Number "{ctc_number}" is already used.')
-                    return redirect('certifications:certificate_issue')
-
         def to_decimal(val):
             if not val: return Decimal('0.00')
             try:
-                # Remove commas if any
                 clean_val = str(val).replace(',', '')
                 return Decimal(clean_val)
             except:
@@ -230,29 +210,35 @@ def certificate_issue(request):
 
         control_number = request.POST.get('control_number') or generate_control_number(cert_type)
 
-        cert = Certificate(
+        # Build or find a backing CertificateRequest so Certificate can reference it
+        cert_req, _ = CertificateRequest.objects.get_or_create(
+            resident=resident,
             cert_type=cert_type,
+            status='pending',
+            defaults={
+                'purpose': request.POST.get('purpose', ''),
+                'business_name': request.POST.get('business_name', ''),
+                'business_address': request.POST.get('business_address', ''),
+                'business_type': request.POST.get('business_type', ''),
+                'child_name': request.POST.get('child_name', ''),
+                'child_birth_date': request.POST.get('child_birth_date') or None,
+                'child_birth_place': request.POST.get('child_birth_place', ''),
+                'father_name': request.POST.get('father_name', ''),
+                'mother_name': request.POST.get('mother_name', ''),
+            }
+        )
+
+        cert = Certificate(
             control_number=control_number,
             resident=resident,
-            purpose=request.POST.get('purpose', ''),
-            or_number=or_number,
-            amount_paid=to_decimal(request.POST.get('amount_paid', 0)),
+            certificate_request=cert_req,
             business_name=request.POST.get('business_name', ''),
             business_address=request.POST.get('business_address', ''),
             business_type=request.POST.get('business_type', ''),
             issued_by=request.user,
             status='issued',
         )
-        
-        # Transfer Late Registration details
-        if cert_type == 'late_registration':
-            cert.child_name = request.POST.get('child_name', '')
-            cert.child_birth_date = request.POST.get('child_birth_date') or None
-            cert.child_birth_place = request.POST.get('child_birth_place', '')
-            cert.father_name = request.POST.get('father_name', '')
-            cert.mother_name = request.POST.get('mother_name', '')
 
-        # Transfer Late Registration details
         if cert_type == 'late_registration':
             cert.child_name = request.POST.get('child_name', '')
             cert.child_birth_date = request.POST.get('child_birth_date') or None
@@ -262,8 +248,14 @@ def certificate_issue(request):
 
         cert.save()
 
+        # Mark request as issued
+        cert_req.status = 'issued'
+        cert_req.processed_by = request.user
+        from django.utils import timezone as tz
+        cert_req.processed_at = tz.now()
+        cert_req.save()
+
         if cert_type == 'cedula':
-            # Create Cedula details
             from certifications.models import Cedula
             Cedula.objects.create(
                 certificate=cert,
@@ -272,19 +264,15 @@ def certificate_issue(request):
                 place_of_issue=request.POST.get('place_of_issue', 'Sico-Sico, Gigaquit'),
                 height=request.POST.get('height', ''),
                 weight=request.POST.get('weight', ''),
-                
-                # Raw taxable amounts
                 raw_taxable_property=to_decimal(request.POST.get('raw_taxable_property')),
                 raw_taxable_business=to_decimal(request.POST.get('raw_taxable_business')),
                 raw_taxable_income=to_decimal(request.POST.get('raw_taxable_income')),
-                
                 basic_tax=to_decimal(request.POST.get('basic_tax')),
                 additional_tax_property=to_decimal(request.POST.get('additional_tax_property')),
                 additional_tax_business=to_decimal(request.POST.get('additional_tax_business')),
                 additional_tax_income=to_decimal(request.POST.get('additional_tax_income')),
                 interest=to_decimal(request.POST.get('interest'))
             )
-            # Cedula.save() is called by objects.create(), which updates certificate.amount_paid
 
         messages.success(request, f'{cert.get_cert_type_display()} issued for {resident.full_name}. Control #: {cert.control_number}')
         return redirect('certifications:view', pk=cert.pk)
@@ -354,7 +342,8 @@ def check_uniqueness(request):
         return JsonResponse({'available': True})
     
     if field == 'or_number':
-        exists = Certificate.objects.filter(or_number=value).exists()
+        from payments.models import OfficialReceipt
+        exists = OfficialReceipt.objects.filter(or_number=value).exists()
     elif field == 'ctc_number':
         exists = Cedula.objects.filter(ctc_number=value).exists()
     else:
@@ -469,7 +458,7 @@ def my_requests(request):
     if role != 'resident':
         return redirect('certifications:request_list')
 
-    reqs = CertificateRequest.objects.filter(resident=own_resident).order_by('-requested_at')
+    reqs = CertificateRequest.objects.filter(resident=own_resident).order_by('-created_at')
     return render(request, 'certifications/my_requests.html', {'requests': reqs})
 
 
@@ -540,24 +529,16 @@ def fulfill_request(request, pk):
                 return Decimal('0.00')
 
         control_number = request.POST.get('control_number') or generate_control_number(cert_request.cert_type)
-        or_number = request.POST.get('or_number') or None
-
-        if or_number and Certificate.objects.filter(or_number=or_number).exists():
-            messages.error(request, f'OR Number "{or_number}" is already used by another certificate.')
-            return redirect('certifications:fulfill_request', pk=pk)
 
         cert = Certificate.objects.create(
-            cert_type=cert_request.cert_type,
             control_number=control_number,
             resident=cert_request.resident,
-            purpose=cert_request.purpose,
-            or_number=or_number,
-            amount_paid=to_decimal(request.POST.get('amount_paid', 0)),
+            certificate_request=cert_request,
             issued_by=request.user,
             status='issued',
-            business_name=request.POST.get('business_name', ''),
-            business_address=request.POST.get('business_address', ''),
-            business_type=request.POST.get('business_type', ''),
+            business_name=request.POST.get('business_name', cert_request.business_name),
+            business_address=request.POST.get('business_address', cert_request.business_address),
+            business_type=request.POST.get('business_type', cert_request.business_type),
         )
 
         if cert.cert_type == 'cedula':
@@ -576,7 +557,7 @@ def fulfill_request(request, pk):
             )
 
         cert_request.status = 'issued'
-        cert_request.certificate = cert
+        # cert_request.issued_certificate is already linked via Certificate.certificate_request FK
         cert_request.processed_by = request.user
         cert_request.processed_at = timezone.now()
         cert_request.save()

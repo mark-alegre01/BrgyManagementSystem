@@ -2,23 +2,52 @@ from django.db import models
 import json
 
 
-class FaceEncoding(models.Model):
-    """Stored face encoding for an official/staff member."""
-    official = models.OneToOneField('officials.Official', on_delete=models.CASCADE, related_name='face_encoding')
-    encoding_data = models.TextField(help_text='JSON-encoded face encoding array')
-    photo = models.ImageField(upload_to='face_encodings/')
+class Biometric(models.Model):
+    """
+    Consolidated biometric record for a resident.
+    Replaces the duplicated fingerprint_template on RESIDENT/OFFICIAL
+    and the formerly separate FaceEncoding table.
+    """
+    resident = models.OneToOneField(
+        'residents.Resident',
+        on_delete=models.CASCADE,
+        related_name='biometric',
+    )
+    # Face recognition
+    face_encoding_data = models.TextField(
+        blank=True, null=True,
+        help_text='JSON-encoded face encoding array',
+    )
+    face_photo = models.ImageField(upload_to='biometrics/face/', blank=True, null=True)
+    # Fingerprint
+    fingerprint_template = models.TextField(
+        blank=True, null=True,
+        help_text='Base64-encoded fingerprint template',
+    )
     enrolled_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def set_encoding(self, encoding_array):
-        self.encoding_data = json.dumps(encoding_array.tolist() if hasattr(encoding_array, 'tolist') else list(encoding_array))
+    def set_face_encoding(self, encoding_array):
+        self.face_encoding_data = json.dumps(
+            encoding_array.tolist() if hasattr(encoding_array, 'tolist') else list(encoding_array)
+        )
 
-    def get_encoding(self):
+    def get_face_encoding(self):
         import numpy as np
-        return np.array(json.loads(self.encoding_data))
+        return np.array(json.loads(self.face_encoding_data))
 
     def __str__(self):
-        return f"Face Encoding - {self.official}"
+        return f"Biometric record – {self.resident}"
+
+    class Meta:
+        verbose_name = 'Biometric'
+        verbose_name_plural = 'Biometrics'
+
+
+# ---------------------------------------------------------------------------
+# Legacy alias so existing imports of FaceEncoding don't hard-break immediately
+# TODO: remove after all call sites updated
+FaceEncoding = Biometric
 
 
 class AttendanceLog(models.Model):
@@ -46,6 +75,7 @@ class AttendanceLog(models.Model):
     photo_in = models.ImageField(upload_to='attendance/photos/', blank=True, null=True)
     photo_out = models.ImageField(upload_to='attendance/photos/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.official} - {self.date} ({self.get_status_display()})"

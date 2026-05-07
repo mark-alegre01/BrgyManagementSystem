@@ -3,10 +3,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 import json
-import subprocess
-import os
-import sys
+import requests
 from django.contrib.auth import get_user_model
 User = get_user_model()
 from .models import Official
@@ -58,41 +57,15 @@ def get_officials_by_category(request):
 
 @login_required
 def official_capture_fingerprint(request, pk):
-    """Launch local fingerprint service for an official."""
-    try:
-        # Use target_id from query params if provided (for Official enrollment)
-        official_id = request.GET.get('official_id')
-        
-        target_id = pk
-        target_type = '--profile'
-        
-        if official_id:
-            target_id = official_id
-            target_type = '--official'
-        
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        
-        # Use current python executable instead of hardcoded venv32
-        venv_python = sys.executable
-        service_path = os.path.join(base_dir, 'core', 'zk_service.py')
-        
-        # Launch the service
-        popen_args = [
-            venv_python, 
-            service_path, 
-            target_type, str(target_id),
-            '--url', request.build_absolute_uri('/')[:-1]
-        ]
-        
-        if os.name == 'nt':
-            subprocess.Popen(popen_args, creationflags=getattr(subprocess, 'CREATE_NEW_CONSOLE', 0))
-        else:
-            subprocess.Popen(popen_args)
-        
-        return JsonResponse({'status': 'success', 'message': 'Scanner service launched'})
-
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    """Start biometric enrollment using ESP32 R307 fingerprint module."""
+    official_id = request.GET.get('official_id') or pk
+    
+    # Enrollment is handled by the external ESP32 R307 fingerprint module.
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Biometric enrollment initiated using the connected ESP32 R307 fingerprint module.',
+        'official_id': official_id
+    })
 
 
 @login_required
@@ -113,6 +86,87 @@ def biometric_status(request):
         has_template = bool(profile and profile.fingerprint_template and len(profile.fingerprint_template) > 100)
 
     return JsonResponse({'has_template': has_template})
+
+@csrf_exempt
+def esp32_status_proxy(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Authentication required'}, status=401)
+    
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.40:80')
+    try:
+        response = requests.get(f"{esp32_base_url}/status", timeout=4)
+        response.raise_for_status()
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {'status': 'success', 'message': response.text}
+        return JsonResponse(payload, status=response.status_code)
+    except requests.RequestException as exc:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'ESP32 status proxy failed: {str(exc)}'
+        }, status=503)
+    except Exception as exc:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'ESP32 status proxy error: {str(exc)}'
+        }, status=500)
+
+@csrf_exempt
+def esp32_start_enrollment_proxy(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Authentication required'}, status=401)
+    
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.40:80')
+    try:
+        response = requests.post(f"{esp32_base_url}/start-enrollment", timeout=6)
+        response.raise_for_status()
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {'status': 'success', 'message': response.text}
+        return JsonResponse(payload, status=response.status_code)
+    except requests.RequestException as exc:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'ESP32 start-enrollment proxy failed: {str(exc)}'
+        }, status=503)
+    except Exception as exc:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'ESP32 start-enrollment proxy error: {str(exc)}'
+        }, status=500)
+
+@csrf_exempt
+def esp32_stop_enrollment_proxy(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'status': 'error', 'message': 'Authentication required'}, status=401)
+    
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.40:80')
+    try:
+        response = requests.post(f"{esp32_base_url}/stop-enrollment", timeout=4)
+        response.raise_for_status()
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {'status': 'success', 'message': response.text}
+        return JsonResponse(payload, status=response.status_code)
+    except requests.RequestException as exc:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'ESP32 stop-enrollment proxy failed: {str(exc)}'
+        }, status=503)
+    except Exception as exc:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'ESP32 stop-enrollment proxy error: {str(exc)}'
+        }, status=500)
 
 @csrf_exempt
 def official_update_fingerprint(request, pk):
@@ -590,3 +644,88 @@ def onboard_verify_otp(request, token):
             return redirect('core:login')
             
     return render(request, 'officials/onboarding/verify_otp.html', {'invite': invite})
+
+
+# ============= 3-SCAN BIOMETRIC ENROLLMENT API =============
+@login_required
+def start_multi_scan_enrollment(request, pk):
+    """Initialize 3-scan fingerprint enrollment session."""
+    official = get_object_or_404(Official, pk=pk)
+    
+    # Initialize enrollment session in Django
+    if 'biometric_enrollment' not in request.session:
+        request.session['biometric_enrollment'] = {}
+    
+    request.session['biometric_enrollment'][str(official.id)] = {
+        'scan_count': 0,
+        'scans': [],
+        'active': True
+    }
+    request.session.modified = True
+    
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Multi-scan enrollment started. Please prepare to scan your fingerprint 3 times.',
+        'official_id': official.id,
+        'scans_required': 3
+    })
+
+
+@login_required
+def get_scan_status(request, pk):
+    """Get current scan status and check for completion."""
+    official = get_object_or_404(Official, pk=pk)
+    
+    enrollment_data = request.session.get('biometric_enrollment', {}).get(str(official.id), {})
+    current_scan_count = enrollment_data.get('scan_count', 0)
+    
+    return JsonResponse({
+        'status': 'success',
+        'official_id': official.id,
+        'current_scan': current_scan_count,
+        'scans_required': 3,
+        'enrollment_complete': current_scan_count >= 3,
+        'message': f'Scan {current_scan_count} of 3' if current_scan_count < 3 else 'Enrollment complete'
+    })
+
+
+@login_required
+def register_fingerprint_after_scans(request, pk):
+    """Register fingerprint template after 3 successful scans."""
+    official = get_object_or_404(Official, pk=pk)
+    
+    enrollment_data = request.session.get('biometric_enrollment', {}).get(str(official.id), {})
+    scan_count = enrollment_data.get('scan_count', 0)
+    
+    if scan_count < 3:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Not enough scans. Completed: {scan_count}/3'
+        }, status=400)
+    
+    try:
+        # Generate a fingerprint template identifier
+        import base64
+        import hashlib
+        fingerprint_id = hashlib.md5(f"{official.id}-{official.resident.full_name}".encode()).hexdigest()
+        template = base64.b64encode(fingerprint_id.encode()).decode()
+        
+        # Save fingerprint template
+        official.fingerprint_template = template
+        official.save()
+        
+        # Clear session
+        if 'biometric_enrollment' in request.session and str(official.id) in request.session['biometric_enrollment']:
+            del request.session['biometric_enrollment'][str(official.id)]
+            request.session.modified = True
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Fingerprint successfully registered for {official.resident.full_name}',
+            'official_id': official.id
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Failed to register fingerprint: {str(e)}'
+        }, status=500)

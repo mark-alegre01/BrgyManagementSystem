@@ -27,6 +27,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', '*.ts.net', '*.tailscale.net', 'barangay.local']
 
+# Local ESP32 fingerprint module proxy target
+ESP32_BASE_URL = 'http://192.168.1.40:80'
 
 # Application definition
 

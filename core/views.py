@@ -324,7 +324,8 @@ def login_view(request):
         if user_type == 'resident':
             username = request.POST.get('username')
         else:
-            username = OFFICIAL_USERNAME_BY_ROLE.get(role)
+            # Try official_username first, then fall back to fixed mapping
+            username = request.POST.get('official_username') or OFFICIAL_USERNAME_BY_ROLE.get(role)
 
         user = authenticate(request, username=username, password=password) if username else None
         if user is not None:

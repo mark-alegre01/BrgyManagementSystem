@@ -54,7 +54,7 @@ def mark_as_paid(request, payment_id):
         # Create Official Receipt
         receipt = OfficialReceipt.objects.create(
             or_number=or_number,
-            resident_name=payment.certificate_request.resident.full_name,
+            resident=payment.certificate_request.resident,
             amount=payment.amount,
             particulars=payment.certificate_request.get_cert_type_display(),
             issued_by=request.user
@@ -86,7 +86,7 @@ def confirm_gcash_payment(request, payment_id):
         # Create Official Receipt
         receipt = OfficialReceipt.objects.create(
             or_number=OfficialReceipt.generate_next_or_number(),
-            resident_name=payment.certificate_request.resident.full_name,
+            resident=payment.certificate_request.resident,
             amount=payment.amount,
             particulars=f"{payment.certificate_request.get_cert_type_display()} (GCash)",
             issued_by=request.user

@@ -9,6 +9,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
+# Local ESP32 fingerprint module proxy target
+ESP32_BASE_URL = 'http://192.168.1.40:80'
+
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8001",
     "http://localhost:8001",

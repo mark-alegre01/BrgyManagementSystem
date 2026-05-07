@@ -443,6 +443,11 @@
               <option value="bhw">Barangay BHW</option>
             </select>
           </div>
+          <div class="form-group">
+            <label>Official Username</label>
+            <input type="text" name="official_username" id="official-username-input" class="form-control"
+              placeholder="Enter official username">
+          </div>
         </div>
 
         <div id="resident-fields" style="display: none;">
@@ -491,7 +496,7 @@
               </div>
               <p class="qr-instructions" id="biometric-status">
                 <strong>Ready to Scan</strong><br>
-                Place your registered finger on the ZK9500 sensor
+                Place your registered finger on the connected ESP32 R307 fingerprint sensor
               </p>
             </div>
           </div>
@@ -532,6 +537,7 @@
       const officialFields = document.getElementById('official-fields');
       const residentFields = document.getElementById('resident-fields');
       const officialRoleSelect = document.getElementById('official-role-select');
+      const officialUsernameInput = document.getElementById('official-username-input');
       const residentUsernameInput = document.getElementById('resident-username-input');
       const loginMethodSection = document.getElementById('login-method-section');
 
@@ -549,12 +555,14 @@
             loginMethodSection.style.display = 'none';
             setLoginMethod('password'); // Residents only use password
             officialRoleSelect.required = false;
+            officialUsernameInput.required = false;
             residentUsernameInput.required = true;
           } else {
             officialFields.style.display = 'block';
             residentFields.style.display = 'none';
             loginMethodSection.style.display = 'block';
             officialRoleSelect.required = true;
+            officialUsernameInput.required = true;
             residentUsernameInput.required = false;
           }
         });
@@ -588,7 +596,7 @@
           btnBio.innerHTML = '<i class="fas fa-play mr-2"></i> Start Biometric Scan';
         }
         if (bioStatus) {
-          bioStatus.innerHTML = '<strong>Ready to Scan</strong><br>Place your registered finger on the ZK9500 sensor';
+          bioStatus.innerHTML = '<strong>Ready to Scan</strong><br>Place your registered finger on the connected ESP32 R307 fingerprint sensor';
         }
         if (bioError) {
           if (message) {

@@ -2,17 +2,36 @@ from django.db import models
 from datetime import date
 
 
+class Purok(models.Model):
+    """Purok/zone lookup table for normalized queries."""
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Purok'
+        verbose_name_plural = 'Puroks'
+
+
 class Household(models.Model):
     """Household/family unit."""
 
     household_no = models.CharField(max_length=50, unique=True)
     address = models.TextField()
-    purok = models.CharField(max_length=100, blank=True)
+    purok = models.ForeignKey(
+        Purok,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='households',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Household #{self.household_no} - {self.purok}"
+        return f"Household #{self.household_no} - {self.purok or 'N/A'}"
 
     @property
     def member_count(self):
@@ -64,7 +83,13 @@ class Resident(models.Model):
 
     # Address
     address = models.TextField()
-    purok = models.CharField(max_length=100, blank=True)
+    purok = models.ForeignKey(
+        Purok,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='residents',
+    )
 
     # Household
     household = models.ForeignKey(
@@ -104,7 +129,7 @@ class Resident(models.Model):
     # Photo
     photo = models.ImageField(upload_to="residents/photos/", blank=True, null=True)
 
-    # Biometrics
+    # Biometrics (single source of truth for fingerprint data)
     fingerprint_template = models.TextField(blank=True, null=True, help_text="Base64 encoded fingerprint template")
 
     # Metadata
@@ -166,6 +191,12 @@ class Resident(models.Model):
         ordering = ["last_name", "first_name"]
         verbose_name = "Resident"
         verbose_name_plural = "Residents"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['first_name', 'middle_name', 'last_name', 'suffix', 'birthdate'],
+                name='unique_resident_name_birthdate'
+            )
+        ]
 
 
 import uuid
@@ -236,7 +267,7 @@ class ResidentRegistration(models.Model):
     
     # Step 4: Account & Documents
     username = models.CharField(max_length=150, unique=True)
-    password = models.CharField(max_length=128) # Store plaintext for approval or hash? (Better to hash)
+    password = models.CharField(max_length=128)
     
     # File Uploads
     photo = models.ImageField(upload_to="registrations/photos/", blank=True, null=True)

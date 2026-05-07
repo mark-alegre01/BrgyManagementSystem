@@ -77,7 +77,7 @@ def generate_receipt_pdf(payment):
     # 3. Receipt Details
     data = [
         ["OR Number:", receipt.or_number],
-        ["Date:", receipt.issued_at.strftime("%B %d, %Y %I:%M %p")],
+        ["Date:", receipt.created_at.strftime("%B %d, %Y %I:%M %p")],
         ["Payer Name:", receipt.resident_name],
         ["Particulars:", receipt.particulars],
         ["Amount Paid:", f"PHP {receipt.amount:,.2f}"],

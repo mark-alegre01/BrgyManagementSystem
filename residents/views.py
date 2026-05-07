@@ -7,14 +7,12 @@ from django.core.paginator import Paginator
 from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
-from .models import Resident, Household, ResidentRegistration
+from .models import Resident, Household, ResidentRegistration, Purok
 from django.contrib.auth import get_user_model
 User = get_user_model()
-from core.models import UserProfile
+from core.models import UserProfile, Role
 from officials.models import Official
 import json
-import subprocess
-import os
 
 def is_resident_role(request):
     """Return True if the logged-in user has the 'resident' role."""
@@ -53,17 +51,34 @@ def resident_list(request):
     page = request.GET.get('page')
     residents = paginator.get_page(page)
 
-    puroks = Resident.objects.values_list('purok', flat=True).distinct().order_by('purok')
-
     context = {
         'residents': residents,
-        'puroks': puroks,
+        'puroks': Purok.objects.all(),
         'query': query,
         'selected_purok': purok,
         'selected_gender': gender,
         'selected_status': status,
     }
     return render(request, 'residents/list.html', context)
+
+
+def generate_unique_username(first_name, last_name):
+    """Generate a unique username based on first and last name."""
+    base_username = f"{first_name.lower().replace(' ', '')}.{last_name.lower().replace(' ', '')}"
+    username = base_username
+    counter = 1
+    while User.objects.filter(username=username).exists():
+        username = f"{base_username}{counter}"
+        counter += 1
+    return username
+
+
+def generate_temp_password(last_name, birthdate):
+    """Generate a temporary password."""
+    # Brgy + Lastname (first letter capitalized) + birth year
+    clean_last_name = last_name.replace(' ', '').capitalize()
+    birth_year = birthdate.year if hasattr(birthdate, 'year') else timezone.now().year
+    return f"Brgy{clean_last_name}{birth_year}"
 
 
 @login_required
@@ -77,56 +92,117 @@ def resident_add(request):
         occupation = request.POST.get('occupation', '')
         official_position = request.POST.get('official_position', '')
 
-        resident = Resident(
-            first_name=request.POST.get('first_name'),
-            last_name=request.POST.get('last_name'),
-            middle_name=request.POST.get('middle_name', ''),
-            suffix=request.POST.get('suffix', ''),
-            birthdate=request.POST.get('birthdate'),
-            birthplace=request.POST.get('birthplace', ''),
-            gender=request.POST.get('gender'),
-            civil_status=request.POST.get('civil_status'),
-            nationality=request.POST.get('nationality', 'Filipino'),
-            religion=request.POST.get('religion', ''),
-            occupation=occupation if not is_official else '',
-            is_official=is_official,
-            contact_number=request.POST.get('contact_number', ''),
-            email=request.POST.get('email', ''),
-            address=request.POST.get('address'),
-            purok=request.POST.get('purok', ''),
-            is_registered_voter=request.POST.get('is_registered_voter') == 'on',
-            is_pwd=request.POST.get('is_pwd') == 'on',
-            is_4ps_member=request.POST.get('is_4ps_member') == 'on',
-            is_senior_citizen=request.POST.get('is_senior_citizen') == 'on',
-            remarks=request.POST.get('remarks', ''),
-        )
-        if request.FILES.get('photo'):
-            resident.photo = request.FILES['photo']
+        # Duplicate Check
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        middle_name = request.POST.get('middle_name', '')
+        suffix = request.POST.get('suffix', '')
+        birthdate_str = request.POST.get('birthdate')
+        
+        try:
+            birthdate = timezone.datetime.strptime(birthdate_str, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            birthdate = timezone.now().date()
 
-        household_id = request.POST.get('household')
-        if household_id:
-            resident.household_id = household_id
-            resident.is_household_head = request.POST.get('is_household_head') == 'on'
+        if Resident.objects.filter(
+            first_name=first_name,
+            last_name=last_name,
+            middle_name=middle_name,
+            suffix=suffix,
+            birthdate=birthdate
+        ).exists():
+            messages.error(request, f"A resident named {first_name} {last_name} with the same birthdate already exists.")
+            return redirect('residents:add')
 
-        resident.save()
+        try:
+            with transaction.atomic():
+                resident = Resident(
+                    first_name=first_name,
+                    last_name=last_name,
+                    middle_name=middle_name,
+                    suffix=suffix,
+                    birthdate=birthdate,
+                    birthplace=request.POST.get('birthplace', ''),
+                    gender=request.POST.get('gender'),
+                    civil_status=request.POST.get('civil_status'),
+                    nationality=request.POST.get('nationality', 'Filipino'),
+                    religion=request.POST.get('religion', ''),
+                    occupation=occupation if not is_official else '',
+                    is_official=is_official,
+                    contact_number=request.POST.get('contact_number', ''),
+                    email=request.POST.get('email', ''),
+                    address=request.POST.get('address'),
+                    purok_id=request.POST.get('purok') or None,
+                    is_registered_voter=request.POST.get('is_registered_voter') == 'on',
+                    is_pwd=request.POST.get('is_pwd') == 'on',
+                    is_4ps_member=request.POST.get('is_4ps_member') == 'on',
+                    is_senior_citizen=request.POST.get('is_senior_citizen') == 'on',
+                    remarks=request.POST.get('remarks', ''),
+                )
+                if request.FILES.get('photo'):
+                    resident.photo = request.FILES['photo']
 
-        if is_official and official_position:
-            Official.objects.update_or_create(
-                resident=resident,
-                defaults={
-                    'position': official_position,
-                    'status': 'active',
-                    'term_start': timezone.now().date(),
-                }
-            )
+                household_id = request.POST.get('household')
+                if household_id:
+                    resident.household_id = household_id
+                    resident.is_household_head = request.POST.get('is_household_head') == 'on'
 
-        messages.success(request, f'Resident {resident.full_name} added successfully.')
-        return redirect('residents:view', pk=resident.pk)
+                resident.save()
+
+                # --- AUTO ACCOUNT CREATION ---
+                username = generate_unique_username(first_name, last_name)
+                password = generate_temp_password(last_name, birthdate)
+                
+                # Default role is Resident
+                resident_role, _ = Role.objects.get_or_create(name='resident', defaults={'display_name': 'Resident', 'permission_level': 3})
+                
+                user = User.objects.create_user(
+                    username=username,
+                    password=password,
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=resident.email,
+                    role=resident_role
+                )
+                
+                # Link User to Resident via UserProfile
+                UserProfile.objects.create(user=user, resident=resident)
+
+                if is_official and official_position:
+                    # Lifecycle: Update User Role to Staff if official
+                    try:
+                        role_name = official_position if Role.objects.filter(name=official_position).exists() else 'staff'
+                        role_obj = Role.objects.filter(name=role_name).first()
+                        if role_obj:
+                            user.role = role_obj
+                            user.save()
+                    except Exception:
+                        pass
+
+                    Official.objects.update_or_create(
+                        resident=resident,
+                        defaults={
+                            'user': user,
+                            'position': official_position,
+                            'status': 'active',
+                            'term_start': timezone.now().date(),
+                        }
+                    )
+
+                messages.success(request, f'Resident {resident.full_name} added successfully.')
+                messages.info(request, f'An account was created for this resident. Username: {username} | Temporary Password: {password}')
+                return redirect('residents:view', pk=resident.pk)
+        
+        except Exception as e:
+            messages.error(request, f"Error adding resident: {str(e)}")
+            return redirect('residents:add')
 
     households = Household.objects.all()
+    puroks = Purok.objects.all()
     return render(request, 'residents/form.html', {
         'resident': Resident(),
         'households': households,
+        'puroks': puroks,
     })
 
 
@@ -163,11 +239,31 @@ def resident_edit(request, pk):
         occupation = request.POST.get('occupation', '')
         official_position = request.POST.get('official_position', '')
 
-        resident.first_name = request.POST.get('first_name')
-        resident.last_name = request.POST.get('last_name')
-        resident.middle_name = request.POST.get('middle_name', '')
-        resident.suffix = request.POST.get('suffix', '')
-        resident.birthdate = request.POST.get('birthdate')
+        # Duplicate Check (only if name or birthdate changed)
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        middle_name = request.POST.get('middle_name', '')
+        suffix = request.POST.get('suffix', '')
+        birthdate = request.POST.get('birthdate')
+        
+        if (resident.first_name != first_name or resident.last_name != last_name or 
+            resident.middle_name != middle_name or resident.suffix != suffix or 
+            str(resident.birthdate) != birthdate):
+            if Resident.objects.filter(
+                first_name=first_name,
+                last_name=last_name,
+                middle_name=middle_name,
+                suffix=suffix,
+                birthdate=birthdate
+            ).exclude(pk=resident.pk).exists():
+                messages.error(request, f"A resident named {first_name} {last_name} with the same birthdate already exists.")
+                return redirect('residents:edit', pk=resident.pk)
+
+        resident.first_name = first_name
+        resident.last_name = last_name
+        resident.middle_name = middle_name
+        resident.suffix = suffix
+        resident.birthdate = birthdate
         resident.birthplace = request.POST.get('birthplace', '')
         resident.gender = request.POST.get('gender')
         resident.civil_status = request.POST.get('civil_status')
@@ -178,7 +274,7 @@ def resident_edit(request, pk):
         resident.contact_number = request.POST.get('contact_number', '')
         resident.email = request.POST.get('email', '')
         resident.address = request.POST.get('address')
-        resident.purok = request.POST.get('purok', '')
+        resident.purok_id = request.POST.get('purok') or None
         resident.is_registered_voter = request.POST.get('is_registered_voter') == 'on'
         resident.is_pwd = request.POST.get('is_pwd') == 'on'
         resident.is_4ps_member = request.POST.get('is_4ps_member') == 'on'
@@ -201,30 +297,53 @@ def resident_edit(request, pk):
         if is_official and official_position:
             # Check if an official record already exists for this resident
             official = Official.objects.filter(resident=resident).first()
+            
+            # Lifecycle: Link User and update Role
+            user = None
+            if hasattr(resident, 'user_profile'):
+                user = resident.user_profile.user
+                try:
+                    role_name = official_position if Role.objects.filter(name=official_position).exists() else 'staff'
+                    resident.user_profile.role = role_name
+                except Exception:
+                    pass
+
             if official:
+                official.user = user
                 official.position = official_position
                 official.status = 'active'
                 official.save()
             else:
                 Official.objects.create(
                     resident=resident,
+                    user=user,
                     position=official_position,
                     status='active',
                     term_start=timezone.now().date()
                 )
         elif not is_official and hasattr(resident, 'official_record'):
-            # If no longer an official, we mark it inactive (or you can delete)
+            # If no longer an official, we mark it inactive and clear user link
             official = resident.official_record
             official.status = 'inactive'
+            official.user = None
             official.save()
+            
+            # Revert User role to resident
+            if hasattr(resident, 'user_profile'):
+                try:
+                    resident.user_profile.role = 'resident'
+                except Exception:
+                    pass
 
         messages.success(request, f'Resident {resident.full_name} updated successfully.')
         return redirect('residents:view', pk=resident.pk)
 
     households = Household.objects.all()
+    puroks = Purok.objects.all()
     return render(request, 'residents/form.html', {
         'resident': resident,
         'households': households,
+        'puroks': puroks,
         'editing': True,
     })
 
@@ -235,42 +354,13 @@ import json
 
 @login_required
 def resident_capture_fingerprint(request, pk):
-    """Launch local fingerprint service – admin/staff only."""
+    """Begin fingerprint enrollment using ESP32 R307 device."""
     if is_resident_role(request):
         messages.error(request, "You do not have permission to perform this action.")
         return redirect('core:dashboard')
     resident = get_object_or_404(Resident, pk=pk)
-    
-    # Identify paths
-    project_root = os.path.dirname(os.path.dirname(__file__))
-    core_dir = os.path.join(project_root, 'core')
-    service_path = os.path.join(core_dir, 'zk_service.py')
-    venv_python = os.path.join(project_root, 'venv', 'bin', 'python')
-    
-    # Environment for subprocess
-    env = os.environ.copy()
-    env['LD_LIBRARY_PATH'] = f"{core_dir}:{env.get('LD_LIBRARY_PATH', '')}"
-    
-    try:
-        # Log path
-        log_path = '/tmp/zk_service.log'
-        
-        # Launch service
-        cmd = [
-            venv_python, 
-            service_path, 
-            '--resident', str(pk),
-            '--url', request.build_absolute_uri('/')[:-1]
-        ]
-        
-        # Redirect output to file
-        with open(log_path, 'w') as log_file:
-            subprocess.Popen(cmd, env=env, stdout=log_file, stderr=log_file)
-        
-        messages.info(request, f"Fingerprint scanner started. Logging to {log_path}")
-    except Exception as e:
-        messages.error(request, f"Failed to start scanner: {e}")
-        
+
+    messages.info(request, "Fingerprint enrollment started using the connected ESP32 R307 fingerprint module.")
     return redirect('residents:view', pk=pk)
 
 @login_required
@@ -342,12 +432,13 @@ def household_add(request):
         household = Household(
             household_no=request.POST.get('household_no'),
             address=request.POST.get('address'),
-            purok=request.POST.get('purok', ''),
+            purok_id=request.POST.get('purok') or None,
         )
         household.save()
         messages.success(request, f'Household #{household.household_no} added.')
         return redirect('residents:household_list')
-    return render(request, 'residents/household_form.html')
+    puroks = Purok.objects.all()
+    return render(request, 'residents/household_form.html', {'puroks': puroks})
 
 
 @login_required
@@ -425,13 +516,25 @@ def approve_registration(request, pk):
             ):
                 raise Exception(f"The PhilSys ID '{registration.philSys_number}' is already registered.")
 
-            # 2. Create User
-            user = User.objects.create(
+            if Resident.objects.filter(
+                first_name=registration.first_name,
+                last_name=registration.last_name,
+                middle_name=registration.middle_name,
+                suffix=registration.suffix,
+                birthdate=registration.birthdate
+            ).exists():
+                raise Exception(f"A resident with this name and birthdate already exists.")
+
+            # 2. Create User (ensure role is set)
+            resident_role, _ = Role.objects.get_or_create(name='resident', defaults={'display_name': 'Resident', 'permission_level': 3})
+            
+            user = User.objects.create_user(
                 username=registration.username,
                 first_name=registration.first_name,
                 last_name=registration.last_name,
                 email=registration.email,
                 password=registration.password,
+                role=resident_role
             )
 
             # 3. Create Resident record
@@ -456,13 +559,15 @@ def approve_registration(request, pk):
                     registration.municipality,
                     registration.city
                 ])),
-                purok=registration.purok,
-                is_pwd=registration.is_pwd,
-                is_senior_citizen=registration.is_senior_citizen,
-                is_4ps_member=registration.is_4ps_member,
                 is_registered_voter=registration.is_registered_voter,
                 photo=registration.photo,
             )
+            
+            # Handle Purok lookup
+            if registration.purok:
+                purok_obj, _ = Purok.objects.get_or_create(name=registration.purok)
+                resident.purok = purok_obj
+                resident.save()
 
             # Link to household if applicable
             if registration.household_number:

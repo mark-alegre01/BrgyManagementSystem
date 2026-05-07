@@ -64,7 +64,7 @@
 
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle mr-2"></i>
-                        Enrollment requires the ZKTeco biometric service to be active.
+                        Enrollment uses the connected ESP32 R307 fingerprint module. Make sure the ESP32 is powered and connected.
                     </div>
 
 
@@ -74,12 +74,15 @@
                         </button>
                     </div>
 
-                    <div id="scan-progress" class="mt-4 d-none">
+    <div id="scan-progress" class="mt-4 d-none">
                         <div class="progress" style="height: 10px; background: var(--bg-main);">
                             <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated"
                                 role="progressbar" style="width: 0%"></div>
                         </div>
                         <p id="scan-status-text" class="text-center mt-2">Initializing scanner...</p>
+                        <p id="esp32-status" class="text-center small text-muted mt-2">
+                            <i class="fas fa-circle text-danger mr-2"></i>ESP32 Connection: <span id="esp32-status-text">Connecting...</span>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -123,6 +126,11 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // ESP32 proxy endpoints via Django backend
+        const ESP32_PROXY_STATUS_URL = '/officials/esp32/status/';
+        const ESP32_PROXY_START_URL = '/officials/esp32/start-enrollment/';
+        const ESP32_PROXY_STOP_URL = '/officials/esp32/stop-enrollment/';
+
         const categoryBtns = document.querySelectorAll('.category-btn');
         const functionarySelect = document.getElementById('functionary-select');
         const registrationPanel = document.getElementById('registration-panel');
@@ -135,9 +143,47 @@
         const scanProgress = document.getElementById('scan-progress');
         const progressBar = document.getElementById('progress-bar');
         const scanStatusText = document.getElementById('scan-status-text');
+        const esp32StatusText = document.getElementById('esp32-status-text');
 
         let currentOfficialId = null;
         let statusInterval = null;
+        let esp32Connected = false;
+
+        // Check ESP32 connectivity
+        function updateEsp32Status(connected, message, iconClass) {
+            esp32Connected = connected;
+            esp32StatusText.textContent = message;
+            esp32StatusText.parentElement.querySelector('i').className = `fas fa-circle ${iconClass} mr-2`;
+        }
+
+        function checkESP32Status() {
+            const statusUrl = ESP32_PROXY_STATUS_URL;
+            console.log(`Checking ESP32 status at ${statusUrl}`);
+
+            fetch(statusUrl, {
+                credentials: 'same-origin'
+            })
+                .then(res => {
+                    if (!res.ok) throw new Error(`Server responded ${res.status}`);
+                    return res.json();
+                })
+                .then(data => {
+                    if (data.status === 'error') {
+                        throw new Error(data.message || 'ESP32 proxy returned error');
+                    }
+                    updateEsp32Status(true, 'Connected via server proxy', 'text-success');
+                    console.log('[UI] ESP32 status OK:', data);
+                })
+                .catch(err => {
+                    const message = `Not Connected - ${err.message}`;
+                    console.error('ESP32 status check failed:', err);
+                    updateEsp32Status(false, message, 'text-danger');
+                });
+        }
+
+        // Check ESP32 status periodically
+        setInterval(checkESP32Status, 5000);
+        checkESP32Status(); // Check immediately
 
         // Load officials by category
         function loadOfficials(category) {
@@ -199,62 +245,180 @@
         btnCapture.addEventListener('click', function () {
             if (!currentOfficialId) return;
 
+            if (!esp32Connected) {
+                showError('ESP32 not connected. Please check the device and refresh.');
+                return;
+            }
+
             btnCapture.disabled = true;
             scanProgress.classList.remove('d-none');
             progressBar.style.width = '10%';
-            scanStatusText.textContent = 'Launching biometric service...';
+            scanStatusText.textContent = 'Initializing 3-scan enrollment...';
             statusIcon.className = 'fas fa-fingerprint fa-4x text-primary fa-pulse';
 
-            fetch(`/officials/${currentOfficialId}/capture/?official_id=${currentOfficialId}`)
+            // Initialize enrollment session with Django
+            fetch(`/officials/${currentOfficialId}/enrollment/start/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        startStatusPolling();
+                        // Start ESP32 enrollment
+                        startESP32Enrollment();
                     } else {
                         showError(data.message);
                     }
                 })
-                .catch(err => showError('Failed to start biometric service'));
+                .catch(err => showError('Failed to initialize enrollment'));
         });
 
-        function startStatusPolling() {
-            let attempts = 0;
-            const maxAttempts = 60; // 2 minutes
+        let lastDetectedState = 'standby';
+        let currentScanCount = 0;
+
+        function startESP32Enrollment() {
+            console.log('[UI] Starting ESP32 enrollment...');
+
+            // Call ESP32 start-enrollment via Django proxy
+            fetch(ESP32_PROXY_START_URL, {
+                method: 'POST',
+                credentials: 'same-origin'
+            })
+                .then(response => {
+                    console.log('[UI] ESP32 start-enrollment response:', response);
+                    if (!response.ok) {
+                        throw new Error(`ESP32 responded with status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('[UI] ESP32 enrollment started:', data);
+                    scanStatusText.textContent = 'ESP32 ready. Place finger on scanner for scan 1 of 3...';
+                    startScanMonitoring(0);
+                })
+                .catch(error => {
+                    console.error('[UI] Failed to start ESP32 enrollment:', error);
+                    showError('Failed to start ESP32 enrollment: ' + error.message);
+                });
+        }
+
+        function startScanMonitoring(scanCount) {
+            currentScanCount = scanCount;
+            let detectionAttempts = 0;
+            const maxAttempts = 120; // 2 minutes max per scan
 
             if (statusInterval) clearInterval(statusInterval);
 
+            console.log(`[UI] Starting scan monitoring for scan ${currentScanCount + 1} of 3`);
+
             statusInterval = setInterval(() => {
-                attempts++;
-                fetch(`/officials/biometric/status/?official_id=${currentOfficialId}`)
-                    .then(res => res.json())
+                detectionAttempts++;
+
+                // Poll ESP32 status via Django proxy
+                fetch(ESP32_PROXY_STATUS_URL, {
+                    credentials: 'same-origin'
+                })
+                    .then(res => {
+                        if (!res.ok) throw new Error('ESP32 status failed');
+                        return res.json();
+                    })
                     .then(data => {
-                        if (data.has_template) {
-                            clearInterval(statusInterval);
-                            finishEnrollment();
-                        } else if (attempts >= maxAttempts) {
-                            clearInterval(statusInterval);
-                            showError('Enrollment timed out.');
+                        console.log(`[UI] ESP32 status poll ${detectionAttempts}:`, data);
+                        const currentState = data.state || 'standby';
+
+                        // Check if state transitioned to detected
+                        if (currentState === 'detected' && lastDetectedState !== 'detected') {
+                            console.log(`[UI] 🎯 Fingerprint detected! Scan ${currentScanCount + 1} of 3`);
+                            lastDetectedState = 'detected';
+                            handleFingerprintDetectionEvent();
+                        } else if (currentState !== 'detected') {
+                            lastDetectedState = currentState;
                         }
+
+                        // Timeout check
+                        if (detectionAttempts >= maxAttempts) {
+                            clearInterval(statusInterval);
+                            console.error('[UI] Scan timeout reached');
+                            showError(`Scan ${currentScanCount + 1} timeout. Please try again.`);
+                        }
+                    })
+                    .catch(error => {
+                        console.warn('[UI] ESP32 status poll failed:', error);
+                        // Continue polling even if ESP32 is temporarily unreachable
                     });
-            }, 2000);
+            }, 500);  // Poll every 500ms for responsive detection
         }
 
-        function finishEnrollment() {
-            progressBar.style.width = '100%';
-            progressBar.className = 'progress-bar bg-success';
-            scanStatusText.textContent = 'Enrollment successful!';
-            updateFingerprintBadge(true);
-            btnCapture.disabled = false;
+        function handleFingerprintDetectionEvent() {
+            currentScanCount++;
+            const scanProgress_percent = (currentScanCount / 3) * 100;
 
-            // Refresh the select option data
-            const opt = functionarySelect.querySelector(`option[value="${currentOfficialId}"]`);
-            if (opt) opt.dataset.fingerprint = 'true';
+            console.log(`[UI] Processing fingerprint detection - Scan ${currentScanCount}/3 completed`);
 
-            setTimeout(() => {
-                scanProgress.classList.add('d-none');
-                progressBar.style.width = '0%';
-                progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
-            }, 3000);
+            // Update progress bar
+            progressBar.style.width = scanProgress_percent + '%';
+            scanStatusText.textContent = `✓ Scan ${currentScanCount} of 3 detected! ${currentScanCount < 3 ? 'Ready for next scan...' : 'Processing...'}`;
+
+            // Visual feedback
+            statusIcon.className = 'fas fa-check-circle fa-4x text-success';
+
+            if (currentScanCount < 3) {
+                // Wait 2 seconds for user to remove finger, then restart scanning
+                console.log(`[UI] Waiting 2 seconds before scan ${currentScanCount + 1}...`);
+                setTimeout(() => {
+                    statusIcon.className = 'fas fa-fingerprint fa-4x text-primary fa-pulse';
+                    scanStatusText.textContent = `Waiting for scan ${currentScanCount + 1} of 3...`;
+                    startScanMonitoring(currentScanCount);
+                }, 2000);
+            } else {
+                // All 3 scans complete - register fingerprint
+                console.log('[UI] All 3 scans completed, registering fingerprint...');
+                clearInterval(statusInterval);
+                finishEnrollmentWith3Scans();
+            }
+        }
+
+        function finishEnrollmentWith3Scans() {
+            scanStatusText.textContent = 'All scans complete! Registering fingerprint...';
+            progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+
+            // Stop ESP32 enrollment via Django proxy
+            fetch(ESP32_PROXY_STOP_URL, { 
+                method: 'POST',
+                credentials: 'same-origin'
+            })
+                .catch(() => {}); // Ignore errors, just stop
+
+            // Register with Django
+            fetch(`/officials/${currentOfficialId}/enrollment/register/`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        progressBar.style.width = '100%';
+                        progressBar.className = 'progress-bar bg-success';
+                        scanStatusText.textContent = 'Success! Fingerprint registered after 3 scans.';
+                        updateFingerprintBadge(true);
+                        btnCapture.disabled = false;
+
+                        // Refresh the select option data
+                        const opt = functionarySelect.querySelector(`option[value="${currentOfficialId}"]`);
+                        if (opt) opt.dataset.fingerprint = 'true';
+
+                        setTimeout(() => {
+                            scanProgress.classList.add('d-none');
+                            progressBar.style.width = '0%';
+                            progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+                            currentScanCount = 0;
+                            lastDetectedState = 'standby';
+                        }, 3000);
+                    } else {
+                        throw new Error(data.message);
+                    }
+                })
+                .catch(err => showError('Failed to register fingerprint: ' + err.message));
         }
 
         function showError(msg) {
@@ -264,9 +428,18 @@
             scanStatusText.textContent = 'Error: ' + msg;
             statusIcon.className = 'fas fa-fingerprint fa-4x text-danger';
 
+            // Stop ESP32 enrollment via Django proxy
+            fetch(ESP32_PROXY_STOP_URL, { 
+                method: 'POST',
+                credentials: 'same-origin'
+            })
+                .catch(() => {});
+
             setTimeout(() => {
                 scanProgress.classList.add('d-none');
                 progressBar.style.width = '0%';
+                currentScanCount = 0;
+                lastDetectedState = 'standby';
             }, 5000);
         }
     });

@@ -22,12 +22,21 @@ class Appointment(models.Model):
     ]
 
     resident = models.ForeignKey(Resident, on_delete=models.CASCADE, related_name='appointments')
+    # Which official handles this appointment (optional)
+    official = models.ForeignKey(
+        'officials.Official',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='appointments',
+    )
     purpose = models.CharField(max_length=50, choices=PURPOSE_CHOICES)
     specification = models.TextField(blank=True, help_text="Specific details about the request")
     appointment_date = models.DateField()
     appointment_time = models.TimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     remarks = models.TextField(blank=True)
+    notes = models.TextField(blank=True, help_text="Internal notes from the handling official")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

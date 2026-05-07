@@ -34,11 +34,12 @@ class Official(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     salary = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     employee_id = models.CharField(max_length=50, blank=True, null=True, unique=True)
-    
-    # Biometrics
-    fingerprint_template = models.TextField(blank=True, null=True, help_text="Base64 encoded fingerprint template")
+    is_active = models.BooleanField(default=True, help_text='Uncheck to soft-delete without losing records')
+
+    # NOTE: fingerprint_template removed – use official.resident.fingerprint_template instead
 
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def clean(self):
         """Enforce limits on active official positions."""
@@ -68,6 +69,11 @@ class Official(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+    @property
+    def fingerprint_template(self):
+        """Proxy to resident's fingerprint for backward compatibility."""
+        return self.resident.fingerprint_template if self.resident else None
 
     def __str__(self):
         return f"{self.resident.full_name} - {self.get_position_display()}"

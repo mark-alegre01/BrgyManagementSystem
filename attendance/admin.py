@@ -3,7 +3,7 @@ from .models import AttendanceLog, FaceEncoding
 
 @admin.register(FaceEncoding)
 class FaceEncodingAdmin(admin.ModelAdmin):
-    list_display = ('official', 'enrolled_at')
+    list_display = ('resident', 'enrolled_at')
 
 @admin.register(AttendanceLog)
 class AttendanceLogAdmin(admin.ModelAdmin):
