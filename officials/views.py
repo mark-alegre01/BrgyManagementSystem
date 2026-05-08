@@ -104,7 +104,7 @@ def esp32_status_proxy(request):
     except requests.RequestException as exc:
         return JsonResponse({
             'status': 'error',
-            'message': f'ESP32 status proxy failed: {str(exc)}'
+            'message': f'ESP32 status proxy failed ({esp32_base_url}): {str(exc)}'
         }, status=503)
     except Exception as exc:
         return JsonResponse({
@@ -132,7 +132,7 @@ def esp32_start_enrollment_proxy(request):
     except requests.RequestException as exc:
         return JsonResponse({
             'status': 'error',
-            'message': f'ESP32 start-enrollment proxy failed: {str(exc)}'
+            'message': f'ESP32 start-enrollment proxy failed ({esp32_base_url}): {str(exc)}'
         }, status=503)
     except Exception as exc:
         return JsonResponse({
