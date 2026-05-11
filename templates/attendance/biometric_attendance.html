@@ -6,21 +6,20 @@
 {% block extra_head %}
 <style>
     .biometric-attendance-card {
-        max-width: 550px;
-        margin: 20px auto;
-        padding: 40px;
-        background: #ffffff;
-        border-radius: 30px;
-        box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background: transparent;
         text-align: center;
         position: relative;
         transition: all 0.5s ease;
     }
     .scan-visual {
-        width: 140px;
-        height: 140px;
-        margin: 0 auto 15px;
-        background: #f8fafc;
+        width: 100px;
+        height: 100px;
+        margin: 0 auto 8px;
+        background: #ffffff;
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -67,11 +66,11 @@
     }
     .status-badge-lg {
         display: inline-block;
-        padding: 10px 25px;
+        padding: 8px 20px;
         border-radius: 50px;
         font-weight: 700;
-        font-size: 1.1rem;
-        margin-bottom: 25px;
+        font-size: 0.95rem;
+        margin-bottom: 20px;
     }
     .badge-waiting { background: #f1f5f9; color: #64748b; }
     .badge-active { background: #dbeafe; color: #1e40af; }
@@ -79,35 +78,36 @@
     .badge-error { background: #fee2e2; color: #991b1b; }
 
     .result-card {
-        margin-top: 30px;
-        padding: 25px;
+        margin-top: 20px;
+        padding: 20px;
         border-radius: 20px;
-        background: #f8fafc;
-        border: 2px solid #e2e8f0;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
         display: none;
         animation: slide-up 0.4s ease-out;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
     @keyframes slide-up {
-        from { transform: translateY(20px); opacity: 0; }
+        from { transform: translateY(15px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
     }
     .user-icon {
-        width: 60px;
-        height: 60px;
+        width: 50px;
+        height: 50px;
         background: #3b82f6;
         color: white;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 24px;
-        margin: 0 auto 15px;
+        font-size: 20px;
+        margin: 0 auto 10px;
     }
     .btn-massive {
-        padding: 15px 35px;
-        font-size: 1.1rem;
+        padding: 12px 30px;
+        font-size: 1rem;
         font-weight: 700;
-        border-radius: 16px;
+        border-radius: 14px;
         transition: all 0.3s;
     }
 </style>
@@ -122,18 +122,18 @@
         </button>
     </div>
 
-    <div class="mb-4">
-        <h1 class="font-weight-bold" style="color: #0f172a; margin-bottom: 10px; font-size: 1.75rem; letter-spacing: -0.5px;">Daily Time Record</h1>
-        <div id="current-live-day" class="font-weight-bold text-primary uppercase tracking-tight mb-3" style="font-size: 2.2rem; letter-spacing: -1px;">-------</div>
+    <div class="mb-2">
+        <h1 class="font-weight-bold" style="color: #0f172a; margin-bottom: 2px; font-size: 1.25rem; letter-spacing: -0.5px;">Daily Time Record</h1>
+        <div id="current-live-day" class="font-weight-bold text-primary uppercase tracking-tight mb-1" style="font-size: 1.5rem; letter-spacing: -0.5px;">-------</div>
         
-        <div class="d-flex justify-content-center gap-4 mb-2">
-            <div class="px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
-                <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1 text-center">Time In</span>
-                <span id="display-time-in" class="text-sm font-bold text-slate-700">--:--</span>
+        <div class="d-flex justify-content-center gap-2 mb-1">
+            <div class="px-2 py-1 bg-white rounded-lg border border-slate-200 shadow-sm">
+                <span class="text-[8px] font-bold text-slate-500 uppercase block mb-0 text-center">In</span>
+                <span id="display-time-in" class="text-[11px] font-bold text-slate-800">--:--</span>
             </div>
-            <div class="px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
-                <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1 text-center">Time Out</span>
-                <span id="display-time-out" class="text-sm font-bold text-slate-700">--:--</span>
+            <div class="px-2 py-1 bg-white rounded-lg border border-slate-200 shadow-sm">
+                <span class="text-[8px] font-bold text-slate-500 uppercase block mb-0 text-center">Out</span>
+                <span id="display-time-out" class="text-[11px] font-bold text-slate-800">--:--</span>
             </div>
         </div>
     </div>
@@ -146,16 +146,16 @@
         <i class="fas fa-fingerprint"></i>
     </div>
 
-    <div id="instruction-text" class="h6 mb-4 text-secondary">
+    <div id="instruction-text" class="small mb-3 text-secondary">
         Click the button below to start the scanner
     </div>
 
     <div id="actions">
-        <button id="btn-start-attendance" class="btn btn-primary btn-massive shadow-lg">
-            <i class="fas fa-power-off mr-2"></i> Start Biometric Scan
+        <button id="btn-start-attendance" class="btn btn-primary btn-massive shadow-sm">
+            <i class="fas fa-power-off mr-2"></i> Start Scan
         </button>
         <button id="btn-stop-attendance" class="btn btn-outline-danger btn-massive d-none">
-            <i class="fas fa-times mr-2"></i> Stop Scanner
+            <i class="fas fa-times mr-2"></i> Stop
         </button>
     </div>
 

@@ -65,7 +65,7 @@ body {
 
 /* Sidebar */
 .sidebar {
-    width: 280px;
+    width: 240px;
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border);
     display: flex;
@@ -111,9 +111,9 @@ body {
 }
 
 .logo-text h2 {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 800;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
 }
 
 .logo-text span {
@@ -123,34 +123,35 @@ body {
 
 .sidebar-nav {
     flex: 1;
-    padding: 20px 16px;
+    padding: 12px 12px;
     overflow-y: auto;
 }
 
 .nav-section {
-    margin-bottom: 24px;
+    margin-bottom: 16px;
 }
 
 .nav-section-title {
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     color: var(--text-muted);
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     display: block;
-    padding-left: 12px;
-    letter-spacing: 1px;
+    padding-left: 10px;
+    letter-spacing: 0.5px;
 }
 
 .nav-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px;
+    gap: 10px;
+    padding: 10px 12px;
     color: var(--text-muted);
     text-decoration: none;
     border-radius: 8px;
     transition: var(--transition);
-    margin-bottom: 4px;
+    margin-bottom: 2px;
+    font-size: 13.5px;
 }
 
 .nav-item i {
@@ -221,7 +222,7 @@ body {
 /* Main Content */
 .main-content {
     flex: 1;
-    margin-left: 280px;
+    margin-left: 240px;
     display: flex;
     flex-direction: column;
     min-width: 0;
