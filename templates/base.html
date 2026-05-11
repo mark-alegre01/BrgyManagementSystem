@@ -82,17 +82,17 @@
         <span class="nav-section-title">MANAGEMENT</span>
 
         <a href="{% url 'residents:list' %}"
-          class="nav-item {% if request.resolver_match.app_name ==  'residents' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.app_name == 'residents' and request.resolver_match.url_name != 'household_list' and request.resolver_match.url_name != 'registration_list' %}active{% endif %}">
           <i class="fas fa-users"></i><span>Residents</span>
         </a>
 
         {% if s or r == 'captain' or r == 'admin' or r == 'secretary' or r == 'treasurer' %}
         <a href="{% url 'officials:list' %}"
-          class="nav-item {% if request.resolver_match.app_name ==  'officials' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.app_name == 'officials' and request.resolver_match.url_name != 'biometric_register' %}active{% endif %}">
           <i class="fas fa-user-tie"></i><span>Officials</span>
         </a>
         <a href="{% url 'officials:biometric_register' %}"
-          class="nav-item {% if request.resolver_match.url_name ==  'biometric_register' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.url_name == 'biometric_register' %}active{% endif %}">
           <i class="fas fa-fingerprint"></i><span>Register for Biometric</span>
         </a>
         {% endif %}
