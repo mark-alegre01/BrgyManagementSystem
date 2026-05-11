@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Biometric Attendance - Barangay Management System{% endblock %}
+{% block title %}Daily Time Record - Barangay Management System{% endblock %}
 
 {% block extra_head %}
 <style>
     .biometric-attendance-card {
-        max-width: 500px;
-        margin: 0 auto;
-        padding: 30px;
+        max-width: 550px;
+        margin: 20px auto;
+        padding: 40px;
         background: #ffffff;
-        border-radius: 40px;
+        border-radius: 30px;
         box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.1);
         text-align: center;
         position: relative;
@@ -123,7 +123,7 @@
     </div>
 
     <div class="mb-4">
-        <h1 class="font-weight-bold" style="color: #1e293b; margin-bottom: 5px; font-size: 1.5rem;">Biometric Attendance</h1>
+        <h1 class="font-weight-bold" style="color: #0f172a; margin-bottom: 10px; font-size: 1.75rem; letter-spacing: -0.5px;">Daily Time Record</h1>
         <div id="current-live-day" class="font-weight-bold text-primary uppercase tracking-tight mb-3" style="font-size: 2.2rem; letter-spacing: -1px;">-------</div>
         
         <div class="d-flex justify-content-center gap-4 mb-2">
@@ -176,19 +176,19 @@
 
 <!-- Attendance Schedule Modal -->
 <div class="modal fade" id="attendanceScheduleModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content" style="border-radius: 30px; border: none; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+    <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 420px;">
+        <div class="modal-content" style="border-radius: 24px; border: none; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);">
             <!-- Header -->
-            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white text-left">
+            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white text-left">
                 <div>
-                    <h2 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                    <h2 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
                         Availability
-                        <span class="px-2 py-0.5 bg-indigo-50 text-[10px] text-indigo-600 rounded-full font-black uppercase tracking-wider">Series</span>
+                        <span class="px-2 py-0.5 bg-blue-100 text-[10px] text-blue-700 rounded-full font-black uppercase tracking-wider">Weekly</span>
                     </h2>
-                    <p class="text-[10px] text-slate-400 font-medium uppercase">Set your weekly slots</p>
+                    <p class="text-[11px] text-slate-500 font-semibold uppercase">Schedule Settings</p>
                 </div>
-                <div class="p-2 bg-slate-50 rounded-xl" data-dismiss="modal" style="cursor: pointer;">
-                    <i class="fas fa-times text-slate-400"></i>
+                <div class="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors" data-dismiss="modal" style="cursor: pointer;">
+                    <i class="fas fa-times text-slate-500"></i>
                 </div>
             </div>
 
@@ -200,50 +200,49 @@
             </div>
 
             <!-- Content Area -->
-            <div id="mainContentArea" class="p-6 min-h-[240px] flex flex-col justify-center bg-white text-left">
-                <div id="activeDayContent" class="space-y-6 fade-in-up">
-                    <div class="flex items-center justify-between">
+            <div id="mainContentArea" class="p-6 bg-white text-left">
+                <div id="activeDayContent" class="space-y-5 fade-in-up">
+                    <div class="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
                         <div>
-                            <h3 id="displayDayName" class="text-lg font-bold text-slate-800">Monday</h3>
-                            <p id="dayInsight" class="text-[10px] text-indigo-500 font-semibold uppercase tracking-wider">Active Slot</p>
+                            <h3 id="displayDayName" class="text-base font-bold text-slate-900">Monday</h3>
+                            <p id="dayInsight" class="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Active Slot</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="dayStatusToggle" checked class="sr-only peer">
-                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            <div class="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                         </label>
                     </div>
 
                     <!-- Time Grid -->
                     <div id="timeInputsGrid" class="grid grid-cols-2 gap-4">
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Start Time</label>
-                            <input type="time" id="timeIn" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-slate-700 focus:border-indigo-500 focus:bg-white outline-none transition-all">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Start Time</label>
+                            <input type="time" id="timeIn" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-slate-800 focus:border-blue-500 focus:bg-white outline-none transition-all shadow-sm">
                         </div>
-                        <div class="space-y-1.5">
-                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">End Time</label>
-                            <input type="time" id="timeOut" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-slate-700 focus:border-indigo-500 focus:bg-white outline-none transition-all">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">End Time</label>
+                            <input type="time" id="timeOut" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-slate-800 focus:border-blue-500 focus:bg-white outline-none transition-all shadow-sm">
                         </div>
                     </div>
 
                     <!-- Closed Message Overlay -->
-                    <div id="closedMessage" class="hidden py-8 text-center border-2 border-dashed border-slate-100 rounded-3xl">
-                        <p class="text-sm text-slate-400 font-bold italic">Currently closed for the day</p>
+                    <div id="closedMessage" class="hidden py-10 text-center border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/50">
+                        <p class="text-sm text-slate-500 font-bold">Currently marked as OFF</p>
                     </div>
                 </div>
             </div>
 
             <!-- Footer Actions -->
-            <div class="px-6 py-5 bg-slate-50/50 border-t border-slate-100 space-y-4">
-                <div class="flex items-center justify-end">
-                    <button id="copyToAll" class="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 uppercase tracking-widest transition-colors flex items-center gap-1">
-                        <i class="fas fa-copy mr-1"></i>
+            <div class="px-6 py-5 bg-slate-50 border-t border-slate-100 space-y-4">
+                <div class="flex items-center justify-center">
+                    <button id="copyToAll" class="text-[11px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider transition-colors flex items-center gap-1.5 bg-blue-50 px-4 py-2 rounded-full border border-blue-100">
+                        <i class="fas fa-copy"></i>
                         Apply to all days
                     </button>
                 </div>
-
                 <div class="flex gap-3">
-                    <button id="resetBtn" class="flex-1 py-3 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">Reset</button>
-                    <button id="saveBtn" onclick="saveScheduleSettings()" class="flex-[2.5] py-3 bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-lg shadow-slate-200 transition-all active:scale-95">
+                    <button id="resetBtn" class="flex-1 py-3 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors">Reset</button>
+                    <button id="saveBtn" onclick="saveScheduleSettings()" class="flex-[2.5] py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-xl shadow-slate-200 transition-all active:scale-95">
                         Save Changes
                     </button>
                 </div>
@@ -381,7 +380,7 @@
             grid.classList.remove('hidden');
             msg.classList.add('hidden');
             insight.innerText = 'Active Slot';
-            insight.className = 'text-[10px] text-indigo-500 font-semibold uppercase tracking-wider';
+            insight.className = 'text-[10px] text-blue-600 font-bold uppercase tracking-wider';
         } else {
             grid.classList.add('hidden');
             msg.classList.remove('hidden');
