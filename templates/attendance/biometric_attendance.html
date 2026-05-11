@@ -255,9 +255,14 @@
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     .day-tab { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
     .fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+    .fade-out { animation: fadeOut 0.4s ease-in forwards; }
     @keyframes fadeInUp {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeOut {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-10px); visibility: hidden; }
     }
 </style>
 <script src="https://cdn.tailwindcss.com"></script>
@@ -508,7 +513,7 @@
             scanVisual.className = 'scan-visual';
             statusBadge.className = 'status-badge-lg badge-waiting';
             statusBadge.innerHTML = '<i class="fas fa-clock mr-2"></i> Ready to Clock In/Out';
-            instructionText.className = 'h6 mb-4 text-secondary';
+            instructionText.className = 'small mb-3 text-secondary';
             instructionText.textContent = 'Click the button below to start the scanner';
         }
 
@@ -519,9 +524,17 @@
             scanVisual.className = 'scan-visual active';
             statusBadge.className = 'status-badge-lg badge-active';
             statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Scanner Active';
-            instructionText.className = 'h5 mb-5 text-primary font-weight-bold';
+            instructionText.className = 'h5 mb-4 text-primary font-weight-bold';
             instructionText.textContent = 'Please place your registered finger on the sensor';
-            resultCard.style.display = 'none';
+            
+            // Fade out the results card if it was visible
+            if (resultCard.style.display !== 'none') {
+                resultCard.classList.add('fade-out');
+                setTimeout(() => {
+                    resultCard.style.display = 'none';
+                    resultCard.classList.remove('fade-out');
+                }, 400);
+            }
 
             fetch('{% url "core:biometric_login_start" %}', {
                 method: 'POST',
@@ -602,33 +615,43 @@
             document.getElementById('result-action').className = 'badge px-3 py-2 ' + (data.action.includes('IN') ? 'badge-success' : 'badge-warning');
             resultCard.style.display = 'block';
             btnStop.classList.add('d-none');
+            
             setTimeout(() => {
-                if (resultCard.style.display === 'block') {
+                if (resultCard.style.display === 'block' && !isScanning) {
                     btnStart.classList.remove('d-none');
                     scanVisual.className = 'scan-visual';
                     statusBadge.className = 'status-badge-lg badge-waiting';
                     statusBadge.innerHTML = '<i class="fas fa-clock mr-2"></i> Ready to Clock In/Out';
-                    instructionText.className = 'h5 mb-5 text-secondary';
+                    instructionText.className = 'small mb-3 text-secondary';
                     instructionText.textContent = 'Click the button below to start the scanner';
                 }
-            }, 5000);
+            }, 6000);
         }
 
         function showError(message) {
             scanVisual.className = 'scan-visual error';
             statusBadge.className = 'status-badge-lg badge-error';
             statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i> Scan Failed';
-            instructionText.className = 'h5 mb-5 text-danger font-weight-bold';
+            instructionText.className = 'text-xs mb-3 text-danger font-bold uppercase';
             instructionText.textContent = message;
+            
             setTimeout(() => {
-                if (scanVisual.classList.contains('error')) {
+                if (!isScanning) {
+                    scanVisual.className = 'scan-visual';
+                    statusBadge.className = 'status-badge-lg badge-waiting';
+                    statusBadge.innerHTML = '<i class="fas fa-clock mr-2"></i> Ready to Clock In/Out';
+                    instructionText.className = 'small mb-3 text-secondary';
+                    instructionText.textContent = 'Click the button below to start the scanner';
+                    btnStart.classList.remove('d-none');
+                    btnStop.classList.add('d-none');
+                } else if (scanVisual.classList.contains('error')) {
                     scanVisual.className = 'scan-visual active';
                     statusBadge.className = 'status-badge-lg badge-active';
                     statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Scanner Active';
-                    instructionText.className = 'h5 mb-5 text-primary font-weight-bold';
+                    instructionText.className = 'h6 mb-3 text-primary font-bold';
                     instructionText.textContent = 'Please try placing your finger again';
                 }
-            }, 3000);
+            }, 4000);
         }
 
         // Modal Specific Event Handlers
