@@ -231,9 +231,26 @@ def api_biometric_verify(request):
         is_auto = data.get('auto', False)
         
         official = None
-        if is_auto and request.user.is_authenticated:
-            # Get the official profile for the logged in user
-            official = getattr(request.user, 'official_profile', None)
+        if is_auto:
+            # Check the biometric cache first for the specifically matched user
+            from django.core.cache import cache
+            request_id = request.session.get('biometric_request_id')
+            if request_id:
+                state = cache.get(f"biometric:{request_id}")
+                if state and state.get('status') == 'authenticated':
+                    matched_user_id = state.get('user_id')
+                    if matched_user_id:
+                        from django.contrib.auth import get_user_model
+                        User = get_user_model()
+                        try:
+                            user = User.objects.get(id=matched_user_id)
+                            official = getattr(user, 'official_profile', None)
+                        except User.DoesNotExist:
+                            pass
+
+            # Fallback to current user ONLY if no biometric match was cached
+            if not official and request.user.is_authenticated:
+                official = getattr(request.user, 'official_profile', None)
         elif official_id:
             official = Official.objects.filter(pk=official_id).first()
         elif template:
