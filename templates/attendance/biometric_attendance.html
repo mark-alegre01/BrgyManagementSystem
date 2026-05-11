@@ -615,13 +615,15 @@
             document.getElementById('result-action').className = 'badge px-3 py-2 ' + (data.action.includes('IN') ? 'badge-success' : 'badge-warning');
             resultCard.style.display = 'block';
             btnStop.classList.add('d-none');
+            btnStart.classList.remove('d-none'); // Show immediately for quick next scan
+            
+            // Auto-reset colors/visuals after 5s, but keep button visible
             setTimeout(() => {
                 if (resultCard.style.display === 'block') {
-                    btnStart.classList.remove('d-none');
                     scanVisual.className = 'scan-visual';
                     statusBadge.className = 'status-badge-lg badge-waiting';
                     statusBadge.innerHTML = '<i class="fas fa-clock mr-2"></i> Ready to Clock In/Out';
-                    instructionText.className = 'h5 mb-5 text-secondary';
+                    instructionText.className = 'small mb-3 text-secondary';
                     instructionText.textContent = 'Click the button below to start the scanner';
                 }
             }, 5000);
@@ -631,8 +633,12 @@
             scanVisual.className = 'scan-visual error';
             statusBadge.className = 'status-badge-lg badge-error';
             statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i> Scan Failed';
-            instructionText.className = 'h5 mb-5 text-danger font-weight-bold';
+            instructionText.className = 'h5 mb-4 text-danger font-weight-bold';
             instructionText.textContent = message;
+            
+            btnStop.classList.add('d-none');
+            btnStart.classList.remove('d-none'); // Show immediately for quick next scan
+
             setTimeout(() => {
                 if (scanVisual.classList.contains('error')) {
                     scanVisual.className = 'scan-visual';
