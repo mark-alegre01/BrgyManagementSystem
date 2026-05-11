@@ -176,73 +176,72 @@
 
 <!-- Attendance Schedule Modal -->
 <div class="modal fade" id="attendanceScheduleModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 420px;">
-        <div class="modal-content" style="border-radius: 24px; border: none; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);">
+    <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 380px;">
+        <div class="modal-content" style="border-radius: 20px; border: none; overflow: hidden; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.3);">
             <!-- Header -->
-            <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-white text-left">
+            <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-white text-left">
                 <div>
-                    <h2 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                    <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
                         Availability
-                        <span class="px-2 py-0.5 bg-blue-100 text-[10px] text-blue-700 rounded-full font-black uppercase tracking-wider">Weekly</span>
+                        <span class="px-2 py-0.5 bg-blue-100 text-[9px] text-blue-700 rounded-full font-black uppercase tracking-wider">Weekly</span>
                     </h2>
-                    <p class="text-[11px] text-slate-500 font-semibold uppercase">Schedule Settings</p>
                 </div>
-                <div class="p-2 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors" data-dismiss="modal" style="cursor: pointer;">
-                    <i class="fas fa-times text-slate-500"></i>
+                <div class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" data-dismiss="modal" style="cursor: pointer;">
+                    <i class="fas fa-times text-slate-500 text-xs"></i>
                 </div>
             </div>
 
             <!-- Tabs Navigation -->
-            <div id="mainTabs" class="px-2 pt-2 border-b border-slate-100 bg-slate-50/30">
-                <div class="flex items-center gap-0 overflow-x-auto hide-scrollbar" id="dayTabsContainer">
+            <div id="mainTabs" class="px-1 pt-1 border-b border-slate-100 bg-slate-50/50">
+                <div class="flex items-center gap-0 overflow-x-hidden" id="dayTabsContainer">
                     <!-- Day buttons will be injected here via JS -->
                 </div>
             </div>
 
             <!-- Content Area -->
-            <div id="mainContentArea" class="p-6 bg-white text-left">
-                <div id="activeDayContent" class="space-y-5 fade-in-up">
-                    <div class="flex items-center justify-between bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div id="mainContentArea" class="p-5 bg-white text-left">
+                <div id="activeDayContent" class="space-y-4 fade-in-up">
+                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
                         <div>
-                            <h3 id="displayDayName" class="text-base font-bold text-slate-900">Monday</h3>
-                            <p id="dayInsight" class="text-[10px] text-blue-600 font-bold uppercase tracking-wider">Active Slot</p>
+                            <h3 id="displayDayName" class="text-sm font-bold text-slate-900">Monday</h3>
+                            <p id="dayInsight" class="text-[9px] text-blue-600 font-bold uppercase tracking-wider">Active Slot</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" id="dayStatusToggle" checked class="sr-only peer">
-                            <div class="w-10 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                            <div class="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
                         </label>
                     </div>
 
                     <!-- Time Grid -->
-                    <div id="timeInputsGrid" class="grid grid-cols-2 gap-4">
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Start Time</label>
-                            <input type="time" id="timeIn" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-slate-800 focus:border-blue-500 focus:bg-white outline-none transition-all shadow-sm">
+                    <div id="timeInputsGrid" class="grid grid-cols-2 gap-3">
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Start Time</label>
+                            <input type="time" id="timeIn" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold text-slate-800 focus:border-blue-500 focus:bg-white outline-none transition-all">
                         </div>
-                        <div class="space-y-2">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">End Time</label>
-                            <input type="time" id="timeOut" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-slate-800 focus:border-blue-500 focus:bg-white outline-none transition-all shadow-sm">
+                        <div class="space-y-1">
+                            <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">End Time</label>
+                            <input type="time" id="timeOut" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold text-slate-800 focus:border-blue-500 focus:bg-white outline-none transition-all">
                         </div>
                     </div>
 
                     <!-- Closed Message Overlay -->
-                    <div id="closedMessage" class="hidden py-10 text-center border-2 border-dashed border-slate-100 rounded-3xl bg-slate-50/50">
-                        <p class="text-sm text-slate-500 font-bold">Currently marked as OFF</p>
+                    <div id="closedMessage" class="hidden py-8 text-center border-2 border-dashed border-slate-100 rounded-2xl bg-slate-50/50">
+                        <p class="text-xs text-slate-500 font-bold uppercase tracking-wide">Currently OFF</p>
                     </div>
                 </div>
             </div>
 
             <!-- Footer Actions -->
-            <div class="px-6 py-5 bg-slate-50 border-t border-slate-100 space-y-4">
+            <div class="px-5 py-4 bg-slate-50 border-t border-slate-100 space-y-3">
                 <div class="flex items-center justify-center">
-                    <button id="copyToAll" class="text-[11px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider transition-colors flex items-center gap-1.5 bg-blue-50 px-4 py-2 rounded-full border border-blue-100">
-                        <i class="fas fa-copy"></i>
-                        Apply to all days
+                    <button id="copyToAll" class="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider transition-colors flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100">
+                        <i class="fas fa-copy text-[9px]"></i>
+                        Apply to all
                     </button>
                 </div>
-                <div class="flex gap-3">
-                    <button id="resetBtn" class="flex-1 py-3 text-xs font-bold text-slate-500 hover:text-slate-700 transition-colors">Reset</button>
-                    <button id="saveBtn" onclick="saveScheduleSettings()" class="flex-[2.5] py-3 bg-slate-900 text-white rounded-2xl font-bold text-sm shadow-xl shadow-slate-200 transition-all active:scale-95">
+                <div class="flex gap-2">
+                    <button id="resetBtn" class="flex-1 py-2 text-[10px] font-bold text-slate-500 hover:text-slate-700 transition-colors">Reset</button>
+                    <button id="saveBtn" onclick="saveScheduleSettings()" class="flex-[2.5] py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs shadow-lg shadow-slate-200 transition-all active:scale-95">
                         Save Changes
                     </button>
                 </div>
@@ -329,8 +328,8 @@
             const button = document.createElement('button');
             const isActive = index === activeDayIndex;
             
-            button.className = `day-tab flex-1 py-4 px-3 text-[11px] font-black border-b-2 transition-all relative
-                ${isActive ? 'border-indigo-600 text-indigo-600 bg-indigo-50/30 text-left' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50 text-left'}`;
+            button.className = `day-tab flex-1 py-3 px-1 text-[10px] font-black border-b-2 transition-all text-center
+                ${isActive ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/30'}`;
             
             button.innerHTML = `<span>${day.toUpperCase()}</span>`;
             button.onclick = () => switchDay(index);
@@ -380,12 +379,12 @@
             grid.classList.remove('hidden');
             msg.classList.add('hidden');
             insight.innerText = 'Active Slot';
-            insight.className = 'text-[10px] text-blue-600 font-bold uppercase tracking-wider';
+            insight.className = 'text-[9px] text-blue-600 font-bold uppercase tracking-wider';
         } else {
             grid.classList.add('hidden');
             msg.classList.remove('hidden');
             insight.innerText = 'Off Duty';
-            insight.className = 'text-[10px] text-slate-400 font-semibold uppercase tracking-wider';
+            insight.className = 'text-[9px] text-slate-400 font-bold uppercase tracking-wider';
         }
     }
 
