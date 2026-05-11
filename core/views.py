@@ -352,6 +352,7 @@ def biometric_status_check(request):
                         user__isnull=False
                     ).first()
                     if official_rec:
+                        print(f"[Biometric] Found match for ID {matched_id}: {official_rec.resident.full_name} (Official)")
                         user = official_rec.user
                 except Exception as e:
                     print(f"[Biometric] Official lookup failed: {e}")
@@ -363,6 +364,7 @@ def biometric_status_check(request):
                             fingerprint_id=matched_id, is_active=True
                         ).select_related('user_profile__user').first()
                         if resident and hasattr(resident, 'user_profile') and resident.user_profile and resident.user_profile.user:
+                            print(f"[Biometric] Found match for ID {matched_id}: {resident.full_name} (Resident)")
                             user = resident.user_profile.user
                     except Exception as e:
                         print(f"[Biometric] Resident lookup failed: {e}")

@@ -243,6 +243,7 @@ void setLeds(bool red, bool green, bool blue) {
 
 // ============= FINGERPRINT MODULE INITIALIZATION =============
 bool initializeFingerprintModule() {
+  if (fingerprintInitialized) return true; // Early exit if already OK
   fingerprintSerial.begin(FINGERPRINT_BAUD_RATE, SERIAL_8N1, FINGERPRINT_RX_PIN, FINGERPRINT_TX_PIN);
   delay(500); 
   unsigned long clearStart = millis();
@@ -384,11 +385,10 @@ void handleRoot() {
 void handleStartEnrollment() {
   addCorsHeaders();
   
-  // LOCKOUT: Don't allow starting if we are currently beeping/erroring
+  // No lockout - allow new start to override active error beeps
   if (currentState == AUTH_FAILED) {
-    Serial.println("[HTTP] Enrollment rejected: System busy with error feedback.");
-    server.send(429, "application/json", "{\"status\":\"error\",\"message\":\"Please wait for error beeps to finish\"}");
-    return;
+    isBeeping = false;
+    ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
   }
 
   if (server.hasArg("id")) {
@@ -397,18 +397,20 @@ void handleStartEnrollment() {
     enrollmentSlotID = 0;
   }
 
-  // Reset enrollment state
-  currentScan = 0;
-  enrollmentActive = true;
-  memset(scanCompleted, 0, sizeof(scanCompleted));
-  
+  // 1. SET STATE IMMEDIATELY for visual feedback (Blue LED start blinking)
   currentState = ENROLLING;
-  lastRedBlinkTime = 0;
-  lastImageGenTime = 0;
+  enrollmentActive = true;
+  currentScan = 0;
+  matchedFingerprintID = 0;
+  memset(scanCompleted, 0, sizeof(scanCompleted));
   lastErrorMessage = "Ready";
   
-  fingerprintInitialized = initializeFingerprintModule();
+  // 2. Perform initialization in background or check if needed
+  if (!fingerprintInitialized) {
+    fingerprintInitialized = initializeFingerprintModule();
+  }
   
+  clearR307Buffer();
   if (fingerprintInitialized) {
     r307GenerateImage();
   }
@@ -426,13 +428,13 @@ void handleStartEnrollment() {
 void handleStartVerification() {
   addCorsHeaders();
 
-  // LOCKOUT: Don't allow starting if we are currently beeping/erroring
+  // No lockout - allow new start to override active error beeps
   if (currentState == AUTH_FAILED) {
-    Serial.println("[HTTP] Verification rejected: System busy with error feedback.");
-    server.send(429, "application/json", "{\"status\":\"error\",\"message\":\"Please wait for error beeps to finish\"}");
-    return;
+    isBeeping = false;
+    ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
   }
 
+  clearR307Buffer(); // CLEAR SERIAL BUFFER
   currentState = VERIFYING;
   currentScan = 0;
   enrollmentActive = true;
