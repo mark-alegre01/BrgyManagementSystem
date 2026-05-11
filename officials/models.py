@@ -12,7 +12,7 @@ class Official(models.Model):
         ('sk_chairman', 'SK Chairperson'),
         ('sk_kagawad', 'SK Kagawad'),
         ('tanod', 'Barangay Tanod'),
-        ('health_worker', 'Barangay Health Worker (BHW)'),
+        ('bhw', 'Barangay Health Worker (BHW)'),
         ('nutrition_scholar', 'Barangay Nutrition Scholar (BNS)'),
         ('day_care_worker', 'Day Care Worker'),
         ('lupon', 'Lupon Member'),
@@ -26,7 +26,7 @@ class Official(models.Model):
     ]
 
     resident = models.OneToOneField('residents.Resident', on_delete=models.CASCADE, related_name='official_record')
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='official_profile')
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='official_profile')
     position = models.CharField(max_length=30, choices=POSITION_CHOICES)
     committee = models.CharField(max_length=200, blank=True, help_text='Committee assignment')
     term_start = models.DateField()
@@ -74,6 +74,13 @@ class Official(models.Model):
     def fingerprint_template(self):
         """Proxy to resident's fingerprint for backward compatibility."""
         return self.resident.fingerprint_template if self.resident else None
+
+    @fingerprint_template.setter
+    def fingerprint_template(self, value):
+        """Proxy setter to resident's fingerprint."""
+        if self.resident:
+            self.resident.fingerprint_template = value
+            self.resident.save()
 
     def __str__(self):
         return f"{self.resident.full_name} - {self.get_position_display()}"

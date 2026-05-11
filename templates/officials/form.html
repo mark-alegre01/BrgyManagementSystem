@@ -2,11 +2,90 @@
 
 {% block title %}{% if editing %}Edit{% else %}Add{% endif %} Official - Barangay Management System{% endblock %}
 
+{% block extra_head %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+  /* Select2 Custom Styling to match modern theme */
+  .select2-container--default .select2-selection--single {
+    height: 48px !important;
+    border: 1.5px solid var(--border) !important;
+    border-radius: var(--radius-md) !important;
+    background-color: var(--bg-main) !important;
+    display: flex;
+    align-items: center;
+  }
+  .select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: var(--text-main) !important;
+    padding-left: 16px !important;
+    font-weight: 500;
+  }
+  .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 46px !important;
+    right: 12px !important;
+  }
+  .select2-dropdown {
+    border: 1.5px solid var(--primary-light) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: var(--shadow-lg) !important;
+    z-index: 10001;
+  }
+  .select2-search__field {
+    border-radius: var(--radius-sm) !important;
+    padding: 8px 12px !important;
+  }
+  .select2-results__option--highlighted[aria-selected] {
+    background-color: var(--primary) !important;
+  }
+
+  /* Select2 Clear Button styling */
+  .select2-container--default .select2-selection--single .select2-selection__clear {
+    height: 48px;
+    margin-right: 25px;
+    color: var(--text-muted);
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    transition: var(--transition);
+  }
+
+  .select2-container--default .select2-selection--single .select2-selection__clear:hover {
+    color: var(--danger);
+    transform: scale(1.1);
+  }
+
+  .modern-form {
+    padding: 40px;
+  }
+
+  .form-section {
+    margin-bottom: 40px;
+  }
+
+  .form-footer {
+    border-top: 1px solid var(--border);
+    padding-top: 30px;
+    text-align: right;
+  }
+
+  .account-setup-box {
+    background: var(--primary-light);
+    border: 1.5px dashed var(--primary);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    margin-top: 10px;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="page-header">
   <div class="page-title">
     <h1>{% if editing %}Edit Official Record{% else %}Appoint New Official{% endif %}</h1>
-    <span>Manage barangay staff and officials</span>
+    <span>Assign residents to barangay positions and manage system access</span>
+  </div>
+  <div class="header-actions">
+    <a href="{% url 'officials:list' %}" class="btn btn-outline">Cancel</a>
   </div>
 </div>
 
@@ -18,22 +97,23 @@
         <h3>Appointment Details</h3>
         <div class="form-row">
           <div class="form-group col-6">
-            <label>Resident*</label>
+            <label>Resident Selection*</label>
             {% if editing %}
-            <input type="text" value="{{ official.resident.full_name }}" class="form-control" disabled>
+            <div class="form-control" style="background-color: var(--border-light); display: flex; align-items: center; opacity: 0.8; cursor: not-allowed;">
+              {{ official.resident.full_name }}
+            </div>
             <input type="hidden" name="resident" value="{{ official.resident.pk }}">
             {% else %}
-            <select name="resident" class="form-control" required>
-              <option value="">Select Resident...</option>
+            <select name="resident" id="id_resident_select" class="form-control select2" required>
+              <option value=""></option>
               {% for r in residents_data %}
-              <option value="{{ r.pk }}" data-has-account="{{ r.has_account|yesno:" true,false" }}">{{ r.name }}
-              </option>
+              <option value="{{ r.pk }}" data-has-account="{{ r.has_account|yesno:"true,false" }}" data-username="{{ r.username }}">{{ r.name }}</option>
               {% endfor %}
             </select>
             {% endif %}
           </div>
           <div class="form-group col-6">
-            <label>Position*</label>
+            <label>Official Position*</label>
             <select name="position" class="form-control" required>
               {% for code, label in positions %}
               <option value="{{ code }}" {% if official.position == code %}selected{% endif %}>{{ label }}</option>
@@ -44,13 +124,13 @@
 
         <div class="form-row">
           <div class="form-group col-6">
-            <label>Committee/Assignment</label>
+            <label>Committee / Assignment</label>
             <input type="text" name="committee" value="{{ official.committee }}" class="form-control"
-              placeholder="e.g. Health, Finance">
+              placeholder="e.g. Health, Finance, Infrastructure">
           </div>
           <div class="form-group col-6">
-            <label>Employee ID</label>
-            <input type="text" name="employee_id" value="{{ official.employee_id }}" class="form-control">
+            <label>Employee / Item ID</label>
+            <input type="text" name="employee_id" value="{{ official.employee_id }}" class="form-control" placeholder="Optional identifier">
           </div>
         </div>
       </div>
@@ -59,23 +139,23 @@
         <h3>Term & Compensation</h3>
         <div class="form-row">
           <div class="form-group col-4">
-            <label>Term Start*</label>
+            <label>Term Start Date*</label>
             <input type="date" name="term_start" value="{{ official.term_start|date:'Y-m-d' }}" class="form-control"
               required>
           </div>
           <div class="form-group col-4">
-            <label>Term End</label>
+            <label>Term End Date</label>
             <input type="date" name="term_end" value="{{ official.term_end|date:'Y-m-d' }}" class="form-control">
           </div>
           <div class="form-group col-4">
-            <label>Salary/Honorarium</label>
+            <label>Salary / Honorarium (₱)</label>
             <input type="number" step="0.01" name="salary" value="{{ official.salary|default:0 }}" class="form-control">
           </div>
         </div>
         {% if editing %}
         <div class="form-row">
           <div class="form-group col-6">
-            <label>Status*</label>
+            <label>Current Status*</label>
             <select name="status" class="form-control">
               <option value="active" {% if official.status == 'active' %}selected{% endif %}>Active</option>
               <option value="inactive" {% if official.status == 'inactive' %}selected{% endif %}>Inactive</option>
@@ -85,33 +165,25 @@
         {% endif %}
       </div>
 
-      {% if not editing %}
       <div class="form-section" id="account-setup-section" style="display: none;">
-        <h3><i class="fas fa-user-shield"></i> System Account Setup</h3>
-        <p class="text-muted" style="margin-bottom: 15px; font-size: 13px;">
-          This resident does not have a user account yet. You can create one for them now so they can log in to the
-          system.
-        </p>
-        <div class="form-row">
-          <div class="form-group col-6">
-            <label>Username (Optional)</label>
-            <input type="text" name="username" class="form-control account-field" placeholder="Enter username">
-          </div>
-          <div class="form-group col-6">
-            <label>Temporary Password (Optional)</label>
-            <input type="password" name="password" class="form-control account-field" placeholder="Enter password">
+        <div class="account-setup-box">
+          <h3><i class="fas fa-user-shield"></i> System Account Setup</h3>
+          <p class="text-muted" id="account-setup-note" style="margin-bottom: 20px; font-size: 13px;">
+            Set up the login credentials for this official. These will be used for manual password login.
+          </p>
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>System Username</label>
+              <input type="text" name="username" id="id_username_field" class="form-control account-field" placeholder="Create username">
+              <small class="text-info" id="existing-user-msg" style="display: none;">This resident already has an account. Entering a new username/password will update their credentials.</small>
+            </div>
+            <div class="form-group col-6">
+              <label>Password</label>
+              <input type="password" name="password" class="form-control account-field" placeholder="Create or update password">
+            </div>
           </div>
         </div>
       </div>
-
-      <div class="form-section" id="account-update-section" style="display: none;">
-        <h3><i class="fas fa-user-check"></i> System Account</h3>
-        <div class="alert alert-info" style="margin-bottom: 0;">
-          <i class="fas fa-info-circle"></i> This resident already has a user account. Their access role will be
-          automatically upgraded to reflect their new position.
-        </div>
-      </div>
-      {% endif %}
     </div>
 
     <div class="form-footer">
@@ -121,78 +193,56 @@
     </div>
   </form>
 </div>
+{% endblock %}
 
-<style>
-  .modern-form {
-    padding: 30px;
-  }
-
-  .form-section {
-    margin-bottom: 25px;
-  }
-
-  .form-section h3 {
-    font-size: 14px;
-    color: var(--primary);
-    margin-bottom: 15px;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 8px;
-  }
-
-  .form-row {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 15px;
-  }
-
-  .col-6 {
-    flex: 1;
-  }
-
-  .col-4 {
-    flex: 1;
-  }
-
-  .form-footer {
-    border-top: 1px solid var(--border);
-    padding-top: 20px;
-    text-align: right;
-  }
-</style>
-
-{% if not editing %}
+{% block extra_js %}
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    const residentSelect = document.querySelector('select[name="resident"]');
+    // Initialize Select2
+    if (jQuery('#id_resident_select').length) {
+      jQuery('#id_resident_select').select2({
+        placeholder: "Search resident by name or purok...",
+        allowClear: true,
+        width: '100%'
+      });
+    }
+
+    const residentSelect = jQuery('select[name="resident"]');
     const setupSection = document.getElementById('account-setup-section');
     const updateSection = document.getElementById('account-update-section');
-    const accountFields = document.querySelectorAll('.account-field');
 
-    residentSelect.addEventListener('change', function () {
+    {% if not editing %}
+    residentSelect.on('change', function () {
       const selectedOption = this.options[this.selectedIndex];
-      if (!selectedOption.value) {
+      if (!selectedOption || !selectedOption.value) {
         setupSection.style.display = 'none';
-        updateSection.style.display = 'none';
-        accountFields.forEach(field => field.required = false);
         return;
       }
 
-      const hasAccount = selectedOption.getAttribute('data-has-account') === 'true';
-
+      // Read from Select2 data or original option
+      const data = jQuery(selectedOption).data() || selectedOption.dataset;
+      const hasAccount = String(data.hasAccount) === 'true' || data.hasAccount === true;
+      const username = data.username || '';
+      
+      setupSection.style.display = 'block';
+      
+      const usernameField = document.getElementById('id_username_field');
+      const existingMsg = document.getElementById('existing-user-msg');
+      const setupNote = document.getElementById('account-setup-note');
+      
       if (hasAccount) {
-        setupSection.style.display = 'none';
-        updateSection.style.display = 'block';
-        accountFields.forEach(field => {
-          field.required = false;
-          field.value = '';
-        });
+        if (usernameField) usernameField.value = username;
+        if (existingMsg) existingMsg.style.display = 'block';
+        if (setupNote) setupNote.innerText = "This resident already has an account. You can update their credentials below if needed.";
       } else {
-        setupSection.style.display = 'block';
-        updateSection.style.display = 'none';
-        // Note: Not setting required so admin isn't forced, allowing blank saves gracefully
+        if (usernameField) usernameField.value = '';
+        if (existingMsg) existingMsg.style.display = 'none';
+        if (setupNote) setupNote.innerText = "Set up the login credentials for this official. These will be used for manual password login.";
       }
     });
+    {% endif %}
   });
 </script>
-{% endif %}
 {% endblock %}

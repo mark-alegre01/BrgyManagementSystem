@@ -10,7 +10,7 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 # Local ESP32 fingerprint module proxy target
-ESP32_BASE_URL = 'http://192.168.1.49:80'
+ESP32_BASE_URL = 'http://192.168.1.55'
 
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8001",
@@ -155,8 +155,6 @@ BARANGAY_CAPTAIN = "HON. MARITES R. MANONGAS"
 
 # Biometric Settings
 BIOMETRIC_PROVIDER = 'biometrics.stub.StubBiometricProvider'
-
-# Attendance
 ATTENDANCE_START_HOUR = 7
 ATTENDANCE_END_HOUR = 18
 LATE_THRESHOLD_MINUTES = 30

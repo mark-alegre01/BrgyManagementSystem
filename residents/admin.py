@@ -14,7 +14,8 @@ class HouseholdAdmin(admin.ModelAdmin):
 
 @admin.register(Resident)
 class ResidentAdmin(admin.ModelAdmin):
-    list_display = ('full_name', 'age', 'gender', 'purok', 'is_registered_voter', 'is_active')
-    list_filter = ('gender', 'purok', 'is_registered_voter', 'is_active', 'is_pwd', 'is_senior_citizen')
-    search_fields = ('first_name', 'last_name', 'middle_name')
+    list_display = ('full_name', 'age', 'gender', 'purok', 'contact_number', 'is_official', 'is_active')
+    list_filter = ('purok', 'gender', 'is_official', 'is_active', 'is_registered_voter', 'is_senior_citizen')
+    search_fields = ('first_name', 'last_name', 'middle_name', 'philSys_number', 'contact_number')
     readonly_fields = ('created_at', 'updated_at')
+    list_per_page = 25

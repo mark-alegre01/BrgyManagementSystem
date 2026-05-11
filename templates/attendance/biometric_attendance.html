@@ -1,0 +1,663 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Biometric Attendance - Barangay Management System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .biometric-attendance-card {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 30px;
+        background: #ffffff;
+        border-radius: 40px;
+        box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        position: relative;
+        transition: all 0.5s ease;
+    }
+    .scan-visual {
+        width: 140px;
+        height: 140px;
+        margin: 0 auto 15px;
+        background: #f8fafc;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 60px;
+        color: #e2e8f0;
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        border: 2px solid #f1f5f9;
+    }
+    .scan-visual.active {
+        border-color: #3b82f6;
+        background: #eff6ff;
+        box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
+    }
+    .scan-visual.success {
+        border-color: #10b981;
+        background: #ecfdf5;
+        box-shadow: 0 0 30px rgba(16, 185, 129, 0.2);
+    }
+    .scan-visual.error {
+        border-color: #ef4444;
+        background: #fef2f2;
+    }
+    .scan-visual i {
+        font-size: 80px;
+        color: #94a3b8;
+        transition: all 0.3s;
+    }
+    .scan-visual.active i {
+        color: #3b82f6;
+        animation: fingerprint-pulse 1.5s infinite;
+    }
+    .scan-visual.success i {
+        color: #10b981;
+    }
+    .scan-visual.error i {
+        color: #ef4444;
+    }
+    @keyframes fingerprint-pulse {
+        0% { transform: scale(1); opacity: 0.8; }
+        50% { transform: scale(1.1); opacity: 1; }
+        100% { transform: scale(1); opacity: 0.8; }
+    }
+    .status-badge-lg {
+        display: inline-block;
+        padding: 10px 25px;
+        border-radius: 50px;
+        font-weight: 700;
+        font-size: 1.1rem;
+        margin-bottom: 25px;
+    }
+    .badge-waiting { background: #f1f5f9; color: #64748b; }
+    .badge-active { background: #dbeafe; color: #1e40af; }
+    .badge-success { background: #d1fae5; color: #065f46; }
+    .badge-error { background: #fee2e2; color: #991b1b; }
+
+    .result-card {
+        margin-top: 30px;
+        padding: 25px;
+        border-radius: 20px;
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        display: none;
+        animation: slide-up 0.4s ease-out;
+    }
+    @keyframes slide-up {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+    .user-icon {
+        width: 60px;
+        height: 60px;
+        background: #3b82f6;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin: 0 auto 15px;
+    }
+    .btn-massive {
+        padding: 15px 35px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        border-radius: 16px;
+        transition: all 0.3s;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="biometric-attendance-card">
+    <!-- Settings Trigger inside the card -->
+    <div style="position: absolute; top: 20px; right: 20px;">
+        <button class="btn btn-outline-secondary btn-sm rounded-circle" data-toggle="modal" data-target="#attendanceScheduleModal" style="width: 38px; height: 38px;">
+            <i class="fas fa-cog"></i>
+        </button>
+    </div>
+
+    <div class="mb-4">
+        <h1 class="font-weight-bold" style="color: #1e293b; margin-bottom: 5px; font-size: 1.5rem;">Biometric Attendance</h1>
+        <div id="current-live-day" class="font-weight-bold text-primary uppercase tracking-tight mb-3" style="font-size: 2.2rem; letter-spacing: -1px;">-------</div>
+        
+        <div class="d-flex justify-content-center gap-4 mb-2">
+            <div class="px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
+                <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1 text-center">Time In</span>
+                <span id="display-time-in" class="text-sm font-bold text-slate-700">--:--</span>
+            </div>
+            <div class="px-4 py-2 bg-slate-50 rounded-2xl border border-slate-100">
+                <span class="text-[10px] font-bold text-slate-400 uppercase block mb-1 text-center">Time Out</span>
+                <span id="display-time-out" class="text-sm font-bold text-slate-700">--:--</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="status-badge" class="status-badge-lg badge-waiting">
+        <i class="fas fa-clock mr-2"></i> Ready to Clock In/Out
+    </div>
+
+    <div id="scan-visual" class="scan-visual">
+        <i class="fas fa-fingerprint"></i>
+    </div>
+
+    <div id="instruction-text" class="h6 mb-4 text-secondary">
+        Click the button below to start the scanner
+    </div>
+
+    <div id="actions">
+        <button id="btn-start-attendance" class="btn btn-primary btn-massive shadow-lg">
+            <i class="fas fa-power-off mr-2"></i> Start Biometric Scan
+        </button>
+        <button id="btn-stop-attendance" class="btn btn-outline-danger btn-massive d-none">
+            <i class="fas fa-times mr-2"></i> Stop Scanner
+        </button>
+    </div>
+
+    <div id="attendance-result" class="result-card">
+        <div class="user-icon" id="result-icon">
+            <i class="fas fa-user-check"></i>
+        </div>
+        <h2 id="result-name" class="font-weight-bold mb-1">---</h2>
+        <p id="result-position" class="text-muted mb-2">---</p>
+        <div class="badge badge-success px-3 py-2" id="result-action" style="font-size: 1rem;">
+            Clocked IN
+        </div>
+        <div class="mt-3 text-secondary">
+            <i class="fas fa-calendar-check mr-1"></i> Recorded at <span id="result-time" class="font-weight-bold">--:--</span>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Schedule Modal -->
+<div class="modal fade" id="attendanceScheduleModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content" style="border-radius: 30px; border: none; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);">
+            <!-- Header -->
+            <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-white text-left">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                        Availability
+                        <span class="px-2 py-0.5 bg-indigo-50 text-[10px] text-indigo-600 rounded-full font-black uppercase tracking-wider">Series</span>
+                    </h2>
+                    <p class="text-[10px] text-slate-400 font-medium uppercase">Set your weekly slots</p>
+                </div>
+                <div class="p-2 bg-slate-50 rounded-xl" data-dismiss="modal" style="cursor: pointer;">
+                    <i class="fas fa-times text-slate-400"></i>
+                </div>
+            </div>
+
+            <!-- Tabs Navigation -->
+            <div id="mainTabs" class="px-2 pt-2 border-b border-slate-100 bg-slate-50/30">
+                <div class="flex items-center gap-0 overflow-x-auto hide-scrollbar" id="dayTabsContainer">
+                    <!-- Day buttons will be injected here via JS -->
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div id="mainContentArea" class="p-6 min-h-[240px] flex flex-col justify-center bg-white text-left">
+                <div id="activeDayContent" class="space-y-6 fade-in-up">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 id="displayDayName" class="text-lg font-bold text-slate-800">Monday</h3>
+                            <p id="dayInsight" class="text-[10px] text-indigo-500 font-semibold uppercase tracking-wider">Active Slot</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="dayStatusToggle" checked class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                        </label>
+                    </div>
+
+                    <!-- Time Grid -->
+                    <div id="timeInputsGrid" class="grid grid-cols-2 gap-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Start Time</label>
+                            <input type="time" id="timeIn" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-slate-700 focus:border-indigo-500 focus:bg-white outline-none transition-all">
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">End Time</label>
+                            <input type="time" id="timeOut" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-3 text-sm font-bold text-slate-700 focus:border-indigo-500 focus:bg-white outline-none transition-all">
+                        </div>
+                    </div>
+
+                    <!-- Closed Message Overlay -->
+                    <div id="closedMessage" class="hidden py-8 text-center border-2 border-dashed border-slate-100 rounded-3xl">
+                        <p class="text-sm text-slate-400 font-bold italic">Currently closed for the day</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Actions -->
+            <div class="px-6 py-5 bg-slate-50/50 border-t border-slate-100 space-y-4">
+                <div class="flex items-center justify-end">
+                    <button id="copyToAll" class="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 uppercase tracking-widest transition-colors flex items-center gap-1">
+                        <i class="fas fa-copy mr-1"></i>
+                        Apply to all days
+                    </button>
+                </div>
+
+                <div class="flex gap-3">
+                    <button id="resetBtn" class="flex-1 py-3 text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors">Reset</button>
+                    <button id="saveBtn" onclick="saveScheduleSettings()" class="flex-[2.5] py-3 bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-lg shadow-slate-200 transition-all active:scale-95">
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .day-tab { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+<script src="https://cdn.tailwindcss.com"></script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const dayKeys = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    
+    let activeDayIndex = 0;
+    let scheduleData = [];
+    let weeklySchedule = {};
+    let modalOpenedOnce = false;
+
+    function minutesToTime24(mins) {
+        if (mins === undefined || mins === null) return '08:00';
+        const h = Math.floor(mins / 60).toString().padStart(2, '0');
+        const m = (mins % 60).toString().padStart(2, '0');
+        return `${h}:${m}`;
+    }
+
+    function minutesToDisplay(mins) {
+        let h = Math.floor(mins / 60);
+        const m = (mins % 60).toString().padStart(2, '0');
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12;
+        h = h ? h : 12;
+        return `${h}:${m} ${ampm}`;
+    }
+
+    function timeToMinutes(timeStr) {
+        if (!timeStr) return 0;
+        const [h, m] = timeStr.split(':');
+        return parseInt(h) * 60 + parseInt(m);
+    }
+
+    function initScheduleData() {
+        const saved = localStorage.getItem('weekly_attendance_schedule');
+        const savedData = saved ? JSON.parse(saved) : {};
+        
+        // If no saved data, initialize with defaults
+        if (!saved || Object.keys(savedData).length === 0) {
+            dayKeys.forEach((key, i) => {
+                const isWorkDay = (key !== 'saturday' && key !== 'sunday');
+                savedData[key] = isWorkDay ? { in: 480, out: 720 } : null;
+            });
+            localStorage.setItem('weekly_attendance_schedule', JSON.stringify(savedData));
+        }
+
+        weeklySchedule = savedData;
+        
+        scheduleData = dayKeys.map((key, i) => ({
+            key: key,
+            name: fullDayNames[i],
+            enabled: !!savedData[key],
+            timeIn: savedData[key] ? minutesToTime24(savedData[key].in) : '08:00',
+            timeOut: savedData[key] ? minutesToTime24(savedData[key].out) : '12:00'
+        }));
+    }
+
+    function renderTabs() {
+        const tabsContainer = document.getElementById('dayTabsContainer');
+        if (!tabsContainer) return;
+        tabsContainer.innerHTML = '';
+        days.forEach((day, index) => {
+            const button = document.createElement('button');
+            const isActive = index === activeDayIndex;
+            
+            button.className = `day-tab flex-1 py-4 px-3 text-[11px] font-black border-b-2 transition-all relative
+                ${isActive ? 'border-indigo-600 text-indigo-600 bg-indigo-50/30 text-left' : 'border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-50/50 text-left'}`;
+            
+            button.innerHTML = `<span>${day.toUpperCase()}</span>`;
+            button.onclick = () => switchDay(index);
+            tabsContainer.appendChild(button);
+        });
+    }
+
+    function switchDay(index) {
+        // Only save if the modal has been opened and inputs are populated
+        if (modalOpenedOnce) {
+            saveCurrentDayState();
+        }
+        
+        activeDayIndex = index;
+        const data = scheduleData[index];
+        if (!data) return;
+
+        document.getElementById('displayDayName').innerText = data.name;
+        document.getElementById('timeIn').value = data.timeIn || '08:00';
+        document.getElementById('timeOut').value = data.timeOut || '12:00';
+        document.getElementById('dayStatusToggle').checked = data.enabled;
+        
+        updateToggleState(data.enabled);
+        renderTabs();
+        
+        // Mark as opened so future switches save the state
+        modalOpenedOnce = true;
+    }
+
+    function saveCurrentDayState() {
+        const tIn = document.getElementById('timeIn');
+        const tOut = document.getElementById('timeOut');
+        const dToggle = document.getElementById('dayStatusToggle');
+        if (tIn && tOut && dToggle) {
+            scheduleData[activeDayIndex].timeIn = tIn.value;
+            scheduleData[activeDayIndex].timeOut = tOut.value;
+            scheduleData[activeDayIndex].enabled = dToggle.checked;
+        }
+    }
+
+    function updateToggleState(isEnabled) {
+        const grid = document.getElementById('timeInputsGrid');
+        const msg = document.getElementById('closedMessage');
+        const insight = document.getElementById('dayInsight');
+        
+        if (isEnabled) {
+            grid.classList.remove('hidden');
+            msg.classList.add('hidden');
+            insight.innerText = 'Active Slot';
+            insight.className = 'text-[10px] text-indigo-500 font-semibold uppercase tracking-wider';
+        } else {
+            grid.classList.add('hidden');
+            msg.classList.remove('hidden');
+            insight.innerText = 'Off Duty';
+            insight.className = 'text-[10px] text-slate-400 font-semibold uppercase tracking-wider';
+        }
+    }
+
+    function saveScheduleSettings() {
+        saveCurrentDayState();
+        let finalSchedule = {};
+        scheduleData.forEach(day => {
+            if (day.enabled) {
+                finalSchedule[day.key] = {
+                    in: timeToMinutes(day.timeIn),
+                    out: timeToMinutes(day.timeOut)
+                };
+            } else {
+                finalSchedule[day.key] = null;
+            }
+        });
+        localStorage.setItem('weekly_attendance_schedule', JSON.stringify(finalSchedule));
+        weeklySchedule = finalSchedule;
+        
+        if (window.showNotification) {
+            window.showNotification('Weekly schedule saved successfully!', 'success');
+        }
+        
+        renderCurrentShift();
+        
+        const saveBtn = document.getElementById('saveBtn');
+        saveBtn.innerHTML = "Saved!";
+        saveBtn.style.backgroundColor = "#16a34a";
+        setTimeout(() => {
+            saveBtn.innerHTML = "Save Changes";
+            saveBtn.style.backgroundColor = "#1e293b";
+            $('#attendanceScheduleModal').modal('hide');
+        }, 1000);
+    }
+
+    // Biometric Logic
+    function getAttendanceAction() {
+        const now = new Date();
+        const daysArr = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const currentDay = daysArr[now.getDay()];
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+        const dayConfig = weeklySchedule[currentDay];
+        if (!dayConfig) return currentTime < 720 ? 'in' : 'out';
+        const threshold = dayConfig.out || 720;
+        return currentTime < threshold ? 'in' : 'out';
+    }
+
+    function updateClock() {
+        const now = new Date();
+        const dayStr = now.toLocaleDateString('en-US', { weekday: 'long' });
+        const dayEl = document.getElementById('current-live-day');
+        if (dayEl) dayEl.textContent = dayStr;
+        
+        // Every hour or when the date changes, refresh the shift display to keep it synced
+        if (now.getMinutes() === 0 && now.getSeconds() === 0) {
+            renderCurrentShift();
+        }
+    }
+
+    function renderCurrentShift() {
+        const now = new Date();
+        const daysArr = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const currentDay = daysArr[now.getDay()];
+        const dayConfig = weeklySchedule[currentDay];
+        
+        const timeInEl = document.getElementById('display-time-in');
+        const timeOutEl = document.getElementById('display-time-out');
+        
+        if (timeInEl && timeOutEl) {
+            if (dayConfig) {
+                timeInEl.textContent = minutesToDisplay(dayConfig.in);
+                timeOutEl.textContent = minutesToDisplay(dayConfig.out);
+                timeInEl.parentElement.style.opacity = '1';
+                timeOutEl.parentElement.style.opacity = '1';
+            } else {
+                timeInEl.textContent = '--:--';
+                timeOutEl.textContent = '--:--';
+                timeInEl.parentElement.style.opacity = '0.5';
+                timeOutEl.parentElement.style.opacity = '0.5';
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        initScheduleData();
+        renderCurrentShift();
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        $('#attendanceScheduleModal').on('show.bs.modal', function () {
+            modalOpenedOnce = false; // Reset for the fresh opening
+            switchDay(activeDayIndex);
+        });
+
+        const btnStart = document.getElementById('btn-start-attendance');
+        const btnStop = document.getElementById('btn-stop-attendance');
+        const scanVisual = document.getElementById('scan-visual');
+        const statusBadge = document.getElementById('status-badge');
+        const instructionText = document.getElementById('instruction-text');
+        const resultCard = document.getElementById('attendance-result');
+        
+        let isScanning = false;
+        let pollingInterval = null;
+        let scanTimeout = null;
+        let hasShownError = false;
+
+        function stopScanner() {
+            if (!isScanning) return;
+            isScanning = false;
+            clearInterval(pollingInterval);
+            clearTimeout(scanTimeout);
+            
+            // SYNC HARDWARE: Tell ESP32 to stop and go back to standby
+            fetch('{% url "officials:esp32_stop_enrollment_proxy" %}', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            }).catch(err => console.error("Hardware stop failed:", err));
+
+            btnStop.classList.add('d-none');
+            btnStart.classList.remove('d-none');
+            scanVisual.className = 'scan-visual';
+            statusBadge.className = 'status-badge-lg badge-waiting';
+            statusBadge.innerHTML = '<i class="fas fa-clock mr-2"></i> Ready to Clock In/Out';
+            instructionText.className = 'h6 mb-4 text-secondary';
+            instructionText.textContent = 'Click the button below to start the scanner';
+        }
+
+        btnStart.addEventListener('click', function() {
+            isScanning = true;
+            btnStart.classList.add('d-none');
+            btnStop.classList.remove('d-none');
+            scanVisual.className = 'scan-visual active';
+            statusBadge.className = 'status-badge-lg badge-active';
+            statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Scanner Active';
+            instructionText.className = 'h5 mb-5 text-primary font-weight-bold';
+            instructionText.textContent = 'Please place your registered finger on the sensor';
+            resultCard.style.display = 'none';
+
+            fetch('{% url "core:biometric_login_start" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ role: 'auto' })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') { startPolling(); } 
+                else { stopScanner(); }
+            })
+            .catch(() => stopScanner());
+
+            hasShownError = false;
+            scanTimeout = setTimeout(() => { stopScanner(); }, 30000);
+        });
+
+        btnStop.addEventListener('click', () => stopScanner());
+
+        function startPolling() {
+            pollingInterval = setInterval(() => {
+                fetch('/biometric-status-check/', {
+                    credentials: 'include'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'authenticated') { recordAttendance(); } 
+                    else if (data.status === 'failed' && !hasShownError) { 
+                        hasShownError = true;
+                        stopScanner();
+                        
+                        showError(data.reason || 'Fingerprint not recognized'); 
+                        if (window.showNotification) {
+                            window.showNotification(data.reason || 'Fingerprint not recognized', 'error');
+                        }
+                    }
+                });
+            }, 1000);
+        }
+
+        function recordAttendance() {
+            clearInterval(pollingInterval);
+            clearTimeout(scanTimeout);
+            const mode = getAttendanceAction();
+            fetch('{% url "attendance:api_biometric_verify" %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ auto: true, action: mode })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') { 
+                    showSuccess(data); 
+                    if (window.showNotification) {
+                        window.showNotification(`Attendance recorded: ${data.name} (${data.action})`, 'success');
+                    }
+                } 
+                else { 
+                    showError(data.message || 'Attendance recording failed.'); 
+                    if (window.showNotification) {
+                        window.showNotification(data.message || 'Attendance recording failed.', 'error');
+                    }
+                }
+            });
+        }
+
+        function showSuccess(data) {
+            scanVisual.className = 'scan-visual success';
+            statusBadge.className = 'status-badge-lg badge-success';
+            statusBadge.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Attendance Recorded';
+            instructionText.className = 'h5 mb-5 text-success font-weight-bold';
+            instructionText.textContent = 'Thank you! Your attendance has been captured.';
+            document.getElementById('result-name').textContent = data.name;
+            document.getElementById('result-time').textContent = data.time;
+            document.getElementById('result-action').textContent = data.action;
+            document.getElementById('result-action').className = 'badge px-3 py-2 ' + (data.action.includes('IN') ? 'badge-success' : 'badge-warning');
+            resultCard.style.display = 'block';
+            btnStop.classList.add('d-none');
+            setTimeout(() => {
+                if (resultCard.style.display === 'block') {
+                    btnStart.classList.remove('d-none');
+                    scanVisual.className = 'scan-visual';
+                    statusBadge.className = 'status-badge-lg badge-waiting';
+                    statusBadge.innerHTML = '<i class="fas fa-clock mr-2"></i> Ready to Clock In/Out';
+                    instructionText.className = 'h5 mb-5 text-secondary';
+                    instructionText.textContent = 'Click the button below to start the scanner';
+                }
+            }, 5000);
+        }
+
+        function showError(message) {
+            scanVisual.className = 'scan-visual error';
+            statusBadge.className = 'status-badge-lg badge-error';
+            statusBadge.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i> Scan Failed';
+            instructionText.className = 'h5 mb-5 text-danger font-weight-bold';
+            instructionText.textContent = message;
+            setTimeout(() => {
+                if (scanVisual.classList.contains('error')) {
+                    scanVisual.className = 'scan-visual active';
+                    statusBadge.className = 'status-badge-lg badge-active';
+                    statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Scanner Active';
+                    instructionText.className = 'h5 mb-5 text-primary font-weight-bold';
+                    instructionText.textContent = 'Please try placing your finger again';
+                }
+            }, 3000);
+        }
+
+        // Modal Specific Event Handlers
+        document.getElementById('dayStatusToggle').onchange = (e) => {
+            updateToggleState(e.target.checked);
+            scheduleData[activeDayIndex].enabled = e.target.checked;
+        };
+        document.getElementById('copyToAll').onclick = () => {
+            const tIn = document.getElementById('timeIn').value;
+            const tOut = document.getElementById('timeOut').value;
+            const isEn = document.getElementById('dayStatusToggle').checked;
+            scheduleData.forEach(day => { day.timeIn = tIn; day.timeOut = tOut; day.enabled = isEn; });
+            switchDay(activeDayIndex);
+            if (window.showNotification) {
+                window.showNotification('Schedule applied to all days!', 'success');
+            }
+        };
+        document.getElementById('resetBtn').onclick = () => {
+            if(confirm("Reset all days to 8 AM - 12 PM?")) {
+                scheduleData = dayKeys.map((key, i) => ({ key: key, name: fullDayNames[i], enabled: true, timeIn: '08:00', timeOut: '12:00' }));
+                switchDay(0);
+            }
+        };
+        $('#attendanceScheduleModal').on('shown.bs.modal', function () {
+            initScheduleData();
+            switchDay(0);
+        });
+    });
+</script>
+{% endblock %}

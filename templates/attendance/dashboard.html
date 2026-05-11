@@ -16,11 +16,12 @@
     <a href="{% url 'attendance:clock' %}" class="btn btn-primary">
       <i class="fas fa-clock"></i> Manual Clock In/Out
     </a>
-    <a href="{% url 'attendance:enroll' %}" class="btn btn-secondary">
-      <i class="fas fa-user-plus"></i> Enroll Face
+    <a href="{% url 'attendance:biometric_attendance' %}" class="btn btn-secondary">
+      <i class="fas fa-fingerprint"></i> Biometric Attendance
     </a>
   </div>
 </div>
+
 
 <div class="stats-grid">
   <div class="stat-card">
@@ -125,4 +126,4 @@
     font-size: 11px;
   }
 </style>
-{% endblock %}
+{% endblock %}

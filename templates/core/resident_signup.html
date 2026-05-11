@@ -364,19 +364,6 @@
             color: var(--primary);
         }
 
-        .alert {
-            margin-bottom: 24px;
-            font-size: 13px;
-            padding: 16px;
-            border-radius: 12px;
-            text-align: left;
-        }
-
-        .alert-error {
-            background: #FEE2E2;
-            color: #991B1B;
-            border: 1px solid #FECACA;
-        }
 
         @media (max-width: 768px) {
             .form-grid {
@@ -440,13 +427,6 @@
     <form class="registration-card" id="signupForm" method="POST" enctype="multipart/form-data">
         {% csrf_token %}
 
-        {% if messages %}
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">
-            {{ message }}
-        </div>
-        {% endfor %}
-        {% endif %}
 
         <!-- Step 1: Personal Information -->
         <div class="form-section active" id="step-1">
@@ -922,6 +902,24 @@
         // Initialize household field visibility
         toggleHouseholdField();
     </script>
+    {% if messages %}
+    <div class="messages-container">
+      {% for message in messages %}
+      <div class="alert alert-{{ message.tags }}" id="alert-{{ forloop.counter }}">
+        <div class="alert-content">
+          {% if message.tags == 'success' %}<i class="fas fa-check-circle"></i>
+          {% elif message.tags == 'error' %}<i class="fas fa-exclamation-circle"></i>
+          {% elif message.tags == 'warning' %}<i class="fas fa-exclamation-triangle"></i>
+          {% else %}<i class="fas fa-info-circle"></i>{% endif %}
+          <span>{{ message }}</span>
+        </div>
+        <button class="alert-close" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/app.js' %}"></script>
 </body>
 
 </html>

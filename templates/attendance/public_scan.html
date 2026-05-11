@@ -91,15 +91,16 @@
         btnStart.addEventListener('click', function() {
             btnStart.disabled = true;
             scanContainer.classList.add('scanning');
-            statusDisplay.textContent = 'Scanner Active - Waiting for finger...';
-            statusDisplay.className = 'status-msg alert alert-info';
-            statusDisplay.classList.remove('d-none');
+            if (window.showNotification) {
+                window.showNotification('Scanner Active - Waiting for finger...', 'info');
+            }
 
             // In a real scenario, this would trigger the 32-bit service for 1:N matching
             // For now, we simulate the request to the backend
             fetch('{% url "attendance:api_biometric_verify" %}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ action: 'verify' })
             })
             .then(res => res.json())

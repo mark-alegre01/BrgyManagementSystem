@@ -3,70 +3,188 @@
 {% block title %}Biometric Registration - Barangay Management System{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <div class="page-title">
-        <h1>Biometric Registration</h1>
-        <span>Register fingerprints for {{ request.user.get_full_name }}</span>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Select Person</h5>
-                <span id="category-label" class="badge badge-official">Barangay Officials</span>
+<div class="biometric-registration-wrapper">
+    <div class="container-fluid p-0">
+        
+        <!-- Compact Header -->
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h1 class="h3 font-weight-bold text-dark mb-1">Biometric Enrollment</h1>
+                <p class="text-muted small mb-0">Register and manage fingerprints for barangay functionaries.</p>
             </div>
-            <div class="card-body">
-                <div class="form-row align-items-end">
-                    <div class="form-group col-md-6">
-                        <label for="category-select" class="mb-1">Category</label>
-                        <select id="category-select" class="form-control">
-                            <option value="officials" selected>Barangay Officials</option>
-                            <option value="bhw">BHW (Health Workers)</option>
-                            <option value="tanod">Barangay Tanod</option>
-                            <option value="staff">Other Staff / Functionaries</option>
-                        </select>
+            <div>
+                {% if request.user.is_superuser or request.user.profile.role == 'captain' or request.user.profile.role == 'secretary' or request.user.profile.role == 'treasurer' or request.user.profile.role == 'admin' %}
+                <button type="button" class="btn btn-sm btn-outline-danger font-weight-bold rounded-lg px-3 shadow-sm transition-all" data-toggle="modal" data-target="#resetBiometricModal">
+                    <i class="fas fa-eraser mr-1"></i> Clear All Fingerprints
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Dense Toolbar & Content Card -->
+        <div class="card border-0 shadow-sm rounded-xl overflow-hidden mb-4">
+            <div class="card-header bg-white border-bottom-0 p-3">
+                <div class="row align-items-center">
+                    <!-- Search -->
+                    <div class="col-md-6 mb-2 mb-md-0">
+                        <div class="position-relative">
+                            <i class="fas fa-search position-absolute text-muted" style="left: 15px; top: 50%; transform: translateY(-50%); font-size: 13px;"></i>
+                            <input 
+                                type="text" 
+                                id="person-search"
+                                placeholder="Search by name or position..." 
+                                class="form-control form-control-sm pl-5 border-light bg-light rounded-lg"
+                                style="height: 40px;"
+                            />
+                        </div>
                     </div>
-                    <div class="form-group col-md-6">
-                        <label for="person-search" class="mb-1">Search</label>
-                        <input type="text" id="person-search" class="form-control" placeholder="Search by name">
+                    <!-- Filter -->
+                    <div class="col-md-6 d-flex justify-content-md-end">
+                        <div class="d-flex align-items-center w-100 w-md-auto">
+                            <div class="dropdown-wrapper w-100">
+                                <select id="category-select" class="form-control form-control-sm border-light bg-light rounded-lg font-weight-bold px-3" style="height: 40px; min-width: 250px; width: 100%;">
+                                    <option value="officials" selected>Barangay Officials</option>
+                                    <option value="bhw">BHW (Health Workers)</option>
+                                    <option value="tanod">Barangay Tanod</option>
+                                    <option value="staff">Other Staff / Functionaries</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="table-responsive">
-                    <table class="table table-hover mb-0" id="functionary-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 40%">Person</th>
-                                <th style="width: 35%">Position</th>
-                                <th style="width: 15%">Status</th>
-                                <th class="text-right" style="width: 10%">Action</th>
+            <div class="card-body p-0">
+                <!-- Desktop Table -->
+                <div class="table-responsive d-none d-md-block">
+                    <table class="table table-hover mb-0">
+                        <thead class="bg-light">
+                            <tr class="text-muted small font-weight-bold text-uppercase">
+                                <th class="border-0 px-4 py-3">Member</th>
+                                <th class="border-0 px-4 py-3">Position</th>
+                                <th class="border-0 px-4 py-3 text-center">Status</th>
+                                <th class="border-0 px-4 py-3 text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody id="functionary-table-body">
+                            <!-- Content loaded by JS -->
                             <tr>
-                                <td colspan="4" class="text-center text-muted">Loading...</td>
+                                <td colspan="4" class="py-5 text-center">
+                                    <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                                    <p class="text-muted small font-weight-bold mb-0">Loading Personnel...</p>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Mobile List -->
+                <div id="functionary-mobile-list" class="d-md-none divide-y">
+                    <!-- Content loaded by JS -->
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
 
-<div class="modal fade" id="biometricModal" tabindex="-1" role="dialog" aria-labelledby="biometricModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-body">
-                <div id="modal-scan-progress" class="mt-2">
-                    <div class="progress" style="height: 10px; background: var(--bg-main);">
-                        <div id="modal-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+<!-- Biometric Enrollment Modal -->
+<div class="modal fade" id="biometricModal" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content secure-setup-card border-0 shadow-lg">
+            <button type="button" class="close position-absolute" data-dismiss="modal" aria-label="Close" style="right: 20px; top: 20px; z-index: 10;">
+                <span aria-hidden="true">&times;</span>
+            </button>
+            <div class="modal-body p-4 p-md-5">
+                
+                <div class="text-center mb-4">
+                    <h2 id="enroll-title" class="h4 font-weight-bold text-dark mb-1">Biometrics</h2>
+                    <p id="enroll-instruction" class="text-muted small font-weight-medium">Place finger on sensor</p>
+                </div>
+
+                <!-- Segments -->
+                <div class="d-flex mb-4 px-2" style="gap: 10px;">
+                    <div class="flex-fill bg-light rounded-pill overflow-hidden" style="height: 6px;">
+                        <div id="seg-1" class="h-100 bg-primary transition-all" style="width: 0%;"></div>
                     </div>
-                    <p id="modal-scan-status-text" class="text-center mt-2 mb-0"></p>
+                    <div class="flex-fill bg-light rounded-pill overflow-hidden" style="height: 6px;">
+                        <div id="seg-2" class="h-100 bg-primary transition-all" style="width: 0%;"></div>
+                    </div>
+                    <div class="flex-fill bg-light rounded-pill overflow-hidden" style="height: 6px;">
+                        <div id="seg-3" class="h-100 bg-primary transition-all" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Scanner Area -->
+                <div class="d-flex justify-content-center mb-4">
+                    <div id="scanner-box" class="scanner-container d-flex align-items-center justify-content-center bg-light border-2 rounded-xl position-relative overflow-hidden" style="width: 160px; height: 160px; border: 2px solid #e9ecef;">
+                        <div id="scanner-laser" class="position-absolute bg-primary d-none" style="left: 10%; right: 10%; height: 2px; box-shadow: 0 0 10px #007bff; animation: scanner-line 2s infinite ease-in-out;"></div>
+                        <i id="fingerprint-icon" class="fas fa-fingerprint text-light" style="font-size: 5rem; transition: color 0.3s;"></i>
+                        <i id="success-icon" class="fas fa-shield-check text-success d-none" style="font-size: 5rem;"></i>
+                    </div>
+                </div>
+
+                <div class="controls px-2">
+                    <button id="enroll-scan-btn" class="btn btn-primary btn-block py-3 font-weight-bold rounded-xl shadow-sm mb-3">
+                        <span id="btn-text">Ready to Scan</span>
+                    </button>
+                    <button id="enroll-reset-btn" class="btn btn-link btn-block btn-sm text-muted font-weight-bold text-decoration-none">
+                        <i class="fas fa-undo-alt mr-1"></i> START OVER
+                    </button>
+                </div>
+
+                <div class="mt-4 pt-3 border-top text-center">
+                    <span class="text-muted small font-weight-bold tracking-widest uppercase">
+                        <i class="fas fa-shield-alt mr-1 opacity-50"></i> Secure System v4
+                    </span>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Modal -->
+<div class="modal fade" id="resetBiometricModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content rounded-xl border-0 shadow-lg">
+            <div class="modal-body p-5 text-center">
+                <div class="bg-danger-light text-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px; background: #fff5f5;">
+                    <i class="fas fa-eraser fa-2x"></i>
+                </div>
+                <h3 class="font-weight-bold text-dark mb-2">Clear All Fingerprints?</h3>
+                <p class="text-muted small mb-4">This will permanently delete <strong>all registered biometric data</strong>. All personnel must re-register to regain access.</p>
+                <div class="d-flex flex-column gap-2">
+                    <a href="{% url 'core:biometric_reset_all' %}" class="btn btn-danger py-3 font-weight-bold rounded-xl shadow-sm d-block text-white text-decoration-none">
+                        Confirm and Clear All
+                    </a>
+                    <button type="button" class="btn btn-light py-2 font-weight-bold text-muted text-decoration-none" data-dismiss="modal">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Single Modal -->
+<div class="modal fade" id="deleteSingleModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content rounded-xl border-0 shadow-lg">
+            <div class="modal-body p-5 text-center">
+                <div class="bg-warning-light text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px; background: #fffdf5;">
+                    <i class="fas fa-user-minus fa-2x"></i>
+                </div>
+                <h3 class="font-weight-bold text-dark mb-2">Remove Registration?</h3>
+                <p class="text-muted small mb-4">Are you sure you want to delete the fingerprint for <strong id="delete-target-name">this member</strong>?</p>
+                <div class="d-flex flex-column gap-2">
+                    <button id="confirm-single-delete" class="btn btn-warning text-white py-3 font-weight-bold rounded-xl shadow-sm">
+                        Confirm Removal
+                    </button>
+                    <button type="button" class="btn btn-light py-2 font-weight-bold text-muted text-decoration-none" data-dismiss="modal">
+                        Cancel
+                    </button>
                 </div>
             </div>
         </div>
@@ -74,484 +192,443 @@
 </div>
 
 <style>
-    #functionary-table thead th {
-        border-top: 0;
-        white-space: nowrap;
-    }
+    .rounded-xl { border-radius: 1.25rem !important; }
+    .transition-all { transition: all 0.3s ease; }
+    .tracking-widest { letter-spacing: 0.15em; }
+    .font-weight-medium { font-weight: 500; }
 
-    #functionary-table tbody td {
-        vertical-align: middle;
-    }
-
-    .status-badge {
-        font-weight: 600;
-        padding: 6px 10px;
-        border-radius: 999px;
-        display: inline-block;
-        font-size: 0.85rem;
-        line-height: 1;
-    }
-
-    .status-registered {
-        background: rgba(40, 167, 69, 0.15);
-        color: #28a745;
-    }
-
-    .status-unregistered {
-        background: rgba(255, 193, 7, 0.18);
-        color: #b58400;
-    }
-
-    .custom-list-group .list-group-item {
-        background-color: transparent;
-        border-color: var(--border);
-        color: var(--text-muted);
-        transition: var(--transition);
-        padding: 12px 16px;
-        border-radius: var(--radius-md) !important;
-        margin-bottom: 4px;
-        border: 1px solid transparent;
-        cursor: pointer;
-    }
-
-    .custom-list-group .list-group-item:hover {
-        background-color: var(--bg-main);
-        color: var(--primary);
-    }
-
-    .custom-list-group .list-group-item.active {
-        background-color: var(--primary-light);
-        border-color: var(--primary);
-        color: var(--primary);
-        font-weight: 600;
-    }
-
-    .biometric-status-icon i {
-        transition: var(--transition);
-    }
-
-    .fa-pulse {
-        animation: fa-spin 1s infinite steps(8);
-    }
-
-    .toast-container {
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        z-index: 2000;
-        max-width: 360px;
-    }
-
-    .app-toast {
-        background: rgba(20, 20, 20, 0.92);
-        color: #fff;
+    /* Custom Avatar */
+    .avatar-circle-modern {
+        width: 38px;
+        height: 38px;
+        background: #f0f4ff;
+        color: #4361ee;
+        border: 1px solid #e0e7ff;
         border-radius: 10px;
-        padding: 12px 14px;
-        margin-bottom: 10px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
-        opacity: 0;
-        transform: translateY(-8px);
-        transition: opacity 220ms ease, transform 220ms ease;
-        border-left: 4px solid #6c757d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 11px;
     }
 
-    .app-toast.show {
-        opacity: 1;
-        transform: translateY(0);
+    /* Status Badges */
+    .status-pill-modern {
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        border: 1px solid transparent;
+    }
+    .status-pill-online { background: #ecfdf5; color: #065f46; border-color: #d1fae5; }
+    .status-pill-offline { background: #f8fafc; color: #64748b; border-color: #e2e8f0; }
+
+    /* Animations */
+    @keyframes scanner-line {
+        0%, 100% { top: 85%; }
+        50% { top: 15%; }
+    }
+    .fingerprint-scanning { color: #4361ee !important; animation: pulse-icon 2s infinite; }
+    @keyframes pulse-icon {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.8; }
     }
 
-    .app-toast.toast-success { border-left-color: #28a745; }
-    .app-toast.toast-danger { border-left-color: #dc3545; }
-    .app-toast.toast-warning { border-left-color: #ffc107; }
+    /* Modal Tweaks */
+    .secure-setup-card { max-width: 380px; margin: auto; }
+    .scanner-active { border-color: #4361ee !important; background: #f5f7ff !important; }
+    .scanner-success { border-color: #10b981 !important; background: #f0fdf4 !important; }
 
-    .app-toast .toast-title {
-        font-weight: 700;
-        font-size: 0.95rem;
-        margin-bottom: 2px;
+    /* Fix dropdown text display */
+    #category-select { 
+        height: 45px !important; 
+        font-size: 14px !important;
+        padding-right: 35px !important;
     }
-
-    .app-toast .toast-body {
-        font-size: 0.9rem;
-        opacity: 0.95;
+    .dropdown-wrapper { position: relative; }
+    .dropdown-wrapper::after {
+        content: '\f078';
+        font-family: 'Font Awesome 5 Free';
+        font-weight: 900;
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+        color: #94a3b8;
+        font-size: 10px;
     }
 </style>
 
 <script>
+    // TOP-LEVEL NOTIFICATION SYSTEM
+    window.showNotification = function(message, type = 'info') {
+        const container = document.querySelector('.messages-container');
+        if (!container) return;
+        
+        const id = Date.now();
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} animate-pop-in`;
+        alert.id = `alert-js-${id}`;
+        
+        const icon = type === 'success' ? 'fa-check-circle' : 
+                     (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
+                     
+        alert.innerHTML = `
+            <div class="alert-content">
+                <i class="fas ${icon}"></i>
+                <span>${message}</span>
+            </div>
+            <button class="alert-close" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+        `;
+        
+        container.appendChild(alert);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (alert.parentElement) alert.remove();
+        }, 5000);
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
-        // ESP32 proxy endpoints via Django backend
-        const ESP32_PROXY_STATUS_URL = '/officials/esp32/status/';
-        const ESP32_PROXY_START_URL = '/officials/esp32/start-enrollment/';
-        const ESP32_PROXY_STOP_URL = '/officials/esp32/stop-enrollment/';
+        const ESP32_PROXY_STATUS_URL = '{% url "officials:esp32_status_proxy" %}';
+        const ESP32_PROXY_START_URL = '{% url "officials:esp32_start_enrollment_proxy" %}';
+        const ESP32_PROXY_STOP_URL = '{% url "officials:esp32_stop_enrollment_proxy" %}';
 
         const categorySelect = document.getElementById('category-select');
+        const tableBody = document.getElementById('functionary-table-body');
+        const mobileList = document.getElementById('functionary-mobile-list');
         const personSearch = document.getElementById('person-search');
-        const functionaryTableBody = document.getElementById('functionary-table-body');
-        const categoryLabel = document.getElementById('category-label');
-
-        const toastContainer = document.getElementById('toast-container');
-
+        
         const biometricModalEl = document.getElementById('biometricModal');
-        const modalScanProgress = document.getElementById('modal-scan-progress');
-        const modalProgressBar = document.getElementById('modal-progress-bar');
-        const modalScanStatusText = document.getElementById('modal-scan-status-text');
+        const enrollTitle = document.getElementById('enroll-title');
+        const enrollInstruction = document.getElementById('enroll-instruction');
+        const scannerBox = document.getElementById('scanner-box');
+        const scannerLaser = document.getElementById('scanner-laser');
+        const fingerprintIcon = document.getElementById('fingerprint-icon');
+        const successIcon = document.getElementById('success-icon');
+        const enrollScanBtn = document.getElementById('enroll-scan-btn');
+        const btnText = document.getElementById('btn-text');
+        const enrollResetBtn = document.getElementById('enroll-reset-btn');
 
         let currentOfficialId = null;
         let statusInterval = null;
-        let esp32Connected = false;
-        let lastEsp32Connected = null;
-        let currentOfficials = [];
+        let currentScanCount = 0;
+        let lastSyncedScan = 0;
+        let lastState = 'standby';
+        let allOfficials = [];
 
-        function showToast(title, message, type = 'warning', timeoutMs = 3500) {
-            if (!toastContainer) return;
-            const toast = document.createElement('div');
-            toast.className = `app-toast toast-${type}`;
-            toast.innerHTML = `
-                <div class="toast-title">${title}</div>
-                <div class="toast-body">${message}</div>
-            `;
-            toastContainer.appendChild(toast);
-            requestAnimationFrame(() => toast.classList.add('show'));
-
-            window.setTimeout(() => {
-                toast.classList.remove('show');
-                window.setTimeout(() => {
-                    if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
-                }, 240);
-            }, timeoutMs);
+        function getInitials(name) {
+            return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
         }
 
-        // Check ESP32 connectivity
-        function updateEsp32Status(connected, message) {
-            esp32Connected = connected;
-            if (lastEsp32Connected === null || lastEsp32Connected !== connected) {
-                lastEsp32Connected = connected;
-                if (connected) {
-                    showToast('ESP32', message, 'success', 2500);
+        function renderPersonnel() {
+            const query = (personSearch.value || "").trim().toLowerCase();
+            const filtered = allOfficials.filter(off => 
+                off.full_name.toLowerCase().includes(query) ||
+                (off.position || "").toLowerCase().includes(query)
+            );
+
+            tableBody.innerHTML = '';
+            mobileList.innerHTML = '';
+
+            if (filtered.length === 0) {
+                const emptyRow = `<tr><td colspan="4" class="py-5 text-center text-muted small font-weight-bold">No results found</td></tr>`;
+                tableBody.innerHTML = emptyRow;
+                mobileList.innerHTML = '<div class="p-4 text-center text-muted small font-weight-bold">No results found</div>';
+                return;
+            }
+
+            filtered.forEach(off => {
+                const isReg = !!off.has_fingerprint;
+                const initials = getInitials(off.full_name);
+                
+                // Desktop Row
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-4 py-3 align-middle">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle-modern mr-3">${initials}</div>
+                            <div>
+                                <div class="font-weight-bold text-dark small">${off.full_name}</div>
+                                <div class="text-muted" style="font-size: 10px;">ID: ${off.id}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 align-middle font-weight-bold text-secondary small">${off.position || 'N/A'}</td>
+                    <td class="px-4 py-3 align-middle text-center">
+                        <span class="status-pill-modern ${isReg ? 'status-pill-online' : 'status-pill-offline'}">
+                            ${isReg ? 'Online' : 'Offline'}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 align-middle text-right">
+                        <div class="d-flex justify-content-end align-items-center" style="gap: 8px;">
+                            <button type="button" class="btn btn-sm register-trigger-btn font-weight-bold px-3 rounded-lg ${isReg ? 'btn-success text-white border-0' : 'btn-primary'}" data-id="${off.id}" ${isReg ? 'disabled' : ''}>
+                                ${isReg ? 'Registered' : 'Register'}
+                            </button>
+                            ${isReg ? `
+                                <button type="button" class="btn btn-sm btn-outline-danger border-0 delete-single-trigger rounded-lg" data-id="${off.id}" data-name="${off.full_name}" title="Delete Fingerprint">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+
+                // Mobile Card
+                const mobileCard = document.createElement('div');
+                mobileCard.className = 'p-3 border-bottom';
+                mobileCard.innerHTML = `
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle-modern mr-2" style="width: 32px; height: 32px; font-size: 10px;">${initials}</div>
+                            <div class="font-weight-bold text-dark small">${off.full_name}</div>
+                        </div>
+                        <span class="status-pill-modern ${isReg ? 'status-pill-online' : 'status-pill-offline'}">${isReg ? 'Online' : 'Offline'}</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between">
+                         <span class="text-muted" style="font-size: 10px;">${off.position || 'N/A'}</span>
+                         <div class="d-flex align-items-center" style="gap: 12px;">
+                             ${isReg ? `
+                                <span class="text-success small font-weight-bold">Registered</span>
+                                <button type="button" class="btn btn-link p-0 text-danger delete-single-trigger" data-id="${off.id}" data-name="${off.full_name}">
+                                    <i class="fas fa-trash-alt" style="font-size: 12px;"></i>
+                                </button>
+                             ` : `<button class="btn btn-sm btn-link font-weight-bold p-0 text-primary register-trigger-btn" data-id="${off.id}">Register &rsaquo;</button>`}
+                         </div>
+                    </div>
+                `;
+                mobileList.appendChild(mobileCard);
+            });
+        }
+
+        function loadPersonnel(category) {
+            fetch(`/officials/api/by-category/?category=${category}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        allOfficials = data.officials || [];
+                        renderPersonnel();
+                    }
+                });
+        }
+
+        function updateModalUI(scanNum, message, status = 'standby') {
+            currentScanCount = scanNum;
+            enrollInstruction.textContent = message;
+            enrollInstruction.style.color = (status === 'error') ? '#dc3545' : '#6c757d';
+            
+            for (let i = 1; i <= 3; i++) {
+                const seg = document.getElementById(`seg-${i}`);
+                if (seg) seg.style.width = (i <= scanNum) ? '100%' : '0%';
+            }
+
+            if (scanNum === 3) {
+                enrollTitle.textContent = "Registration Complete";
+                scannerBox.className = "scanner-container scanner-success d-flex align-items-center justify-content-center border-2 rounded-xl position-relative overflow-hidden";
+                fingerprintIcon.classList.add('d-none');
+                successIcon.classList.remove('d-none');
+                scannerLaser.classList.add('d-none');
+                btnText.textContent = "Finish Setup";
+                enrollScanBtn.disabled = false;
+                enrollScanBtn.className = "btn btn-success btn-block py-3 font-weight-bold rounded-xl shadow-sm mb-3";
+            } else {
+                const isScanning = (status === 'enrolling' || status === 'detected');
+                enrollTitle.textContent = "Biometrics";
+                scannerBox.className = "scanner-container d-flex align-items-center justify-content-center bg-light border-2 rounded-xl position-relative overflow-hidden" + (isScanning ? ' scanner-active' : '');
+                fingerprintIcon.classList.remove('d-none');
+                successIcon.classList.add('d-none');
+                fingerprintIcon.className = "fas fa-fingerprint " + (isScanning ? 'fingerprint-scanning' : 'text-light');
+                scannerLaser.classList.toggle('d-none', !isScanning);
+                
+                if (status === 'error') {
+                    btnText.textContent = "Retry Scan";
+                    enrollScanBtn.disabled = false;
+                    enrollScanBtn.className = "btn btn-danger btn-block py-3 font-weight-bold rounded-xl shadow-sm mb-3";
                 } else {
-                    showToast('ESP32', message, 'danger', 4000);
+                    btnText.textContent = isScanning ? "Scanning..." : "Ready to Scan";
+                    enrollScanBtn.disabled = isScanning;
+                    enrollScanBtn.className = `btn btn-primary btn-block py-3 font-weight-bold rounded-xl shadow-sm mb-3 ${isScanning ? 'opacity-50' : ''}`;
                 }
             }
         }
 
-        function checkESP32Status() {
-            const statusUrl = ESP32_PROXY_STATUS_URL;
-            console.log(`Checking ESP32 status at ${statusUrl}`);
-
-            fetch(statusUrl, {
-                credentials: 'same-origin'
-            })
-                .then(res => {
-                    if (!res.ok) throw new Error(`Server responded ${res.status}`);
-                    return res.json();
-                })
-                .then(data => {
-                    if (data.status === 'error') {
-                        throw new Error(data.message || 'ESP32 proxy returned error');
-                    }
-                    updateEsp32Status(true, 'Connected');
-                    console.log('[UI] ESP32 status OK:', data);
-                })
-                .catch(err => {
-                    const message = `Not Connected - ${err.message}`;
-                    console.error('ESP32 status check failed:', err);
-                    updateEsp32Status(false, message);
-                });
-        }
-
-        // Check ESP32 status periodically
-        setInterval(checkESP32Status, 5000);
-        checkESP32Status(); // Check immediately
-
-        // Load officials by category
-        function loadOfficials(category) {
-            fetch(`/officials/api/by-category/?category=${category}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (!data || data.status !== 'success') {
-                        throw new Error((data && data.message) || 'Failed to load people');
-                    }
-
-                    currentOfficials = data.officials || [];
-                    renderOfficials();
-                });
-        }
-
-        function renderOfficials() {
-            const query = (personSearch && personSearch.value ? personSearch.value : '').trim().toLowerCase();
-
-            const officials = !query
-                ? currentOfficials
-                : currentOfficials.filter(o => String(o.full_name || '').toLowerCase().includes(query));
-
-            functionaryTableBody.innerHTML = '';
-
-            if (!officials || officials.length === 0) {
-                const tr = document.createElement('tr');
-                tr.innerHTML = '<td colspan="4" class="text-center text-muted">No records found.</td>';
-                functionaryTableBody.appendChild(tr);
-                return;
-            }
-
-            officials.forEach(off => {
-                        const tr = document.createElement('tr');
-                        const isRegistered = !!off.has_fingerprint;
-                        const statusHtml = isRegistered
-                            ? '<span class="status-badge status-registered">Registered</span>'
-                            : '<span class="status-badge status-unregistered">Unregistered</span>';
-                        const actionText = isRegistered ? 'Registered' : 'Register';
-                        const actionClass = isRegistered ? 'btn btn-sm btn-secondary' : 'btn btn-sm btn-primary';
-                        const actionDisabled = isRegistered ? 'disabled' : '';
-                        tr.innerHTML = `
-                            <td>${off.full_name}</td>
-                            <td class="text-muted">${off.position || ''}</td>
-                            <td>${statusHtml}</td>
-                            <td class="text-right">
-                                <button type="button" class="${actionClass}" data-action="register" data-id="${off.id}" data-name="${off.full_name}" data-position="${off.position || ''}" data-fingerprint="${isRegistered}" ${actionDisabled}>${actionText}</button>
-                            </td>
-                        `;
-                        functionaryTableBody.appendChild(tr);
-                    });
-        }
-
-        // Initial load
-        loadOfficials(categorySelect.value);
-
-        categorySelect.addEventListener('change', function () {
-            const selectedText = this.options[this.selectedIndex] ? this.options[this.selectedIndex].textContent.trim() : 'Category';
-            categoryLabel.textContent = selectedText;
-            loadOfficials(this.value);
-        });
-
-        if (personSearch) {
-            personSearch.addEventListener('input', function () {
-                renderOfficials();
-            });
-        }
-
-        functionaryTableBody.addEventListener('click', function (e) {
-            const btn = e.target && e.target.closest ? e.target.closest('button[data-action="register"]') : null;
-            if (!btn) return;
-
-            if (btn.disabled) return;
-
-            currentOfficialId = btn.dataset.id;
-            resetModalUi();
-
-            if (window.$ && biometricModalEl) {
-                window.$(biometricModalEl).modal('show');
-            }
-
-            beginEnrollment();
-        });
-
-        function resetModalUi() {
-            if (statusInterval) {
-                clearInterval(statusInterval);
-                statusInterval = null;
-            }
-            modalScanProgress.classList.remove('d-none');
-            modalProgressBar.style.width = '0%';
-            modalProgressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
-            modalScanStatusText.textContent = '';
-        }
-
-        if (biometricModalEl && window.$) {
-            window.$(biometricModalEl).on('hidden.bs.modal', function () {
-                resetModalUi();
-            });
-        }
-
-        function beginEnrollment() {
-            if (!currentOfficialId) return;
-
-            modalScanProgress.classList.remove('d-none');
-            modalProgressBar.style.width = '10%';
-            modalScanStatusText.textContent = 'Preparing enrollment...';
-
-            // Initialize enrollment session with Django
-            fetch(`/officials/${currentOfficialId}/enrollment/start/`, {
-                method: 'GET',
-                credentials: 'same-origin'
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        // Start ESP32 enrollment
-                        startESP32Enrollment();
-                    } else {
-                        showError(data.message);
-                    }
-                })
-                .catch(err => showError('Failed to initialize enrollment'));
-        }
-
-        let lastDetectedState = 'standby';
-        let currentScanCount = 0;
-
-        function startESP32Enrollment() {
-            console.log('[UI] Starting ESP32 enrollment...');
-
-            // Call ESP32 start-enrollment via Django proxy
-            fetch(ESP32_PROXY_START_URL, {
-                method: 'POST',
-                credentials: 'same-origin'
-            })
-                .then(response => {
-                    console.log('[UI] ESP32 start-enrollment response:', response);
-                    if (!response.ok) {
-                        throw new Error(`ESP32 responded with status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('[UI] ESP32 enrollment started:', data);
-                    modalScanStatusText.textContent = 'ESP32 ready. Place finger on scanner for scan 1 of 3...';
-                    startScanMonitoring(0);
-                })
-                .catch(error => {
-                    console.error('[UI] Failed to start ESP32 enrollment:', error);
-                    esp32Connected = false;
-                    showError('Failed to start ESP32 enrollment: ' + error.message);
-                });
-        }
-
-        function startScanMonitoring(scanCount) {
-            currentScanCount = scanCount;
-            let detectionAttempts = 0;
-            const maxAttempts = 120; // 2 minutes max per scan
-
+        function startMonitoring() {
             if (statusInterval) clearInterval(statusInterval);
-
-            console.log(`[UI] Starting scan monitoring for scan ${currentScanCount + 1} of 3`);
-
+            lastSyncedScan = 0;
             statusInterval = setInterval(() => {
-                detectionAttempts++;
-
-                // Poll ESP32 status via Django proxy
-                fetch(ESP32_PROXY_STATUS_URL, {
-                    credentials: 'same-origin'
-                })
-                    .then(res => {
-                        if (!res.ok) throw new Error('ESP32 status failed');
-                        return res.json();
-                    })
+                fetch(ESP32_PROXY_STATUS_URL)
+                    .then(res => res.json())
                     .then(data => {
-                        console.log(`[UI] ESP32 status poll ${detectionAttempts}:`, data);
-                        const currentState = data.state || 'standby';
-
-                        // Check if state transitioned to detected
-                        if (currentState === 'detected' && lastDetectedState !== 'detected') {
-                            console.log(`[UI] 🎯 Fingerprint detected! Scan ${currentScanCount + 1} of 3`);
-                            lastDetectedState = 'detected';
-                            handleFingerprintDetectionEvent();
-                        } else if (currentState !== 'detected') {
-                            lastDetectedState = currentState;
+                        const scanCount = data.current_scan || 0;
+                        const status = data.state || 'standby';
+                        let message = data.last_error || (status === 'enrolling' ? 'Place finger on sensor' : 'Ready');
+                        
+                        // DUPLICATE LOOKUP: If already registered, find the owner's name
+                        if (status === 'auth_failed' && message.includes("Already registered")) {
+                            const match = message.match(/ID: (\d+)/);
+                            if (match && match[1]) {
+                                const dupId = match[1];
+                                if (!window._lastDupId || window._lastDupId !== dupId) {
+                                    window._lastDupId = dupId;
+                                    fetch(`/residents/fingerprint-lookup/?id=${dupId}`)
+                                        .then(res => res.json())
+                                        .then(dupData => {
+                                            if (dupData.status === 'success') {
+                                                const betterMessage = `Fingerprint already registered by ${dupData.name}`;
+                                                
+                                                // NEW: Close modal and show top-level notification
+                                                if (window.$) $('#biometricModal').modal('hide');
+                                                window.showNotification(betterMessage, "error");
+                                                
+                                                // Stop polling and return early
+                                                clearInterval(statusInterval);
+                                                return;
+                                            }
+                                        });
+                                }
+                                return; // Don't proceed to updateModalUI yet
+                            }
                         }
 
-                        // Timeout check
-                        if (detectionAttempts >= maxAttempts) {
-                            clearInterval(statusInterval);
-                            console.error('[UI] Scan timeout reached');
-                            showError(`Scan ${currentScanCount + 1} timeout. Please try again.`);
+                        updateModalUI(scanCount, message, status);
+                        if (scanCount > 0 && scanCount > lastSyncedScan) {
+                            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                            fetch(`/officials/${currentOfficialId}/enrollment/sync-progress/`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                                body: JSON.stringify({ current_scan: scanCount })
+                            }).then(() => {
+                                lastSyncedScan = scanCount;
+                                if (scanCount === 3 && lastState !== 'success') {
+                                    clearInterval(statusInterval);
+                                    lastState = 'success';
+                                    finishEnrollment();
+                                }
+                            });
                         }
+                        if (scanCount < 3) lastState = status;
                     })
-                    .catch(error => {
-                        console.warn('[UI] ESP32 status poll failed:', error);
-                        // Continue polling even if ESP32 is temporarily unreachable
-                    });
-            }, 500);  // Poll every 500ms for responsive detection
+                    .catch(err => console.error("Monitor error:", err));
+            }, 800);
         }
 
-        function handleFingerprintDetectionEvent() {
-            currentScanCount++;
-            const scanProgress_percent = (currentScanCount / 3) * 100;
-
-            console.log(`[UI] Processing fingerprint detection - Scan ${currentScanCount}/3 completed`);
-
-            // Update progress bar
-            modalProgressBar.style.width = scanProgress_percent + '%';
-            modalScanStatusText.textContent = `✓ Scan ${currentScanCount} of 3 detected! ${currentScanCount < 3 ? 'Ready for next scan...' : 'Processing...'}`;
-
-            // Visual feedback
-            if (currentScanCount < 3) {
-                // Wait 2 seconds for user to remove finger, then restart scanning
-                console.log(`[UI] Waiting 2 seconds before scan ${currentScanCount + 1}...`);
-                setTimeout(() => {
-                    modalScanStatusText.textContent = `Waiting for scan ${currentScanCount + 1} of 3...`;
-                    startScanMonitoring(currentScanCount);
-                }, 2000);
-            } else {
-                // All 3 scans complete - register fingerprint
-                console.log('[UI] All 3 scans completed, registering fingerprint...');
-                clearInterval(statusInterval);
-                finishEnrollmentWith3Scans();
-            }
-        }
-
-        function finishEnrollmentWith3Scans() {
-            modalScanStatusText.textContent = 'All scans complete! Registering fingerprint...';
-            modalProgressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
-
-            // Stop ESP32 enrollment via Django proxy
-            fetch(ESP32_PROXY_STOP_URL, { 
-                method: 'POST',
-                credentials: 'same-origin'
-            })
-                .catch(() => {}); // Ignore errors, just stop
-
-            // Register with Django
-            fetch(`/officials/${currentOfficialId}/enrollment/register/`, {
-                method: 'GET',
-                credentials: 'same-origin'
-            })
+        function finishEnrollment() {
+            fetch(`/officials/${currentOfficialId}/enrollment/register/`)
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        modalProgressBar.style.width = '100%';
-                        modalProgressBar.className = 'progress-bar bg-success';
-                        modalScanStatusText.textContent = 'Success! Fingerprint registered after 3 scans.';
-
-                        // Refresh the table to reflect new status
-                        loadOfficials(categorySelect.value);
-
-                        setTimeout(() => {
-                            modalScanProgress.classList.add('d-none');
-                            modalProgressBar.style.width = '0%';
-                            modalProgressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
-                            currentScanCount = 0;
-                            lastDetectedState = 'standby';
-                        }, 3000);
-                    } else {
-                        throw new Error(data.message);
+                        updateModalUI(3, "Personnel Registered", "success");
+                        loadPersonnel(categorySelect.value);
                     }
-                })
-                .catch(err => showError('Failed to register fingerprint: ' + err.message));
+                });
         }
 
-        function showError(msg) {
-            modalScanProgress.classList.remove('d-none');
-            modalProgressBar.className = 'progress-bar bg-danger';
-            modalScanStatusText.textContent = '';
-            showToast('Biometrics', msg, 'danger', 4500);
+        personSearch.addEventListener('input', renderPersonnel);
+        categorySelect.addEventListener('change', () => loadPersonnel(categorySelect.value));
 
-            // Stop ESP32 enrollment via Django proxy
-            fetch(ESP32_PROXY_STOP_URL, { 
-                method: 'POST',
-                credentials: 'same-origin'
-            })
-                .catch(() => {});
-
-            setTimeout(() => {
-                modalScanProgress.classList.add('d-none');
-                modalProgressBar.style.width = '0%';
-                currentScanCount = 0;
-                lastDetectedState = 'standby';
-            }, 5000);
-
-            if (window.$ && biometricModalEl) {
-                window.$(biometricModalEl).modal('hide');
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.register-trigger-btn');
+            if (btn && !btn.disabled) {
+                currentOfficialId = btn.getAttribute('data-id');
+                const originalContent = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+                fetch(`/officials/${currentOfficialId}/enrollment/start/`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            return fetch(`${ESP32_PROXY_START_URL}?id=${data.slot_id}`, {method: 'POST'});
+                        } else throw new Error(data.message);
+                    })
+                    .then(espRes => {
+                        btn.disabled = false;
+                        btn.innerHTML = originalContent;
+                        if (espRes.ok) {
+                            updateModalUI(0, "Place finger on sensor", "enrolling");
+                            if (window.$) $('#biometricModal').modal('show');
+                            startMonitoring();
+                        }
+                    })
+                    .catch(err => {
+                        btn.disabled = false;
+                        btn.innerHTML = originalContent;
+                        alert("Error: " + err.message);
+                    });
             }
+
+            // Delete Single Logic
+            const delBtn = e.target.closest('.delete-single-trigger');
+            if (delBtn) {
+                const id = delBtn.getAttribute('data-id');
+                const name = delBtn.getAttribute('data-name');
+                document.getElementById('delete-target-name').textContent = name;
+                document.getElementById('confirm-single-delete').setAttribute('data-id', id);
+                if (window.$) $('#deleteSingleModal').modal('show');
+            }
+        });
+
+        document.getElementById('confirm-single-delete').addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i> Removing...';
+            
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            fetch(`/officials/${id}/enrollment/remove/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (window.$) $('#deleteSingleModal').modal('hide');
+                btn.disabled = false;
+                btn.innerHTML = 'Confirm Removal';
+                if (data.status === 'success') {
+                    loadPersonnel(categorySelect.value);
+                } else {
+                    alert("Error: " + data.message);
+                }
+            })
+            .catch(err => {
+                alert("Request failed");
+                btn.disabled = false;
+                btn.innerHTML = 'Confirm Removal';
+            });
+        });
+
+        enrollResetBtn.addEventListener('click', () => {
+            fetch(ESP32_PROXY_STOP_URL, {method: 'POST'})
+                .then(() => fetch(ESP32_PROXY_START_URL, {method: 'POST'}))
+                .then(() => {
+                    updateModalUI(0, "Place finger on sensor", "enrolling");
+                    startMonitoring();
+                });
+        });
+
+        enrollScanBtn.addEventListener('click', () => {
+            if (btnText.textContent === "Finish Setup") {
+                if (window.$) $('#biometricModal').modal('hide');
+            } else if (btnText.textContent === "Retry Scan") {
+                fetch(ESP32_PROXY_START_URL, {method: 'POST'})
+                    .then(() => {
+                        updateModalUI(currentScanCount, "Place finger on sensor", "enrolling");
+                        startMonitoring();
+                    });
+            }
+        });
+
+        if (window.$) {
+            $('#biometricModal').on('hidden.bs.modal', function () {
+                clearInterval(statusInterval);
+                fetch(ESP32_PROXY_STOP_URL, {method: 'POST'}).catch(() => {});
+            });
         }
+
+        loadPersonnel(categorySelect.value);
     });
 </script>
+
 {% endblock %}

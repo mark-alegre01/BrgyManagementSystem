@@ -25,10 +25,10 @@ def reports_dashboard(request):
         # Certificates this month
         'certs_this_month': Certificate.objects.filter(date_issued__gte=month_start).count(),
         'cert_breakdown': [
-            {'type': dict(Certificate.TYPE_CHOICES).get(item['cert_type'], item['cert_type'].replace('_', ' ').title()), 'count': item['count']}
-            for item in Certificate.objects.filter(date_issued__gte=month_start).values('cert_type').annotate(count=Count('id'))
+            {'type': dict(Certificate.TYPE_CHOICES).get(item['certificate_request__cert_type'], item['certificate_request__cert_type'].replace('_', ' ').title()), 'count': item['count']}
+            for item in Certificate.objects.filter(date_issued__gte=month_start).values('certificate_request__cert_type').annotate(count=Count('id'))
         ],
-        'total_revenue': Certificate.objects.filter(date_issued__gte=month_start).aggregate(total=Sum('amount_paid'))['total'] or 0,
+        'total_revenue': Certificate.objects.filter(date_issued__gte=month_start).aggregate(total=Sum('certificate_request__payment__amount'))['total'] or 0,
 
         # Attendance
         'attendance_today': AttendanceLog.objects.filter(date=today).count(),

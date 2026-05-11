@@ -31,12 +31,19 @@
       <div class="form-row">
         <div class="form-group col-12">
           <label>Purok / Zone*</label>
-          <select name="purok" id="id_purok" class="form-control" required>
-            <option value="">-- Select Purok --</option>
-            {% for p in puroks %}
-            <option value="{{ p.id }}" {% if household.purok_id == p.id %}selected{% endif %}>{{ p.name }}</option>
-            {% endfor %}
-          </select>
+          <div class="d-flex align-items-center" style="gap: 10px;">
+            <select name="purok" id="id_purok" class="form-control" required>
+              <option value="">-- Select Purok --</option>
+              {% for p in puroks %}
+              <option value="{{ p.id }}" {% if household.purok_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+              {% endfor %}
+            </select>
+            {% if request.user.is_superuser or request.user.profile.role == 'captain' or request.user.profile.role == 'secretary' or request.user.profile.role == 'treasurer' or request.user.profile.role == 'admin' %}
+            <button type="button" class="btn btn-primary d-flex align-items-center justify-content-center" data-toggle="modal" data-target="#addPurokModal" style="width: 45px; height: 45px; min-width: 45px; border-radius: 0.75rem;">
+              <i class="fas fa-plus"></i>
+            </button>
+            {% endif %}
+          </div>
         </div>
       </div>
       <div class="form-row">
@@ -56,6 +63,29 @@
   </form>
 </div>
 
+<!-- Add Purok Modal -->
+<div class="modal fade" id="addPurokModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1.5rem;">
+            <div class="modal-header border-0 pt-4 px-4">
+                <h5 class="modal-title font-weight-bold" style="color: #1e293b;">Add New Purok / Zone</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body px-4 pb-4">
+                <div class="form-group mb-4">
+                    <label class="text-muted small font-weight-bold text-uppercase">Purok Name</label>
+                    <input type="text" id="new_purok_name" class="form-control py-3" placeholder="Enter purok name (e.g. Purok 1)" style="border-radius: 0.75rem;">
+                </div>
+                <button type="button" id="btn-save-purok" class="btn btn-primary btn-block py-3 font-weight-bold" style="border-radius: 1rem;">
+                    Save Purok
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
   .modern-form {
     padding: 30px;
@@ -65,4 +95,54 @@
     flex: 0 0 100%;
   }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const btnSavePurok = document.getElementById('btn-save-purok');
+    const newPurokInput = document.getElementById('new_purok_name');
+    const purokSelect = document.getElementById('id_purok');
+
+    if (btnSavePurok) {
+        btnSavePurok.addEventListener('click', function() {
+            const name = newPurokInput.value.trim();
+            if (!name) {
+                alert('Please enter a purok name');
+                return;
+            }
+
+            btnSavePurok.disabled = true;
+            btnSavePurok.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
+
+            fetch('{% url "residents:purok_add_api" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({ name: name })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const option = new Option(data.name, data.id);
+                    purokSelect.add(option);
+                    purokSelect.value = data.id;
+                    $('#addPurokModal').modal('hide');
+                    newPurokInput.value = '';
+                } else {
+                    alert(data.message || 'Failed to save purok');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('An error occurred while saving');
+            })
+            .finally(() => {
+                btnSavePurok.disabled = false;
+                btnSavePurok.innerHTML = 'Save Purok';
+            });
+        });
+    }
+});
+</script>
 {% endblock %}

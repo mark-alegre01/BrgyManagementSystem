@@ -48,7 +48,7 @@ def get_officials_by_category(request):
             'id': official.id,
             'full_name': official.resident.full_name,
             'position': official.get_position_display(),
-            'has_fingerprint': bool(official.fingerprint_template and len(official.fingerprint_template) > 100)
+            'has_fingerprint': bool(official.fingerprint_template and len(official.fingerprint_template) > 10)
         }
         for official in officials
     ]
@@ -77,13 +77,13 @@ def biometric_status(request):
     
     if official_id:
         official = Official.objects.filter(pk=official_id).first()
-        has_template = bool(official and official.fingerprint_template and len(official.fingerprint_template) > 100)
+        has_template = bool(official and official.fingerprint_template and len(official.fingerprint_template) > 10)
     elif profile_id:
         profile = UserProfile.objects.filter(pk=profile_id).first()
-        has_template = bool(profile and profile.fingerprint_template and len(profile.fingerprint_template) > 100)
+        has_template = bool(profile and profile.fingerprint_template and len(profile.fingerprint_template) > 10)
     else:
         profile = getattr(request.user, 'profile', None)
-        has_template = bool(profile and profile.fingerprint_template and len(profile.fingerprint_template) > 100)
+        has_template = bool(profile and profile.fingerprint_template and len(profile.fingerprint_template) > 10)
 
     return JsonResponse({'has_template': has_template})
 
@@ -92,9 +92,10 @@ def esp32_status_proxy(request):
     if not request.user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': 'Authentication required'}, status=401)
     
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.40:80')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
     try:
-        response = requests.get(f"{esp32_base_url}/status", timeout=4)
+        # Bypassing proxies for local network reliability
+        response = requests.get(f"{esp32_base_url}/status", timeout=10, proxies={'http': None, 'https': None})
         response.raise_for_status()
         try:
             payload = response.json()
@@ -102,9 +103,14 @@ def esp32_status_proxy(request):
             payload = {'status': 'success', 'message': response.text}
         return JsonResponse(payload, status=response.status_code)
     except requests.RequestException as exc:
+        if exc.response is not None:
+             try:
+                 return JsonResponse(exc.response.json(), status=exc.response.status_code)
+             except Exception:
+                 return JsonResponse({'status': 'error', 'message': f'ESP32 Error: {exc.response.text}'}, status=exc.response.status_code)
         return JsonResponse({
             'status': 'error',
-            'message': f'ESP32 status proxy failed ({esp32_base_url}): {str(exc)}'
+            'message': f'ESP32 disconnected or IP changed. Tried: {esp32_base_url}. Error: {str(exc)}'
         }, status=503)
     except Exception as exc:
         return JsonResponse({
@@ -120,9 +126,16 @@ def esp32_start_enrollment_proxy(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.40:80')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+    slot_id = request.GET.get('id') or request.POST.get('id')
+    
+    url = f"{esp32_base_url}/start-enrollment"
+    if slot_id:
+        url += f"?id={slot_id}"
+        
     try:
-        response = requests.post(f"{esp32_base_url}/start-enrollment", timeout=6)
+        # Bypassing proxies for local network reliability
+        response = requests.post(url, timeout=25, proxies={'http': None, 'https': None})
         response.raise_for_status()
         try:
             payload = response.json()
@@ -130,9 +143,14 @@ def esp32_start_enrollment_proxy(request):
             payload = {'status': 'success', 'message': response.text}
         return JsonResponse(payload, status=response.status_code)
     except requests.RequestException as exc:
+        if exc.response is not None:
+             try:
+                 return JsonResponse(exc.response.json(), status=exc.response.status_code)
+             except Exception:
+                 return JsonResponse({'status': 'error', 'message': f'ESP32 Error: {exc.response.text}'}, status=exc.response.status_code)
         return JsonResponse({
             'status': 'error',
-            'message': f'ESP32 start-enrollment proxy failed ({esp32_base_url}): {str(exc)}'
+            'message': f'ESP32 unreachable at {esp32_base_url}. Error: {str(exc)}'
         }, status=503)
     except Exception as exc:
         return JsonResponse({
@@ -148,9 +166,9 @@ def esp32_stop_enrollment_proxy(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.40:80')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55')
     try:
-        response = requests.post(f"{esp32_base_url}/stop-enrollment", timeout=4)
+        response = requests.post(f"{esp32_base_url}/stop-enrollment", timeout=4, proxies={'http': None, 'https': None})
         response.raise_for_status()
         try:
             payload = response.json()
@@ -352,29 +370,45 @@ def official_add(request):
             )
             official.save()
 
+            from core.models import Role, UserProfile
+            role_obj = Role.objects.filter(name=position).first()
+
+            username = request.POST.get('username')
+            password = request.POST.get('password')
+
             # Handle User Account Creation/Update
             if hasattr(resident, 'user_profile') and resident.user_profile:
-                # Update existing user role
+                # Update existing user
                 user_profile = resident.user_profile
                 user = user_profile.user
-                user.role = position
+                
+                # Update role
+                if role_obj:
+                    user.role = role_obj
+                
+                # Update username if provided
+                if username:
+                    user.username = username
+                
+                # Update password if provided
+                if password:
+                    user.set_password(password)
+                
                 user.save()
                 official.user = user
                 official.save()
             else:
                 # Create new user if provided
-                username = request.POST.get('username')
-                password = request.POST.get('password')
-                
                 if username and password:
                     user = User.objects.create_user(
                         username=username,
                         password=password,
                         first_name=resident.first_name,
                         last_name=resident.last_name,
-                        role=position
                     )
-                    from core.models import UserProfile
+                    if role_obj:
+                        user.role = role_obj
+                        user.save()
                     UserProfile.objects.create(user=user, resident=resident)
                     official.user = user
                     official.save()
@@ -389,11 +423,13 @@ def official_add(request):
     # create a dict to easily check in JS if a resident has a user account
     residents_data = []
     for r in available_residents:
-        has_account = hasattr(r, 'user_profile') and r.user_profile is not None
+        profile = getattr(r, 'user_profile', None)
+        has_account = profile is not None
         residents_data.append({
             'pk': r.pk,
             'name': f"{r.last_name}, {r.first_name}" + (f" {r.middle_name}" if r.middle_name else "") + (f" {r.suffix}" if r.suffix else "") + (f" — {r.purok}" if r.purok else ""),
-            'has_account': has_account
+            'has_account': has_account,
+            'username': profile.user.username if has_account else ''
         })
 
     context = {
@@ -610,8 +646,12 @@ def onboard_verify_otp(request, token):
             user.save()
             
             # 2. Create UserProfile
-            profile, _ = UserProfile.objects.get_or_create(user=user, defaults={'role': invite.position})
-            profile.role = invite.position
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            from core.models import Role
+            role_obj = Role.objects.filter(name=invite.position).first()
+            if role_obj:
+                user.role = role_obj
+                user.save()
             profile.save()
             
             # 3. Create dummy Resident if needed because Official requires OneToOne with Resident
@@ -651,7 +691,28 @@ def onboard_verify_otp(request, token):
 def start_multi_scan_enrollment(request, pk):
     """Initialize 3-scan fingerprint enrollment session."""
     official = get_object_or_404(Official, pk=pk)
+    resident = official.resident
     
+    if not resident.fingerprint_id:
+        # To prevent fingerprint mismatch issues, we prefer IDs that are higher than any currently used.
+        # This avoids reusing slot IDs of recently deleted users whose fingerprints might still be in the sensor.
+        from django.db.models import Max
+        max_used = Resident.objects.all().aggregate(Max('fingerprint_id'))['fingerprint_id__max'] or 0
+        next_id = max_used + 1
+        
+        if next_id > 1000:
+            # If we reached the sensor limit, look for the first available gap
+            used_ids = set(Resident.objects.filter(fingerprint_id__isnull=False).values_list('fingerprint_id', flat=True))
+            next_id = 1
+            while next_id in used_ids and next_id <= 1000:
+                next_id += 1
+        
+        if next_id > 1000:
+            return JsonResponse({'status': 'error', 'message': 'No free fingerprint slots available'}, status=507)
+        
+        resident.fingerprint_id = next_id
+        resident.save()
+
     # Initialize enrollment session in Django
     if 'biometric_enrollment' not in request.session:
         request.session['biometric_enrollment'] = {}
@@ -659,7 +720,8 @@ def start_multi_scan_enrollment(request, pk):
     request.session['biometric_enrollment'][str(official.id)] = {
         'scan_count': 0,
         'scans': [],
-        'active': True
+        'active': True,
+        'slot_id': resident.fingerprint_id
     }
     request.session.modified = True
     
@@ -667,6 +729,7 @@ def start_multi_scan_enrollment(request, pk):
         'status': 'success',
         'message': 'Multi-scan enrollment started. Please prepare to scan your fingerprint 3 times.',
         'official_id': official.id,
+        'slot_id': resident.fingerprint_id,
         'scans_required': 3
     })
 
@@ -690,6 +753,44 @@ def get_scan_status(request, pk):
 
 
 @login_required
+def sync_scan_progress(request, pk):
+    """Sync scan progress coming from ESP32 into Django session."""
+    official = get_object_or_404(Official, pk=pk)
+
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+    try:
+        data = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        data = {}
+
+    esp_scan = data.get('current_scan')
+    try:
+        esp_scan = int(esp_scan)
+    except Exception:
+        return JsonResponse({'status': 'error', 'message': 'Invalid current_scan'}, status=400)
+
+    if 'biometric_enrollment' not in request.session:
+        request.session['biometric_enrollment'] = {}
+    if str(official.id) not in request.session['biometric_enrollment']:
+        request.session['biometric_enrollment'][str(official.id)] = {'scan_count': 0, 'scans': [], 'active': True}
+
+    current = request.session['biometric_enrollment'][str(official.id)].get('scan_count', 0)
+    # Only move forward
+    if esp_scan > current:
+        request.session['biometric_enrollment'][str(official.id)]['scan_count'] = min(esp_scan, 3)
+        request.session.modified = True
+
+    return JsonResponse({
+        'status': 'success',
+        'official_id': official.id,
+        'current_scan': request.session['biometric_enrollment'][str(official.id)]['scan_count'],
+        'scans_required': 3,
+    })
+
+
+@login_required
 def register_fingerprint_after_scans(request, pk):
     """Register fingerprint template after 3 successful scans."""
     official = get_object_or_404(Official, pk=pk)
@@ -704,28 +805,52 @@ def register_fingerprint_after_scans(request, pk):
         }, status=400)
     
     try:
-        # Generate a fingerprint template identifier
-        import base64
-        import hashlib
-        fingerprint_id = hashlib.md5(f"{official.id}-{official.resident.full_name}".encode()).hexdigest()
-        template = base64.b64encode(fingerprint_id.encode()).decode()
-        
-        # Save fingerprint template
-        official.fingerprint_template = template
-        official.save()
-        
         # Clear session
         if 'biometric_enrollment' in request.session and str(official.id) in request.session['biometric_enrollment']:
             del request.session['biometric_enrollment'][str(official.id)]
             request.session.modified = True
         
+        # We don't generate mock templates anymore since we rely on slot IDs
+        # But we can keep a flag or a simple string to indicate registration
+        official.fingerprint_template = "REGISTERED_ON_SENSOR"
+        official.save()
+        
         return JsonResponse({
             'status': 'success',
-            'message': f'Fingerprint successfully registered for {official.resident.full_name}',
-            'official_id': official.id
+            'message': f'Fingerprint successfully registered for {official.resident.full_name} (Slot {official.resident.fingerprint_id})',
+            'official_id': official.id,
+            'slot_id': official.resident.fingerprint_id
         })
     except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': f'Failed to register fingerprint: {str(e)}'
-        }, status=500)
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+def remove_fingerprint(request, pk):
+    """Remove fingerprint template and clear slot ID from sensor."""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+        
+    official = get_object_or_404(Official, pk=pk)
+    resident = official.resident
+    
+    # 1. Attempt to delete from sensor if ID exists
+    if resident.fingerprint_id:
+        esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+        try:
+            requests.post(f"{esp32_base_url}/delete-fingerprint?id={resident.fingerprint_id}", timeout=5, proxies={'http': None, 'https': None})
+        except Exception as e:
+            print(f"[Biometric] Sensor deletion failed for {resident.full_name}: {e}")
+            # We continue even if hardware fails to keep DB in sync
+            
+    # 2. Clear Django fields
+    official.fingerprint_template = ""
+    official.save()
+    
+    resident.fingerprint_id = None
+    resident.fingerprint_template = "" # Clear from resident too if it exists there
+    resident.save()
+    
+    return JsonResponse({
+        'status': 'success', 
+        'message': f'Fingerprint registration removed for {resident.full_name}'
+    })

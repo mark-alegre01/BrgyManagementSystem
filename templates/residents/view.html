@@ -84,10 +84,6 @@
         <div class="alert alert-success mb-0">
           <i class="fas fa-check-circle"></i> Fingerprint registered
         </div>
-        {% else %}
-        <div class="alert alert-warning mb-0">
-          <i class="fas fa-exclamation-triangle"></i> No fingerprint registered
-        </div>
         {% endif %}
       </div>
     </div>
@@ -98,6 +94,16 @@
       </div>
       <div class="card-body">
         <div class="detail-grid">
+          {% if resident.user_profile %}
+          <div class="detail-item">
+            <label>System Username</label>
+            <span class="text-primary" style="font-family: monospace; font-size: 1.1em;">{{ resident.user_profile.user.username }}</span>
+          </div>
+          <div class="detail-item">
+            <label>System Role</label>
+            <span class="badge badge-info">{{ resident.user_profile.user.get_role_display }}</span>
+          </div>
+          {% endif %}
           <div class="detail-item">
             <label>Full Name</label>
             <span>{{ resident.last_name }}, {{ resident.first_name }}{% if resident.middle_name %} {{ resident.middle_name }}{% endif %}{% if resident.suffix %} {{ resident.suffix }}{% endif %}</span>

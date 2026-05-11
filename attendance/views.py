@@ -227,46 +227,63 @@ def api_biometric_verify(request):
     try:
         data = json.loads(request.body)
         template = data.get('template')
-        official_id = data.get('official_id') # If the 32-bit service already matched it
+        official_id = data.get('official_id')
+        is_auto = data.get('auto', False)
         
-        if not template and not official_id:
-            return JsonResponse({'status': 'error', 'message': 'Missing identification data'}, status=400)
-
         official = None
-        if official_id:
+        if is_auto and request.user.is_authenticated:
+            # Get the official profile for the logged in user
+            official = getattr(request.user, 'official_profile', None)
+        elif official_id:
             official = Official.objects.filter(pk=official_id).first()
         elif template:
             official = match_1_to_n(template)
 
         if not official:
-            return JsonResponse({'status': 'failed', 'message': 'Fingerprint not recognized'})
+            return JsonResponse({'status': 'failed', 'message': 'Fingerprint not recognized or session expired'})
 
         # Record attendance
         today = date.today()
         now = datetime.now().time()
         
         # Determine if Clock In or Clock Out
+        requested_action = data.get('action') # 'in' or 'out'
+        
         # Simple logic: if already clocked in today without clock out, then clock out.
         log = AttendanceLog.objects.filter(official=official, date=today).first()
         
-        if not log:
+        if requested_action == 'in' or (not requested_action and not log):
             # Clock In
             status = 'present'
             if now > time(8, 0): # Assuming 8 AM start
                 status = 'late'
             
-            log = AttendanceLog.objects.create(
-                official=official,
-                date=today,
-                time_in=now,
-                method='biometric',
-                status=status
-            )
+            if not log:
+                log = AttendanceLog.objects.create(
+                    official=official,
+                    date=today,
+                    time_in=now,
+                    method='biometric',
+                    status=status
+                )
+            else:
+                log.time_in = now
+                log.status = status
+                log.save()
             action = 'Clocked IN'
-        elif not log.time_out:
+        elif requested_action == 'out' or (not requested_action and log and not log.time_out):
             # Clock Out
-            log.time_out = now
-            log.save()
+            if not log:
+                log = AttendanceLog.objects.create(
+                    official=official,
+                    date=today,
+                    time_out=now,
+                    method='biometric',
+                    status='absent' # Should not happen usually
+                )
+            else:
+                log.time_out = now
+                log.save()
             action = 'Clocked OUT'
         else:
             return JsonResponse({'status': 'info', 'message': f'{official.resident.full_name} already completed DTR for today.'})
@@ -306,3 +323,9 @@ def api_face_recognize(request):
         'message': 'Face recognition API endpoint ready. Connect face_recognition library for production use.',
         'recognized': False,
     })
+
+
+@login_required
+def biometric_attendance(request):
+    """Page for officials to record attendance via biometric."""
+    return render(request, 'attendance/biometric_attendance.html')

@@ -191,6 +191,7 @@ def resident_add(request):
 
                 messages.success(request, f'Resident {resident.full_name} added successfully.')
                 messages.info(request, f'An account was created for this resident. Username: {username} | Temporary Password: {password}')
+                
                 return redirect('residents:view', pk=resident.pk)
         
         except Exception as e:
@@ -528,14 +529,16 @@ def approve_registration(request, pk):
             # 2. Create User (ensure role is set)
             resident_role, _ = Role.objects.get_or_create(name='resident', defaults={'display_name': 'Resident', 'permission_level': 3})
             
-            user = User.objects.create_user(
+            user = User(
                 username=registration.username,
                 first_name=registration.first_name,
                 last_name=registration.last_name,
                 email=registration.email,
-                password=registration.password,
                 role=resident_role
             )
+            # The password in ResidentRegistration is already hashed during signup
+            user.password = registration.password
+            user.save()
 
             # 3. Create Resident record
             resident = Resident.objects.create(
@@ -614,3 +617,41 @@ def reject_registration(request, pk):
         return redirect('residents:registration_list')
     
     return redirect('residents:registration_detail', pk=pk)
+@login_required
+@csrf_exempt
+def purok_add_api(request):
+    """API to add a new Purok – authorized officials only."""
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin'])):
+        return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            name = data.get('name', '').strip()
+            if not name:
+                return JsonResponse({'status': 'error', 'message': 'Name is required'}, status=400)
+            
+            if Purok.objects.filter(name__iexact=name).exists():
+                return JsonResponse({'status': 'error', 'message': 'Purok already exists'}, status=400)
+            
+            purok = Purok.objects.create(name=name)
+            return JsonResponse({'status': 'success', 'id': purok.id, 'name': purok.name})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=405)
+
+def get_resident_by_fingerprint(request):
+    """Lookup resident name by fingerprint slot ID."""
+    fingerprint_id = request.GET.get('id')
+    if not fingerprint_id:
+        return JsonResponse({'status': 'error', 'message': 'Missing ID'}, status=400)
+    
+    resident = Resident.objects.filter(fingerprint_id=fingerprint_id).first()
+    if resident:
+        return JsonResponse({
+            'status': 'success',
+            'id': fingerprint_id,
+            'name': resident.full_name
+        })
+    return JsonResponse({'status': 'error', 'message': 'Not found'}, status=404)

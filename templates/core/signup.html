@@ -132,25 +132,6 @@
       transform: translateY(0);
     }
 
-    .alert {
-      margin-bottom: 20px;
-      font-size: 14px;
-      padding: 12px;
-      border-radius: 12px;
-      text-align: left;
-    }
-
-    .alert-error {
-      background: #FEE2E2;
-      color: #991B1B;
-      border: 1px solid #FECACA;
-    }
-
-    .alert-success {
-      background: #DCFCE7;
-      color: #166534;
-      border: 1px solid #BBF7D0;
-    }
 
     .text-danger {
       color: var(--danger);
@@ -175,13 +156,6 @@
     <h2>Official Registration</h2>
     <p>Create an account for barangay staff</p>
 
-    {% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags }}">
-      {{ message }}
-    </div>
-    {% endfor %}
-    {% endif %}
 
     <form method="POST">
       {% csrf_token %}
@@ -261,6 +235,24 @@
       </a>
     </div>
   </div>
+  {% if messages %}
+  <div class="messages-container">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}" id="alert-{{ forloop.counter }}">
+      <div class="alert-content">
+        {% if message.tags == 'success' %}<i class="fas fa-check-circle"></i>
+        {% elif message.tags == 'error' %}<i class="fas fa-exclamation-circle"></i>
+        {% elif message.tags == 'warning' %}<i class="fas fa-exclamation-triangle"></i>
+        {% else %}<i class="fas fa-info-circle"></i>{% endif %}
+        <span>{{ message }}</span>
+      </div>
+      <button class="alert-close" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="{% static 'js/app.js' %}"></script>
 </body>
 
 </html>

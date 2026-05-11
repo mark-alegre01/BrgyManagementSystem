@@ -22,6 +22,8 @@ from ordinances.models import Ordinance
 from datetime import date
 from .utils.backup import perform_backup, get_backup_destinations, create_backup_archive
 from biometrics.utils import get_biometric_provider
+from django.conf import settings
+import requests
 
 
 OFFICIAL_ROLE_CHOICES = [
@@ -37,10 +39,11 @@ OFFICIAL_USERNAME_BY_ROLE = {
     'secretary': 'secretary',
     'treasurer': 'treasurer',
     'bhw': 'bhw',
+    'admin': 'admin',
 }
 
 
-MIN_FINGERPRINT_TEMPLATE_LEN = 100
+MIN_FINGERPRINT_TEMPLATE_LEN = 10
 
 
 ROLE_TEMPLATE_MAP = {
@@ -66,12 +69,25 @@ def dashboard(request):
     
     today = date.today()
 
-    # Determine role
-    role = 'admin' if request.user.is_superuser else 'staff'
-    try:
-        role = request.user.profile.role
-    except Exception:
-        pass
+    # Determine role (Prioritize active official position, then UserProfile role)
+    role = 'resident'
+    
+    # 1. Check if user is an active official
+    official = getattr(request.user, 'official_profile', None)
+    if official and official.status == 'active':
+        role = official.position
+    else:
+        # 2. Fallback to UserProfile role
+        try:
+            profile_role = request.user.profile.role
+            if profile_role:
+                role = profile_role
+        except Exception:
+            pass
+            
+    # 3. Superuser always gets admin/captain view
+    if request.user.is_superuser:
+        role = 'admin'
 
     # Shared base context
     context = {
@@ -266,21 +282,24 @@ def biometric_login_start(request):
         role = role or (request.GET.get('role') or '').strip()
         username = username or (request.GET.get('username') or '').strip()
 
-        if role and role not in dict(OFFICIAL_ROLE_CHOICES):
+        if role and role != 'auto' and role not in dict(OFFICIAL_ROLE_CHOICES):
             return JsonResponse({'status': 'error', 'message': 'Invalid role'}, status=400)
 
         request_id = secrets.token_urlsafe(16)
         request.session['biometric_request_id'] = request_id
-        cache.set(f"biometric:{request_id}", {"status": "pending", "role": role}, timeout=120)
         
-        # Use BiometricProvider interface
-        provider = get_biometric_provider()
-        # For the stub, this is a no-op that might immediately return success or just log
-        result = provider.verify(user_id=None, scan_data={'role': role, 'username': username, 'request_id': request_id})
+        # Trigger ESP32 verification mode
+        esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+        try:
+            requests.post(f"{esp32_base_url}/start-verification", timeout=5, proxies={'http': None, 'https': None})
+        except Exception as e:
+            print(f"[Biometric] Failed to trigger ESP32: {str(e)}")
+
+        cache.set(f"biometric:{request_id}", {"status": "pending", "role": role, "username": username}, timeout=120)
         
         return JsonResponse({
             'status': 'success', 
-            'message': result.get('message', 'Biometric verification initiated'), 
+            'message': 'Biometric verification initiated. Please scan your finger.', 
             'request_id': request_id
         })
     except Exception as e:
@@ -288,28 +307,153 @@ def biometric_login_start(request):
 
 @csrf_exempt
 def biometric_status_check(request):
-    """Check if the biometric verification was successful."""
+    """Check if the biometric verification was successful by polling ESP32 status."""
     request_id = request.session.get('biometric_request_id')
-    if request_id:
-        state = cache.get(f"biometric:{request_id}") or {"status": "pending"}
-        if state.get('status') == 'failed':
-            return JsonResponse({'status': 'failed', 'reason': state.get('reason')})
-        if state.get('status') == 'authenticated' and state.get('user_id'):
-            user = User.objects.get(id=state['user_id'])
-            login(request, user)
+    if not request_id:
+        return JsonResponse({'status': 'none'})
+
+    state = cache.get(f"biometric:{request_id}") or {"status": "pending"}
+    
+    if state.get('status') == 'failed':
+        return JsonResponse({'status': 'failed', 'reason': state.get('reason')})
+    
+    if state.get('status') == 'authenticated':
+        # Already authenticated in a previous poll
+        return JsonResponse({'status': 'authenticated'})
+
+    # Poll ESP32 for detection
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+    try:
+        resp = requests.get(f"{esp32_base_url}/status", timeout=2, proxies={'http': None, 'https': None})
+        if resp.ok:
+            data = resp.json()
             
-            # Clean up
-            try:
-                del request.session['biometric_request_id']
-            except Exception:
-                pass
-            cache.delete(f"biometric:{request_id}")
-            request.session['biometrically_verified'] = True
-            return JsonResponse({'status': 'authenticated'})
+            # Only fail on fingerprint not found errors during verification mode
+            esp32_state_raw = data.get('state', '')
+            last_error = data.get('last_error', '').lower()
+            if esp32_state_raw == 'auth_failed' and ('not found' in last_error or 'account not found' in last_error):
+                reason = data.get('last_error', 'Fingerprint not recognized.')
+                cache.set(f"biometric:{request_id}", {"status": "failed", "reason": reason}, timeout=120)
+                return JsonResponse({'status': 'failed', 'reason': reason})
 
-        return JsonResponse({'status': state.get('status', 'pending')})
+            # Fingerprint matched only when state is 'detected' (scan 3 complete during VERIFYING)
+            esp32_state = data.get('state', '')
+            matched_id = data.get('fingerprint_id', 0)
+            
+            if esp32_state in ('detected', 'standby') and matched_id and matched_id > 0:
+                from officials.models import Official as OfficialModel
+                user = None
+                
+                # 1. Try: Official whose Resident record has this fingerprint_id
+                try:
+                    official_rec = OfficialModel.objects.select_related('resident', 'user').filter(
+                        resident__fingerprint_id=matched_id,
+                        resident__is_active=True,
+                        user__isnull=False
+                    ).first()
+                    if official_rec:
+                        user = official_rec.user
+                except Exception as e:
+                    print(f"[Biometric] Official lookup failed: {e}")
+                
+                # 2. Fallback: Resident with a linked UserProfile
+                if not user:
+                    try:
+                        resident = Resident.objects.filter(
+                            fingerprint_id=matched_id, is_active=True
+                        ).select_related('user_profile__user').first()
+                        if resident and hasattr(resident, 'user_profile') and resident.user_profile and resident.user_profile.user:
+                            user = resident.user_profile.user
+                    except Exception as e:
+                        print(f"[Biometric] Resident lookup failed: {e}")
+                
+                if not user:
+                    try:
+                        requests.post(f"{esp32_base_url}/error-feedback", timeout=2, proxies={'http': None, 'https': None})
+                    except Exception:
+                        pass
+                    reason = "Fingerprint not registered to any account"
+                    cache.set(f"biometric:{request_id}", {"status": "failed", "reason": reason}, timeout=30)
+                    return JsonResponse({'status': 'failed', 'reason': reason})
+                
+                # Store user_id in cache — biometric_login_complete will do the actual login()
+                cache.set(f"biometric:{request_id}", {"status": "authenticated", "user_id": user.id}, timeout=60)
+                
+                # Stop ESP32 verification
+                try:
+                    requests.post(f"{esp32_base_url}/stop-enrollment", timeout=1, proxies={'http': None, 'https': None})
+                except Exception:
+                    pass
+                
+                return JsonResponse({'status': 'authenticated'})
+    except Exception as e:
+        print(f"[Biometric] Status poll failed: {str(e)}")
 
-    return JsonResponse({'status': 'none'})
+    return JsonResponse({'status': 'pending'})
+
+
+@csrf_exempt
+def biometric_login_complete(request):
+    """
+    Final redirect step for biometric login.
+    Called by the frontend after receiving 'authenticated' from the polling endpoint.
+    Performs the actual Django login() here (full HTTP request, not AJAX) so the
+    session cookie is reliably set before the browser follows the redirect.
+    """
+    request_id = request.session.get('biometric_request_id')
+    if not request_id:
+        messages.error(request, 'Biometric session expired. Please scan again.')
+        return redirect('core:login')
+
+    state = cache.get(f"biometric:{request_id}") or {}
+    if state.get('status') != 'authenticated':
+        messages.error(request, 'Biometric authentication not completed. Please try again.')
+        return redirect('core:login')
+
+    user_id = state.get('user_id')
+    if not user_id:
+        messages.error(request, 'No user matched. Please try again.')
+        return redirect('core:login')
+
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        messages.error(request, 'User account not found.')
+        return redirect('core:login')
+
+    # Perform the real Django login here (full HTTP request)
+    if not hasattr(user, 'backend'):
+        user.backend = 'django.contrib.auth.backends.ModelBackend'
+    login(request, user)
+    request.session['biometrically_verified'] = True
+
+    # Clean up the cache entry
+    cache.delete(f"biometric:{request_id}")
+
+    return redirect('core:dashboard')
+
+@login_required
+def biometric_reset_all(request):
+    """Clear all fingerprint data from the database and sync with ESP32."""
+    role = getattr(request.user.profile, 'role', None) if hasattr(request.user, 'profile') else None
+    if not (request.user.is_superuser or role in ['captain', 'secretary', 'treasurer', 'admin']):
+        return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
+        
+    # 1. Clear Django Database
+    Resident.objects.all().update(fingerprint_id=None, fingerprint_template=None)
+    
+    # 2. Notify ESP32 to empty its library (redundancy)
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+    esp32_status = "offline"
+    try:
+        resp = requests.post(f"{esp32_base_url}/empty-library", timeout=3, proxies={'http': None, 'https': None})
+        if resp.ok:
+            esp32_status = "synced"
+    except Exception:
+        pass
+        
+    messages.success(request, f"Biometric records cleared. ESP32 sync: {esp32_status}")
+    return redirect('officials:biometric_register')
 
 def login_view(request):
     """User login."""
@@ -324,23 +468,35 @@ def login_view(request):
         if user_type == 'resident':
             username = request.POST.get('username')
         else:
-            # Try official_username first, then fall back to fixed mapping
-            username = request.POST.get('official_username') or OFFICIAL_USERNAME_BY_ROLE.get(role)
+            username = request.POST.get('official_username')
+            role = None # Role is no longer used for identification
 
-        user = authenticate(request, username=username, password=password) if username else None
+        if not username:
+             messages.error(request, 'Username is required.')
+             return render(request, 'core/login.html')
+
+        user = authenticate(request, username=username, password=password)
+        
         if user is not None:
-            if user_type == 'official' and not user.is_superuser:
-               # Double check role matches the user profile for official roles
-               profile = getattr(user, 'profile', None)
-               if profile and profile.role != role:
-                   messages.error(request, 'Role mismatch for this account.')
-                   return render(request, 'core/login.html')
+            profile = getattr(user, 'profile', None)
+            user_role_name = profile.role if profile else (user.role.name if user.role else 'resident')
+            is_official_user = user.is_superuser or (user.role and user.role.permission_level < 3)
+
+            # Enforce separation as requested by the user
+            if user_type == 'resident' and is_official_user:
+                messages.error(request, f'Account "{username}" is assigned as an Official ({user_role_name}). Please log in using the "Official" tab with your role.')
+                return render(request, 'core/login.html')
+            
+            if user_type == 'official':
+                if not is_official_user:
+                    messages.error(request, f'Account "{username}" is a Resident account. Please log in using the "Resident" tab.')
+                    return render(request, 'core/login.html')
 
             login(request, user)
             messages.success(request, f'Welcome back, {user.get_full_name() or user.username}!')
             return redirect('dashboard')
         else:
-            messages.error(request, 'Invalid credentials or role.')
+            messages.error(request, f'Invalid credentials for "{username}". Please check your username and password.')
 
     return render(request, 'core/login.html')
 

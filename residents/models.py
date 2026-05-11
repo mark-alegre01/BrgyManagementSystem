@@ -131,6 +131,7 @@ class Resident(models.Model):
 
     # Biometrics (single source of truth for fingerprint data)
     fingerprint_template = models.TextField(blank=True, null=True, help_text="Base64 encoded fingerprint template")
+    fingerprint_id = models.IntegerField(null=True, blank=True, unique=True, help_text="Slot ID in the R307 sensor (1-1000)")
 
     # Metadata
     is_active = models.BooleanField(default=True)
@@ -288,3 +289,28 @@ class ResidentRegistration(models.Model):
         verbose_name = "Resident Registration"
         verbose_name_plural = "Resident Registrations"
         ordering = ["-created_at"]
+
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
+
+@receiver(pre_delete, sender=Resident)
+def cleanup_user_on_resident_delete(sender, instance, **kwargs):
+    """Ensure User account is deleted when Resident record is deleted."""
+    try:
+        # Using pre_delete ensures we can still access the related user_profile
+        if hasattr(instance, 'user_profile') and instance.user_profile and instance.user_profile.user:
+            instance.user_profile.user.delete()
+    except Exception:
+        pass
+@receiver(pre_delete, sender=Resident)
+def delete_fingerprint_from_sensor(sender, instance, **kwargs):
+    """Attempt to delete fingerprint from ESP32 sensor when resident is deleted."""
+    if instance.fingerprint_id:
+        from django.conf import settings
+        import requests
+        esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+        try:
+            requests.post(f"{esp32_base_url}/delete-fingerprint?id={instance.fingerprint_id}", timeout=2, proxies={'http': None, 'https': None})
+        except Exception:
+            # Silent fail if ESP32 is offline during deletion
+            pass

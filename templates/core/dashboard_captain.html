@@ -217,12 +217,31 @@
   const btnAttendance = document.getElementById('btn-biometric-attendance');
   const attendanceStatus = document.getElementById('attendance-status');
 
+  function stopESP32HardwareScanning() {
+    const esp32BaseUrl = 'http://192.168.1.55';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
+    
+    try {
+      fetch(`${esp32BaseUrl}/stop-enrollment`, {
+        method: 'POST',
+        signal: controller.signal,
+      })
+      .then(() => clearTimeout(timeoutId))
+      .catch(err => clearTimeout(timeoutId));
+    } catch (e) {
+      clearTimeout(timeoutId);
+    }
+  }
+
   if (btnAttendance) {
     btnAttendance.addEventListener('click', function () {
       btnAttendance.disabled = true;
       btnAttendance.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Scanner...';
 
-      fetch("{% url 'core:biometric_verify_login_start' %}")
+      fetch("{% url 'core:biometric_verify_login_start' %}", {
+        credentials: 'include'
+      })
         .then(async response => {
           const data = await response.json();
           if (response.ok) {
@@ -233,6 +252,7 @@
           }
         })
         .catch(error => {
+          stopESP32HardwareScanning();
           btnAttendance.disabled = false;
           btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
           alert('Error: ' + error.message);
@@ -242,7 +262,9 @@
 
   function checkAttendanceStatus() {
     const pollInterval = setInterval(() => {
-      fetch("{% url 'core:biometric_status_check' %}")
+      fetch("{% url 'core:biometric_status_check' %}", {
+        credentials: 'include'
+      })
         .then(response => response.json())
         .then(data => {
           if (data.status === 'authenticated') {
@@ -251,6 +273,7 @@
         setTimeout(() => location.reload(), 2000);
       } else if (data.status === 'failed') {
         clearInterval(pollInterval);
+        stopESP32HardwareScanning();
     btnAttendance.disabled = false;
     btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
     attendanceStatus.innerHTML = '<span class="badge badge-danger">Not Recognized</span>';
@@ -261,6 +284,7 @@
   setTimeout(() => {
     clearInterval(pollInterval);
     if (btnAttendance.disabled) {
+      stopESP32HardwareScanning();
       btnAttendance.disabled = false;
       btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
       attendanceStatus.innerHTML = '';

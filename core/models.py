@@ -34,11 +34,15 @@ class User(AbstractUser):
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)
 
     def get_permission_level(self):
+        if self.is_superuser:
+            return 1
         if self.role:
             return self.role.permission_level
         return 3
 
     def get_role_display(self):
+        if self.is_superuser:
+            return "Administrator"
         if self.role:
             return self.role.display_name
         return "Resident"
@@ -172,6 +176,18 @@ class Notification(models.Model):
         verbose_name_plural = 'Notifications'
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
+def assign_superuser_role(sender, instance, created, **kwargs):
+    """Automatically assign Admin role to superusers."""
+    if created and instance.is_superuser and not instance.role:
+        try:
+            admin_role = Role.objects.filter(models.Q(name='admin') | models.Q(name='captain')).first()
+            if admin_role:
+                instance.role = admin_role
+                instance.save()
+        except Exception:
+            pass
+
+@receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def assign_user_group(sender, instance, created, **kwargs):
     """Assign users to proper groups based on permission level."""
     level = instance.get_permission_level()
@@ -188,3 +204,16 @@ def assign_user_group(sender, instance, created, **kwargs):
         # Clear existing groups to strictly enforce current role level
         instance.groups.clear()
         instance.groups.add(group)
+
+from django.db.models.signals import pre_delete
+
+@receiver(pre_delete, sender=settings.AUTH_USER_MODEL)
+def cleanup_resident_on_user_delete(sender, instance, **kwargs):
+    """Ensure Resident record is deleted when User is deleted."""
+    try:
+        # Check if there was an associated resident profile
+        # Use hasattr or try/except because profile might have been deleted already by CASCADE
+        if hasattr(instance, 'profile') and instance.profile.resident:
+            instance.profile.resident.delete()
+    except Exception:
+        pass

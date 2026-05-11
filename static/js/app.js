@@ -55,4 +55,48 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
+
+    // Global Notification Function
+    window.showNotification = function (message, type = 'success') {
+        let container = document.querySelector('.messages-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'messages-container';
+            // Fallback styles to ensure it never affects layout
+            container.style.position = 'fixed';
+            container.style.top = '20px';
+            container.style.right = '30px';
+            container.style.zIndex = '10000';
+            container.style.pointerEvents = 'none';
+            document.body.appendChild(container);
+        }
+
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type}`;
+
+        const iconMap = {
+            'success': 'fa-check-circle',
+            'error': 'fa-exclamation-circle',
+            'warning': 'fa-exclamation-triangle',
+            'info': 'fa-info-circle'
+        };
+        const icon = iconMap[type] || 'fa-info-circle';
+
+        alert.innerHTML = `
+            <div class="alert-content">
+                <i class="fas ${icon}"></i>
+                <span>${message}</span>
+            </div>
+            <button class="alert-close" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>
+        `;
+
+        container.appendChild(alert);
+
+        // Auto-hide
+        setTimeout(() => {
+            alert.style.opacity = '0';
+            alert.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => alert.remove(), 500);
+        }, 5000);
+    };
 });
