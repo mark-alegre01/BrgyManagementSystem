@@ -8,6 +8,8 @@
 {% endblock %}
 
 {% block content %}
+{% url 'attendance:dtr' as attendance_dtr_url %}
+{% include 'components/back_button.html' with back_url=attendance_dtr_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
     <h1>Detailed DTR</h1>
@@ -17,9 +19,6 @@
     <a href="{% url 'attendance:dtr_print' official.pk %}?month={{ month }}&year={{ year }}" target="_blank"
       class="btn btn-secondary">
       <i class="fas fa-print"></i> Print DTR
-    </a>
-    <a href="{% url 'attendance:dtr' %}?month={{ month }}&year={{ year }}" class="btn btn-outline">
-      <i class="fas fa-chevron-left"></i> Back to Summary
     </a>
   </div>
 </div>

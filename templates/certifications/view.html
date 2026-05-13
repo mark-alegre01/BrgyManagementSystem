@@ -7,6 +7,8 @@
 {% endblock %}
 
 {% block content %}
+{% url 'certifications:list' as certifications_list_url %}
+{% include 'components/back_button.html' with back_url=certifications_list_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
     <h1>Certificate Details</h1>
@@ -18,9 +20,6 @@
     </a>
     <a href="{% url 'certifications:receipt' certificate.pk %}" target="_blank" class="btn btn-secondary">
       <i class="fas fa-receipt"></i> Print Receipt
-    </a>
-    <a href="{% url 'certifications:list' %}" class="btn btn-outline">
-      <i class="fas fa-chevron-left"></i> Back to List
     </a>
   </div>
 </div>

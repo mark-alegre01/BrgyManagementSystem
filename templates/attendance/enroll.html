@@ -7,15 +7,12 @@
 {% endblock %}
 
 {% block content %}
+{% url 'attendance:dashboard' as attendance_dashboard_url %}
+{% include 'components/back_button.html' with back_url=attendance_dashboard_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
     <h1>Face Enrollment</h1>
     <span>Register official's face for automated clock-in/out</span>
-  </div>
-  <div class="header-actions">
-    <a href="{% url 'attendance:dashboard' %}" class="btn btn-outline">
-      <i class="fas fa-chevron-left"></i> Back to Dashboard
-    </a>
   </div>
 </div>
 

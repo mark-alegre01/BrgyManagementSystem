@@ -7,15 +7,12 @@
 {% endblock %}
 
 {% block content %}
+{% url 'residents:list' as residents_list_url %}
+{% include 'components/back_button.html' with back_url=residents_list_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
     <h1>Resident Details</h1>
     <span>Profile information for {{ resident.full_name }}</span>
-  </div>
-  <div class="header-actions">
-    <a href="{% url 'residents:list' %}" class="btn btn-outline">
-      <i class="fas fa-chevron-left"></i> Back to List
-    </a>
   </div>
 </div>
 
@@ -26,9 +23,7 @@
         {% if resident.photo %}
         <img src="{{ resident.photo.url }}" alt="{{ resident.full_name }}">
         {% else %}
-        <div class="photo-placeholder">
-          <i class="fas fa-user"></i>
-        </div>
+        <img src="https://api.dicebear.com/7.x/identicon/svg?seed={{ resident.pk }}&backgroundColor=ffffff" alt="{{ resident.full_name }}" class="identicon-placeholder">
         {% endif %}
       </div>
       <div class="profile-info">
@@ -72,6 +67,7 @@
   </div>
 
   <div class="profile-main">
+    {% if resident.is_official %}
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h3>Biometrics</h3>
@@ -87,6 +83,7 @@
         {% endif %}
       </div>
     </div>
+    {% endif %}
 
     <div class="card mt-4">
       <div class="card-header">

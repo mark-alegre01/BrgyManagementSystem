@@ -67,8 +67,46 @@ class Official(models.Model):
                     })
 
     def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        old_status = None
+        if not is_new:
+            try:
+                old_instance = Official.objects.get(pk=self.pk)
+                old_status = old_instance.status
+            except Official.DoesNotExist:
+                pass
+        
         self.full_clean()
         super().save(*args, **kwargs)
+        
+        # Sync resident.is_official
+        if self.resident:
+            # If status is active, resident.is_official MUST be True
+            # If status is inactive/on_leave, resident.is_official should be False (as per user request "Go back of being a Resident")
+            new_is_official = (self.status == 'active')
+            if self.resident.is_official != new_is_official:
+                self.resident.is_official = new_is_official
+                self.resident.save(update_fields=['is_official'])
+        
+        # Handle role transition
+        if self.user:
+            from core.models import Role
+            if self.status == 'active':
+                # Sync role to position
+                role_obj = Role.objects.filter(name=self.position).first()
+                if not role_obj:
+                    # Try to find a sensible fallback or keep current if it's already an official role
+                    role_obj = Role.objects.filter(name='staff').first()
+                
+                if role_obj and self.user.role != role_obj:
+                    self.user.role = role_obj
+                    self.user.save(update_fields=['role'])
+            elif self.status == 'inactive' and old_status == 'active':
+                # Reset to resident
+                resident_role = Role.objects.filter(name='resident').first()
+                if resident_role:
+                    self.user.role = resident_role
+                    self.user.save(update_fields=['role'])
 
     @property
     def fingerprint_template(self):
@@ -82,8 +120,16 @@ class Official(models.Model):
             self.resident.fingerprint_template = value
             self.resident.save()
 
+    @property
+    def full_name(self):
+        return self.resident.full_name if self.resident else ""
+
+    @property
+    def display_photo(self):
+        return self.resident.photo if self.resident and self.resident.photo else None
+
     def __str__(self):
-        return f"{self.resident.full_name} - {self.get_position_display()}"
+        return f"{self.full_name} - {self.get_position_display()}"
 
     class Meta:
         ordering = ['position']
@@ -148,5 +194,27 @@ class OnboardingAuditLog(models.Model):
     ip_address = models.GenericIPAddressField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+
     def __str__(self):
          return f"{self.invite.first_name} - {self.action} at {self.created_at}"
+
+
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
+
+@receiver(pre_delete, sender=Official)
+def handle_official_deletion(sender, instance, **kwargs):
+    """Ensure resident.is_official is False and user role is reset when official record is deleted."""
+    try:
+        if instance.resident:
+            instance.resident.is_official = False
+            instance.resident.save(update_fields=['is_official'])
+        
+        if instance.user:
+            from core.models import Role
+            resident_role = Role.objects.filter(name='resident').first()
+            if resident_role:
+                instance.user.role = resident_role
+                instance.user.save(update_fields=['role'])
+    except Exception:
+        pass

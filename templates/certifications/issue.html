@@ -11,6 +11,8 @@
 {% endblock %}
 
 {% block content %}
+{% url 'certifications:list' as certifications_list_url %}
+{% include 'components/back_button.html' with back_url=certifications_list_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
     <h1>Issue New Certificate</h1>

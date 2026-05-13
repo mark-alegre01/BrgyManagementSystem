@@ -131,7 +131,12 @@ class Resident(models.Model):
 
     # Biometrics (single source of truth for fingerprint data)
     fingerprint_template = models.TextField(blank=True, null=True, help_text="Base64 encoded fingerprint template")
-    fingerprint_id = models.IntegerField(null=True, blank=True, unique=True, help_text="Slot ID in the R307 sensor (1-1000)")
+    fingerprint_id = models.IntegerField(
+        null=True,
+        blank=True,
+        unique=True,
+        help_text="0-based template page index in the R307/AS608 module (0 .. capacity-1)",
+    )
 
     # Metadata
     is_active = models.BooleanField(default=True)
@@ -305,7 +310,7 @@ def cleanup_user_on_resident_delete(sender, instance, **kwargs):
 @receiver(pre_delete, sender=Resident)
 def delete_fingerprint_from_sensor(sender, instance, **kwargs):
     """Attempt to delete fingerprint from ESP32 sensor when resident is deleted."""
-    if instance.fingerprint_id:
+    if instance.fingerprint_id is not None:
         from django.conf import settings
         import requests
         esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')

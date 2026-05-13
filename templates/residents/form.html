@@ -3,13 +3,12 @@
 {% block title %}{% if editing %}Edit{% else %}Add{% endif %} Resident - Barangay Management System{% endblock %}
 
 {% block content %}
+{% url 'residents:list' as residents_list_url %}
+{% include 'components/back_button.html' with back_url=residents_list_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
     <h1>{% if editing %}Edit Resident Record{% else %}Add New Resident{% endif %}</h1>
     <span>Please fill in the personal information below</span>
-  </div>
-  <div class="header-actions">
-    <a href="{% url 'residents:list' %}" class="btn btn-outline">Cancel</a>
   </div>
 </div>
 

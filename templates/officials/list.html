@@ -9,11 +9,14 @@
     <span>Manage positions and terms of service</span>
   </div>
   <div class="header-actions">
+    <a href="{% url 'officials:org_chart' %}" class="btn btn-outline-primary">
+      <i class="fas fa-sitemap"></i> Organizational Chart
+    </a>
+    <a href="{% url 'officials:add' %}?type=staff" class="btn btn-secondary" style="background-color: #4b5563; border-color: #4b5563; color: white;">
+      <i class="fas fa-user-plus"></i> Add Staff
+    </a>
     <a href="{% url 'officials:add' %}" class="btn btn-primary">
       <i class="fas fa-plus"></i> Add Official
-    </a>
-    <a href="{% url 'officials:biometric_register' %}" class="btn btn-secondary">
-      <i class="fas fa-fingerprint"></i> Register for Biometric
     </a>
   </div>
 </div>
@@ -82,7 +85,7 @@
             <td>
               <div class="btn-group">
                 <a href="{% url 'officials:edit' official.pk %}" class="btn-icon btn-edit" title="Edit"><i class="fas fa-edit"></i></a>
-                <a href="{% url 'attendance:dtr_detail' official.pk %}" class="btn btn-outline btn-icon" title="DTR"><i class="fas fa-calendar-alt"></i></a>
+                <a href="{% url 'attendance:dtr_detail' official.pk %}" class="btn-icon btn-view" title="DTR"><i class="fas fa-calendar-alt"></i></a>
               </div>
             </td>
           </tr>

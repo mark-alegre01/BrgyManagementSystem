@@ -635,6 +635,7 @@
 
       let biometricPollInterval = null;
       let biometricTimeout = null;
+      let lastBiometricHintToastAt = 0;
 
       function updateBioUI(state, message = '') {
         // States: idle, scanning, success, error
@@ -669,7 +670,7 @@
           fingerFill.classList.add('animate-clip-fill');
           fingerBase.style.color = "var(--emerald-100)";
           bioStatusTitle.innerText = "Analyzing...";
-          bioStatusDesc.innerText = "Keep your finger perfectly still on the sensor.";
+          bioStatusDesc.innerText = message || "Keep your finger perfectly still on the sensor.";
           btnBioText.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" style="display:inline-block"></div> Analyzing Biometrics...';
           if (btnStop) btnStop.classList.remove('d-none');
         }
@@ -729,7 +730,8 @@
       function resetBiometricUI(message) {
         // Stop ESP32 immediately when resetting
         stopESP32Scanning();
-        
+        lastBiometricHintToastAt = 0;
+
         if (biometricPollInterval) {
           clearInterval(biometricPollInterval);
           biometricPollInterval = null;
@@ -806,6 +808,7 @@
       if (btnBio) {
         btnBio.addEventListener('click', function () {
           updateBioUI('scanning');
+          lastBiometricHintToastAt = 0;
 
           fetch("/biometric-login-start/", {
             method: 'POST',
@@ -853,6 +856,15 @@
                 }, 1200);
               } else if (data.status === 'failed') {
                 resetBiometricUI(data.reason || 'Finger not recognized. Try again.');
+              } else if (data.hint) {
+                bioStatusTitle.innerText = "Not recognized";
+                bioStatusDesc.innerText = data.hint;
+                fingerBase.style.color = "#f59e0b";
+                const now = Date.now();
+                if (window.showNotification && (now - lastBiometricHintToastAt > 3500)) {
+                  lastBiometricHintToastAt = now;
+                  window.showNotification(data.hint, "error");
+                }
               }
             })
             .catch(err => console.error('[Biometric] Poll error:', err));

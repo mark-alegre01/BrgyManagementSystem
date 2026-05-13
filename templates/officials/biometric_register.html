@@ -546,11 +546,19 @@
                     .then(espRes => {
                         btn.disabled = false;
                         btn.innerHTML = originalContent;
-                        if (espRes.ok) {
-                            updateModalUI(0, "Place finger on sensor", "enrolling");
-                            if (window.$) $('#biometricModal').modal('show');
-                            startMonitoring();
+                        if (!espRes.ok) {
+                            return espRes.json().then(errJson => {
+                                const msg = (errJson && errJson.message)
+                                    ? errJson.message
+                                    : ('Scanner error (HTTP ' + espRes.status + ')');
+                                throw new Error(msg);
+                            }).catch(() => {
+                                throw new Error('Scanner rejected enrollment (HTTP ' + espRes.status + ')');
+                            });
                         }
+                        updateModalUI(0, "Place finger on sensor", "enrolling");
+                        if (window.$) $('#biometricModal').modal('show');
+                        startMonitoring();
                     })
                     .catch(err => {
                         btn.disabled = false;

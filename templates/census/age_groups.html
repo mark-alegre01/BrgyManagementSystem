@@ -7,15 +7,12 @@
 {% endblock %}
 
 {% block content %}
+{% url 'census:dashboard' as census_dashboard_url %}
+{% include 'components/back_button.html' with back_url=census_dashboard_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
     <h1>Age Group Breakdown</h1>
     <span>Detailed population statistics by age and gender</span>
-  </div>
-  <div class="header-actions">
-    <a href="{% url 'census:dashboard' %}" class="btn btn-outline">
-      <i class="fas fa-chevron-left"></i> Back to Dashboard
-    </a>
   </div>
 </div>
 

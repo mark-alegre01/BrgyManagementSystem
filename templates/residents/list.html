@@ -3,7 +3,7 @@
 {% block title %}Residents - Barangay Management System{% endblock %}
 
 {% block breadcrumb %}
-<span><i class="fas fa-home"></i> / Residents</span>
+<span>Brgy. Sico Sico Management System / Residents</span>
 {% endblock %}
 
 {% block content %}
@@ -63,7 +63,8 @@
               {% if resident.photo %}
               <img src="{{ resident.photo.url }}" alt="">
               {% else %}
-              <i class="fas fa-user"></i> {% endif %}
+              <img src="https://api.dicebear.com/7.x/identicon/svg?seed=resident_{{ resident.pk }}&backgroundColor=ffffff" alt="" class="identicon-sm">
+              {% endif %}
             </div>
           </td>
           <td>

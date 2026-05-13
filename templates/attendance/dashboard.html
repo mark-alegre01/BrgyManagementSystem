@@ -1,129 +1,405 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Attendance Dashboard - Barangay Management System{% endblock %}
 
+{% block extra_head %}
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+    /* Prevent Tailwind from interfering with existing sidebar/layout if possible */
+    .premium-dashboard {
+        font-family: 'Inter', sans-serif;
+    }
+    .animate-in {
+        animation: animate-in 0.2s ease-out;
+    }
+    @keyframes animate-in {
+        from { opacity: 0; transform: scale(0.95); }
+        to { opacity: 1; transform: scale(1); }
+    }
+</style>
+{% endblock %}
+
 {% block breadcrumb %}
-<span><i class="fas fa-home"></i> / Attendance</span>
+<span>Brgy. Sico Sico Management System / Attendance</span>
 {% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <div class="page-title">
-    <h1>Attendance & DTR</h1>
-    <span>Real-time monitoring and Daily Time Records</span>
-  </div>
-  <div class="header-actions">
-    <a href="{% url 'attendance:clock' %}" class="btn btn-primary">
-      <i class="fas fa-clock"></i> Manual Clock In/Out
-    </a>
-    <a href="{% url 'attendance:biometric_attendance' %}" class="btn btn-secondary">
-      <i class="fas fa-fingerprint"></i> Biometric Attendance
-    </a>
-  </div>
+<div class="premium-dashboard min-h-screen bg-gray-50 p-1 md:p-4 text-slate-900">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- Header Section -->
+        <header class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div>
+                <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Attendance & DTR</h1>
+                <p class="text-slate-500 font-medium">Real-time monitoring and Daily Time Records</p>
+            </div>
+            <div class="flex flex-wrap gap-3">
+                <a href="{% url 'attendance:clock' %}" class="flex items-center gap-2 px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold transition shadow-md no-underline">
+                    <i data-lucide="clock" class="w-4 h-4"></i> Manual Clock In/Out
+                </a>
+                <a href="{% url 'attendance:biometric_attendance' %}" class="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-bold transition shadow-sm no-underline">
+                    <i data-lucide="fingerprint" class="w-4 h-4"></i> Biometric Attendance
+                </a>
+            </div>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-5">
+                <div class="bg-green-50 text-green-600 p-4 rounded-2xl">
+                    <i data-lucide="users" class="w-7 h-7"></i>
+                </div>
+                <div>
+                    <p class="text-3xl font-black text-slate-900">{{ present_count }}</p>
+                    <p class="text-slate-500 font-semibold text-sm">Present Today</p>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-5">
+                <div class="bg-amber-50 text-amber-600 p-4 rounded-2xl">
+                    <i data-lucide="clock" class="w-7 h-7"></i>
+                </div>
+                <div>
+                    <p class="text-3xl font-black text-slate-900">{{ late_count }}</p>
+                    <p class="text-slate-500 font-semibold text-sm">Late Arrivals</p>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-5">
+                <div class="bg-red-50 text-red-600 p-4 rounded-2xl">
+                    <i data-lucide="user-minus" class="w-7 h-7"></i>
+                </div>
+                <div>
+                    <p class="text-3xl font-black text-slate-900">{{ absent_count }}</p>
+                    <p class="text-slate-500 font-semibold text-sm">Absent</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Attendance Setup Section -->
+        <section class="mb-8">
+            <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-6">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="flex items-start gap-4">
+                        <div class="bg-emerald-600 p-3 rounded-xl text-white shadow-lg shadow-emerald-200">
+                            <i data-lucide="calendar-plus" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-emerald-900">Event Attendance Control</h3>
+                            <p class="text-emerald-700 text-sm">Customize specific dates for special event fingerprint attendance.</p>
+                        </div>
+                    </div>
+                    <button 
+                        id="openEventModalBtn"
+                        class="bg-white text-emerald-700 hover:bg-emerald-600 hover:text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all border border-emerald-200 shadow-sm flex items-center justify-center gap-2"
+                    >
+                        <i data-lucide="plus" class="w-4 h-4"></i> Schedule Custom Event
+                    </button>
+                </div>
+
+                <div id="eventListContainer" class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- Events will be injected here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Today's Attendance Log Table -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
+                <h3 class="text-lg font-extrabold text-slate-800 tracking-tight">Today's Attendance Log</h3>
+                <span class="text-sm text-slate-500 font-bold bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
+                    {{ today_logs|length }} entries recorded
+                </span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-widest">
+                        <tr>
+                            <th class="px-6 py-5">Official/Staff</th>
+                            <th className="px-6 py-5">Position</th>
+                            <th className="px-6 py-5">Time In</th>
+                            <th className="px-6 py-5">Time Out</th>
+                            <th className="px-6 py-5">Method</th>
+                            <th className="px-6 py-5">Status</th>
+                            <th className="px-6 py-5"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        {% for log in today_logs %}
+                        <tr class="hover:bg-slate-50/50 transition-colors group">
+                            <td class="px-6 py-4 font-bold text-slate-800">{{ log.official.resident.full_name }}</td>
+                            <td class="px-6 py-4 text-slate-500 text-sm font-medium">{{ log.official.get_position_display }}</td>
+                            <td class="px-6 py-4 text-slate-700 font-bold text-sm">{{ log.time_in|time:"h:i A"|default:"-" }}</td>
+                            <td class="px-6 py-4 text-slate-400 text-sm">{{ log.time_out|time:"h:i A"|default:"-" }}</td>
+                            <td class="px-6 py-4">
+                                <span class="px-3 py-1 border border-slate-200 rounded-lg text-[10px] text-slate-500 font-black bg-white uppercase shadow-sm">
+                                    {{ log.get_method_display }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 {% if log.status == 'present' %}bg-emerald-100 text-emerald-700{% elif log.status == 'late' %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %} rounded-lg text-xs font-black">
+                                    <i data-lucide="check-circle-2" class="w-3 h-3"></i>
+                                    {{ log.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <div class="flex items-center justify-end gap-1">
+                                    <a href="{% url 'attendance:dtr_detail' log.official.pk %}" class="text-slate-300 hover:text-emerald-600 transition p-2 hover:bg-emerald-50 rounded-lg inline-block" title="View DTR">
+                                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                                    </a>
+                                    <a href="{% url 'attendance:dtr_print' log.official.pk %}" target="_blank" class="text-slate-300 hover:text-emerald-600 transition p-2 hover:bg-emerald-50 rounded-lg inline-block" title="Print DTR">
+                                        <i data-lucide="printer" class="w-5 h-5"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="px-6 py-10 text-center text-slate-400 font-medium">
+                                No attendance records for today yet.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Absent Officials Today Section -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 bg-white">
+                <h3 class="text-lg font-extrabold text-red-600 tracking-tight">Absent Officials Today</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <tbody class="divide-y divide-slate-100">
+                        {% for official in absent_officials %}
+                        <tr class="hover:bg-slate-50/50 transition-colors group">
+                            <td class="px-6 py-4 font-bold text-slate-800">{{ official.resident.full_name }}</td>
+                            <td class="px-6 py-4 text-slate-500 text-sm font-medium">{{ official.get_position_display }}</td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-black">
+                                    Absent
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <div class="flex items-center justify-end gap-1">
+                                    <a href="{% url 'attendance:dtr_detail' official.pk %}" class="text-slate-300 hover:text-emerald-600 transition p-2 hover:bg-emerald-50 rounded-lg inline-block" title="View DTR">
+                                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                                    </a>
+                                    <a href="{% url 'attendance:dtr_print' official.pk %}" target="_blank" class="text-slate-300 hover:text-emerald-600 transition p-2 hover:bg-emerald-50 rounded-lg inline-block" title="Print DTR">
+                                        <i data-lucide="printer" class="w-5 h-5"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-10 text-center text-emerald-600 font-medium">
+                                All officials are present or accounted for.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
+<!-- Event Customization Modal -->
+<div id="eventModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 hidden">
+    <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in">
 
-<div class="stats-grid">
-  <div class="stat-card">
-    <div class="stat-icon icon-blue">
-      <i class="fas fa-user-check"></i>
+        <div class="px-6 py-4 flex justify-between items-center border-b border-slate-50">
+            <h3 class="text-lg font-black text-slate-900">Customize Event Date</h3>
+            <button id="closeEventModalBtn" class="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        
+        <form id="eventForm" class="p-6 space-y-4">
+
+            <div>
+                <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Event Title</label>
+                <input 
+                    type="text" 
+                    id="eventTitle"
+                    required
+                    placeholder="e.g. Health Seminar" 
+                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 text-sm" 
+                />
+
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Select Date</label>
+                    <input 
+                        type="date" 
+                        id="eventDate"
+                        required
+                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 text-sm" 
+                    />
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Time</label>
+                    <input 
+                        type="time" 
+                        id="eventTime"
+                        required
+                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 text-sm" 
+                    />
+                </div>
+            </div>
+
+            <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-start gap-3">
+                <i data-lucide="info" class="text-emerald-600 mt-0.5 flex-shrink-0 w-4 h-4"></i>
+                <p class="text-[11px] text-emerald-800 leading-tight font-medium">
+                    Scheduling this event will automatically enable the <strong class="font-black">Fingerprint Scanner</strong>. Only registered fingerprints will be accepted.
+                </p>
+            </div>
+
+
+            <div class="flex items-center gap-3 py-1">
+                <div class="relative inline-block w-10 h-5 rounded-full bg-emerald-500 cursor-pointer" id="biometricToggle">
+                    <div class="absolute left-1 top-0.5 w-4 h-4 bg-white rounded-full transition-transform translate-x-4" id="biometricToggleCircle"></div>
+                </div>
+                <span class="text-xs font-bold text-slate-700">Enforce Biometric Only</span>
+            </div>
+
+        </form>
+
+        <div class="p-5 bg-slate-50 flex gap-3">
+            <button id="cancelEventBtn" class="flex-1 py-3 text-slate-500 font-bold hover:text-slate-700 transition text-sm">
+                Cancel
+            </button>
+            <button id="confirmEventBtn" form="eventForm" class="flex-1 py-3 bg-emerald-700 text-white font-black rounded-2xl hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 text-sm">
+                Confirm
+            </button>
+        </div>
+
     </div>
-    <div class="stat-info">
-      <span class="value">{{ present_count }}</span>
-      <span class="label">Present Today</span>
-    </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon icon-yellow">
-      <i class="fas fa-user-clock"></i>
-    </div>
-    <div class="stat-info">
-      <span class="value">{{ late_count }}</span>
-      <span class="label">Late Arrivals</span>
-    </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon icon-red">
-      <i class="fas fa-user-times"></i>
-    </div>
-    <div class="stat-info">
-      <span class="value">{{ absent_count }}</span>
-      <span class="label">Absent</span>
-    </div>
-  </div>
 </div>
 
-<div class="card">
-  <div class="card-header">
-    <h3>Today's Attendance Log</h3>
-    <span>{{ today_logs|length }} entries recorded</span>
-  </div>
-  <div class="table-responsive">
-    <table>
-      <thead>
-        <tr>
-          <th>Official/Staff</th>
-          <th>Position</th>
-          <th>Time In</th>
-          <th>Time Out</th>
-          <th>Method</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for log in today_logs %}
-        <tr>
-          <td><strong>{{ log.official.resident.full_name }}</strong></td>
-          <td>{{ log.official.get_position_display }}</td>
-          <td>{{ log.time_in|time:"h:i A"|default:"-" }}</td>
-          <td>{{ log.time_out|time:"h:i A"|default:"-" }}</td>
-          <td><span class="badge-outline">{{ log.get_method_display }}</span></td>
-          <td>
-            <span
-              class="status-badge {% if log.status ==  'present' %}badge-active{% elif log.status ==  'late' %}badge-pending{% else %}badge-inactive{% endif %}">
-              {{ log.get_status_display }}
-            </span>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="6" class="text-center">No attendance records for today yet.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+{% endblock %}
 
-<div class="card">
-  <div class="card-header">
-    <h3 class="text-danger">Absent Officials Today</h3>
-  </div>
-  <div class="table-responsive">
-    <table>
-      <tbody>
-        {% for official in absent_officials %}
-        <tr>
-          <td>{{ official.resident.full_name }}</td>
-          <td>{{ official.get_position_display }}</td>
-          <td><span class="status-badge badge-inactive">Absent</span></td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td class="text-center">All officials are present or accounted for.</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Lucide Icons
+        lucide.createIcons();
 
-<style>
-  .badge-outline {
-    padding: 2px 8px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 11px;
-  }
-</style>
-{% endblock %}
+        const eventModal = document.getElementById('eventModal');
+        const openEventModalBtn = document.getElementById('openEventModalBtn');
+        const closeEventModalBtn = document.getElementById('closeEventModalBtn');
+        const cancelEventBtn = document.getElementById('cancelEventBtn');
+        const eventForm = document.getElementById('eventForm');
+        const eventListContainer = document.getElementById('eventListContainer');
+        const biometricToggle = document.getElementById('biometricToggle');
+        const biometricToggleCircle = document.getElementById('biometricToggleCircle');
+
+        let biometricEnforced = true;
+        let events = JSON.parse(localStorage.getItem('custom_attendance_events') || '[]');
+
+        // Default events if none exist
+        if (events.length === 0) {
+            events = [
+                {
+                    id: Date.now(),
+                    name: "Barangay General Assembly",
+                    date: "2024-05-25",
+                    time: "08:00",
+                    method: "Biometric/Fingerprint",
+                    status: "Scheduled"
+                }
+            ];
+            localStorage.setItem('custom_attendance_events', JSON.stringify(events));
+        }
+
+        function renderEvents() {
+            eventListContainer.innerHTML = '';
+            events.forEach(event => {
+                const eventCard = document.createElement('div');
+                eventCard.className = 'bg-white/60 border border-emerald-200/50 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/90 transition-all';
+                eventCard.onclick = (e) => {
+                    // Prevent navigation if the delete button is clicked
+                    if (e.target.closest('button')) return;
+                    window.location.href = `{% url 'attendance:biometric_attendance' %}?event_id=${event.id}`;
+                };
+                eventCard.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="text-emerald-600"><i data-lucide="calendar" class="w-5 h-5"></i></div>
+                        <div>
+                            <p class="font-bold text-slate-800 text-sm leading-none mb-1">${event.name}</p>
+                            <p class="text-xs text-slate-500">${event.date} • ${event.time}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="fingerprint" class="w-4 h-4 text-emerald-500" title="Biometric Enabled"></i>
+                        <button onclick="deleteEvent(${event.id})" class="p-1 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded transition">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                `;
+                eventListContainer.appendChild(eventCard);
+            });
+            lucide.createIcons();
+        }
+
+        window.deleteEvent = function(id) {
+            if (confirm('Are you sure you want to remove this scheduled event?')) {
+                events = events.filter(e => e.id !== id);
+                localStorage.setItem('custom_attendance_events', JSON.stringify(events));
+                renderEvents();
+            }
+        };
+
+        openEventModalBtn.onclick = () => eventModal.classList.remove('hidden');
+        
+        const closeModal = () => {
+            eventModal.classList.add('hidden');
+            eventForm.reset();
+        };
+
+        closeEventModalBtn.onclick = closeModal;
+        cancelEventBtn.onclick = closeModal;
+
+        biometricToggle.onclick = () => {
+            biometricEnforced = !biometricEnforced;
+            if (biometricEnforced) {
+                biometricToggle.classList.replace('bg-slate-200', 'bg-emerald-500');
+                biometricToggleCircle.classList.replace('translate-x-0', 'translate-x-4');
+            } else {
+                biometricToggle.classList.replace('bg-emerald-500', 'bg-slate-200');
+                biometricToggleCircle.classList.replace('translate-x-4', 'translate-x-0');
+            }
+
+        };
+
+        eventForm.onsubmit = (e) => {
+            e.preventDefault();
+            const newEvent = {
+                id: Date.now(),
+                name: document.getElementById('eventTitle').value,
+                date: document.getElementById('eventDate').value,
+                time: document.getElementById('eventTime').value,
+                method: biometricEnforced ? "Biometric/Fingerprint" : "Manual",
+                status: "Scheduled"
+            };
+            events.push(newEvent);
+            localStorage.setItem('custom_attendance_events', JSON.stringify(events));
+            renderEvents();
+            closeModal();
+            
+            if (window.showNotification) {
+                window.showNotification('Event scheduled successfully!', 'success');
+            }
+        };
+
+        renderEvents();
+    });
+</script>
+{% endblock %}
+

@@ -99,12 +99,21 @@ bool isBeeping = false; // Hardware-level lockout to prevent beep restarts
 
 // ============= FINGERPRINT DATA =============
 int enrollmentSlotID = 0;
-int matchedFingerprintID = 0;
+/** Matched library page from last verify/enroll; -1 = none pending for /status JSON. */
+int matchedFingerprintID = -1;
+/** Template library size from ReadSysPara (AS608 layout); 0 = not read yet. */
+uint16_t r307FingerprintCapacity = 0;
+/** If >0, VERIFYING Search() checks at most this many pages from index 0 (faster no-match). Set from POST /start-verification max_page. */
+uint16_t verifySearchPageCount = 0;
+/** After AUTH_FAILED beeps during login verify, return to WAIT_REMOVE→VERIFYING instead of STANDBY. */
+bool resumeVerifyingAfterAuthFailBeeps = false;
 
 // ============= ENROLLMENT SYSTEM =============
 #define MAX_SCANS 3
 int currentScan = 0;
 bool enrollmentActive = false;
+/** After WAIT_REMOVE (finger lifted), return to this state (ENROLLING vs VERIFYING). */
+SystemState resumeStateAfterWaitRemove = ENROLLING;
 uint8_t fingerprintTemplates[MAX_SCANS][512]; // Store templates for 3 scans
 bool scanCompleted[MAX_SCANS] = {false, false, false};
 
@@ -138,8 +147,11 @@ uint8_t r307GenerateImage();
 uint8_t r307Img2Tz(uint8_t slot);
 uint8_t r307RegModel();
 uint8_t r307StoreModel(uint16_t id);
-uint8_t r307Search(uint8_t bufferId, uint16_t* fingerID, uint16_t* score);
-void triggerAuthFailed(String reason);
+uint8_t r307StoreModelFromBuffer(uint8_t charBuffer, uint16_t pageId);
+uint8_t r307DeletePage(uint16_t pageId);
+uint8_t r307Search(uint8_t bufferId, uint16_t* fingerID, uint16_t* score, uint16_t maxPagesOverride = 0);
+bool r307RefreshFingerprintCapacity();
+void triggerAuthFailed(const String& reason, bool resumeVerifyingSessionAfterBeeps = false);
 void printSystemStatus();
 void setLeds(bool red, bool green, bool blue);
 
@@ -180,8 +192,12 @@ void loop() {
   }
   
   detectFingerprint();
+
+  // Serve HTTP again after sensor work so /status polls do not time out while scanning
+  server.handleClient();
   
-  if (currentState != ENROLLING && currentState != VERIFYING) {
+  // Do not flush UART during enrollment wait-remove — avoids interfering with the module
+  if (currentState != ENROLLING && currentState != VERIFYING && currentState != WAIT_REMOVE) {
     clearR307Buffer();
   }
 
@@ -277,6 +293,7 @@ bool initializeFingerprintModule() {
         if (response[6] == R307_ACK_PACKET && response[9] == 0x00) {
           fingerprintInitialized = true;
           lastErrorMessage = "Fingerprint online";
+          r307RefreshFingerprintCapacity();
           return true;
         }
       }
@@ -285,6 +302,7 @@ bool initializeFingerprintModule() {
         if (response[6] == R307_ACK_PACKET && response[9] == 0x00) {
           fingerprintInitialized = true;
           lastErrorMessage = "Fingerprint online";
+          r307RefreshFingerprintCapacity();
           return true;
         }
       }
@@ -391,27 +409,49 @@ void handleStartEnrollment() {
     ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
   }
 
-  if (server.hasArg("id")) {
-    enrollmentSlotID = server.arg("id").toInt();
-  } else {
-    enrollmentSlotID = 0;
+  if (!server.hasArg("id")) {
+    server.send(400, "application/json",
+      "{\"status\":\"error\",\"message\":\"Missing id (page index). Start enrollment from the web app.\"}");
+    return;
+  }
+  enrollmentSlotID = server.arg("id").toInt();
+
+  if (!fingerprintInitialized) {
+    fingerprintInitialized = initializeFingerprintModule();
+  }
+  if (fingerprintInitialized && r307FingerprintCapacity == 0) {
+    r307RefreshFingerprintCapacity();
+  }
+
+  // AS608 page index is 0 .. capacity-1
+  if (enrollmentSlotID < 0) {
+    server.send(400, "application/json",
+      "{\"status\":\"error\",\"message\":\"Invalid enrollment page index. Re-open enrollment from the web app.\"}");
+    return;
+  }
+  if (r307FingerprintCapacity > 0 && enrollmentSlotID >= (int)r307FingerprintCapacity) {
+    String body = "{\"status\":\"error\",\"message\":\"Page ";
+    body += String(enrollmentSlotID);
+    body += " is out of range for this sensor (0-";
+    body += String((unsigned)(r307FingerprintCapacity - 1));
+    body += "). Refresh the enrollment page.\"}";
+    server.send(400, "application/json", body);
+    return;
   }
 
   // 1. SET STATE IMMEDIATELY for visual feedback (Blue LED start blinking)
   currentState = ENROLLING;
   enrollmentActive = true;
   currentScan = 0;
-  matchedFingerprintID = 0;
+  matchedFingerprintID = -1;
   memset(scanCompleted, 0, sizeof(scanCompleted));
   lastErrorMessage = "Ready";
   
-  // 2. Perform initialization in background or check if needed
-  if (!fingerprintInitialized) {
-    fingerprintInitialized = initializeFingerprintModule();
-  }
-  
   clearR307Buffer();
   if (fingerprintInitialized) {
+    // Clear target page so re-enroll after "remove" in the app is not blocked by stale flash
+    r307DeletePage((uint16_t)enrollmentSlotID);
+    delay(80);
     r307GenerateImage();
   }
 
@@ -420,7 +460,8 @@ void handleStartEnrollment() {
   response += "\"message\":\"Enrollment started for slot " + String(enrollmentSlotID) + "\",";
   response += "\"total_scans\":3,";
   response += "\"current_scan\":1,";
-  response += "\"state\":\"enrolling\"";
+  response += "\"state\":\"enrolling\",";
+  response += "\"max_fingerprint_slots\":" + String(r307FingerprintCapacity);
   response += "}";
   server.send(200, "application/json", response);
 }
@@ -434,15 +475,38 @@ void handleStartVerification() {
     ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
   }
 
+  verifySearchPageCount = 0;
+  if (server.hasArg("max_page")) {
+    int mp = server.arg("max_page").toInt();
+    if (mp >= 0) {
+      long pages = (long)mp + 1 + 8;
+      if (pages < 16) {
+        pages = 16;
+      }
+      if (pages > 1000) {
+        pages = 1000;
+      }
+      verifySearchPageCount = (uint16_t)pages;
+    }
+  }
+  if (fingerprintInitialized && r307FingerprintCapacity > 0 && verifySearchPageCount > r307FingerprintCapacity) {
+    verifySearchPageCount = r307FingerprintCapacity;
+  }
+
   clearR307Buffer(); // CLEAR SERIAL BUFFER
   currentState = VERIFYING;
   currentScan = 0;
   enrollmentActive = true;
-  matchedFingerprintID = 0;
+  matchedFingerprintID = -1;
+  resumeStateAfterWaitRemove = ENROLLING;
   lastErrorMessage = "Ready";
   for (int i = 0; i < 3; i++) scanCompleted[i] = false;
   
   String response = "{\"status\":\"success\",\"message\":\"Biometric verification started\",\"state\":\"verifying\"}";
+  if (verifySearchPageCount > 0) {
+    response = "{\"status\":\"success\",\"message\":\"Biometric verification started\",\"state\":\"verifying\","
+               "\"search_pages\":" + String(verifySearchPageCount) + "}";
+  }
   server.send(200, "application/json", response);
 }
 
@@ -452,8 +516,18 @@ void handleDeleteFingerprint() {
     server.send(400, "application/json", "{\"status\":\"error\",\"message\":\"Missing ID\"}");
     return;
   }
-  
+
+  if (!fingerprintInitialized) {
+    fingerprintInitialized = initializeFingerprintModule();
+  }
+  if (!fingerprintInitialized) {
+    server.send(503, "application/json",
+      "{\"status\":\"error\",\"message\":\"Fingerprint sensor not connected\"}");
+    return;
+  }
+
   int id = server.arg("id").toInt();
+  clearR307Buffer();
   uint8_t data[4] = {(uint8_t)((id >> 8) & 0xFF), (uint8_t)(id & 0xFF), 0x00, 0x01}; // PageID high, PageID low, Num high, Num low (1)
   r307SendCommand(R307_CMD_DELETE, data, 4);
   
@@ -473,19 +547,40 @@ void handleDeleteFingerprint() {
 
 void handleEmptyLibrary() {
   addCorsHeaders();
+  if (!fingerprintInitialized) {
+    fingerprintInitialized = initializeFingerprintModule();
+  }
+  if (!fingerprintInitialized) {
+    server.send(503, "application/json",
+      "{\"status\":\"error\",\"message\":\"Fingerprint sensor not connected or not responding\"}");
+    return;
+  }
+
+  clearR307Buffer();
   r307SendCommand(R307_CMD_EMPTY, NULL, 0);
-  
+
   uint8_t response[12];
   uint16_t respLen = 0;
-  if (r307ReceiveResponse(response, &respLen, 2000)) {
+  if (r307ReceiveResponse(response, &respLen, 8000)) {
     if (response[9] == 0x00) {
-      server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Library emptied\"}");
+      currentState = STANDBY;
+      enrollmentActive = false;
+      currentScan = 0;
+      matchedFingerprintID = -1;
+      isBeeping = false;
+      ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+      lastErrorMessage = "Sensor library cleared";
+      r307RefreshFingerprintCapacity();
+      Serial.println("[R307] Library emptied (all templates deleted on module)");
+      delay(1000); // Flash erase settle before next enroll/store (reduces 0x18 FLASHERR)
+      server.send(200, "application/json",
+        "{\"status\":\"success\",\"message\":\"All fingerprints deleted from the sensor module\"}");
     } else {
-      String msg = "{\"status\":\"error\",\"message\":\"Empty failed (0x" + String(response[9], HEX) + ")\"}";
-      server.send(200, "application/json", msg);
+      String msg = "{\"status\":\"error\",\"message\":\"Empty library failed (0x" + String(response[9], HEX) + ")\"}";
+      server.send(502, "application/json", msg);
     }
   } else {
-    server.send(500, "application/json", "{\"status\":\"error\",\"message\":\"Sensor timeout\"}");
+    server.send(504, "application/json", "{\"status\":\"error\",\"message\":\"Sensor timeout during empty library\"}");
   }
 }
 
@@ -495,12 +590,13 @@ void handleErrorFeedback() {
   server.send(200, "application/json", "{\"status\":\"success\"}");
 }
 
-void triggerAuthFailed(String reason) {
+void triggerAuthFailed(const String& reason, bool resumeVerifyingSessionAfterBeeps) {
   // IGNORE new triggers if we are already beeping to prevent restarts
   if (isBeeping) {
     return; 
   }
 
+  resumeVerifyingAfterAuthFailBeeps = resumeVerifyingSessionAfterBeeps;
   Serial.printf("\n[SYSTEM] Triggering Auth Failed! Reason: %s\n", reason.c_str());
   isBeeping = true;
   currentState = AUTH_FAILED;
@@ -519,6 +615,7 @@ void handleStopEnrollment() {
   currentState = STANDBY;
   enrollmentActive = false;
   currentScan = 0; // Reset scan count
+  resumeStateAfterWaitRemove = ENROLLING;
   lastErrorMessage = "Ready";
 
   String response = "{\"status\":\"success\",\"message\":\"Enrollment stopped\",\"state\":\"standby\"}";
@@ -541,11 +638,15 @@ void handleGetStatus() {
   String response = "{";
   response += "\"state\":\"" + stateStr + "\",";
   response += "\"last_error\":\"" + lastErrorMessage + "\",";
+  response += "\"max_fingerprint_slots\":" + String(r307FingerprintCapacity) + ",";
   response += "\"fingerprint_initialized\":" + String(fingerprintInitialized ? "true" : "false") + ",";
   response += "\"enrollment_active\":" + String(enrollmentActive ? "true" : "false") + ",";
   response += "\"current_scan\":" + String(currentScan) + ",";
   response += "\"total_scans\":" + String(MAX_SCANS) + ",";
-  response += "\"fingerprint_id\":" + String(matchedFingerprintID) + ",";
+  if (matchedFingerprintID >= 0) {
+    response += "\"fingerprint_id\":" + String(matchedFingerprintID) + ",";
+    matchedFingerprintID = -1; // CONSUME IT
+  }
   response += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
   response += "\"uptime\":" + String(millis()) + ",";
   response += "\"wifi_signal\":" + String(WiFi.RSSI());
@@ -607,6 +708,7 @@ void handleDetectionMode() {
     
     // Go to WAIT_REMOVE if more enrollment scans needed, else STANDBY
     if (enrollmentActive && currentScan < MAX_SCANS) {
+      resumeStateAfterWaitRemove = ENROLLING;
       currentState = WAIT_REMOVE;
     } else {
       currentState = STANDBY;
@@ -644,8 +746,20 @@ void handleFailMode() {
 
   Serial.println("[ERROR-SEQUENCE] ============== SEQUENCE COMPLETE ==============");
   
-  // Return to standby
-  currentState = STANDBY;
+  if (resumeVerifyingAfterAuthFailBeeps) {
+    resumeVerifyingAfterAuthFailBeeps = false;
+    enrollmentActive = true;
+    currentScan = 0;
+    matchedFingerprintID = -1;
+    for (int i = 0; i < MAX_SCANS; i++) {
+      scanCompleted[i] = false;
+    }
+    resumeStateAfterWaitRemove = VERIFYING;
+    currentState = WAIT_REMOVE;
+    lastErrorMessage = "Not registered — remove finger, then try again";
+  } else {
+    currentState = STANDBY;
+  }
   isBeeping = false;
 }
 
@@ -739,15 +853,18 @@ void detectFingerprint() {
     return;
   }
   lastImageGenTime = currentTime;
-  
+
+  server.handleClient();
   // 1. Generate Image (Synchronous)
   uint8_t code = r307GenerateImage();
+  server.handleClient();
   
   // 2. Handle Wait for Remove state
   if (currentState == WAIT_REMOVE) {
     // Green LED is handled in handleEnrollingMode for this state to allow blinking Blue
     if (code == 0x02) { // No finger on sensor
-      currentState = ENROLLING;
+      currentState = resumeStateAfterWaitRemove;
+      resumeStateAfterWaitRemove = ENROLLING;
       lastErrorMessage = "Place finger on sensor";
     } else {
       lastErrorMessage = "Remove finger...";
@@ -759,42 +876,91 @@ void detectFingerprint() {
   if (code == 0x00) {
     // Finger detected!
     if (currentState == ENROLLING) {
-      // Alternate buffers: scan 0->buf1, scan 1->buf2, scan 2->buf1, etc.
-      uint8_t bufferId = (currentScan % 2 == 0) ? 1 : 2;
+      // 3-step AS608 enroll: scan1->buf1, scan2->buf2, RegModel, scan3->buf2 (not buf1),
+      // then RegModel again. Putting the 3rd image in buf1 overwrites the merged template and
+      // can lead to failed Store (e.g. 0x18) or bad templates.
+      uint8_t bufferId;
+      if (currentScan + 1 >= MAX_SCANS) {
+        bufferId = 2;
+      } else {
+        bufferId = (currentScan % 2 == 0) ? 1 : 2;
+      }
       uint8_t res = r307Img2Tz(bufferId);
       if (res == 0x00) {
         if (currentScan + 1 >= MAX_SCANS) {
           // FINAL SCAN: build and store template
           Serial.println("[ENROLL] Final scan - running RegModel...");
-          if (r307RegModel() == 0x00) {
-            if (enrollmentSlotID > 0) {
-              if (r307StoreModel(enrollmentSlotID) == 0x00) {
-                lastErrorMessage = "Enrolled successfully";
-                // NOTE: Do NOT set enrollmentActive=false here.
-                // triggerFingerprintDetection handles it internally.
-                triggerFingerprintDetection();
-              } else {
-                triggerAuthFailed("Store failed");
+          uint8_t regRes = r307RegModel();
+          if (regRes == 0x00) {
+            delay(100); // Give sensor time to settle after Flash operation
+            
+            // Remove stale templates: web "remove" may not erase the module, so search can
+            // match an old page (e.g. ID 3) while enrolling page 0. Delete non-target matches
+            // until none remain or only our enrollment page matches.
+            uint16_t finalDupID = 0;
+            uint16_t finalScore = 0;
+            for (int cleanup = 0; cleanup < 16; cleanup++) {
+              uint8_t sr = r307Search(1, &finalDupID, &finalScore);
+              if (sr != 0x00) {
+                break;
               }
+              if ((int)finalDupID == enrollmentSlotID) {
+                break;
+              }
+              Serial.printf("[ENROLL] Dropping stale/conflicting page %u (enrolling %d)\n",
+                            (unsigned)finalDupID, enrollmentSlotID);
+              r307DeletePage(finalDupID);
+              delay(150);
+            }
+            uint8_t searchRes = r307Search(1, &finalDupID, &finalScore);
+            if (searchRes == 0x00 && (int)finalDupID != enrollmentSlotID) {
+              matchedFingerprintID = finalDupID;
+              triggerAuthFailed("Already registered (ID: " + String(finalDupID) + ")");
+              return;
+            }
+
+            if (enrollmentSlotID < 0) {
+              triggerAuthFailed("Invalid page index");
+              return;
+            }
+            if (r307FingerprintCapacity > 0 && enrollmentSlotID >= (int)r307FingerprintCapacity) {
+              triggerAuthFailed("Page index out of range (0-" + String((unsigned)(r307FingerprintCapacity - 1)) + ")");
+              return;
+            }
+            delay(300); // Let RegModel settle — helps avoid AS608 0x18 FLASHERR on Store
+            uint8_t storeRes = r307StoreModel(enrollmentSlotID);
+            if (storeRes == 0x00) {
+              lastErrorMessage = "Enrolled successfully";
+              triggerFingerprintDetection();
             } else {
-              triggerAuthFailed("Invalid slot ID");
+              String detail = "Store failed (0x" + String(storeRes, HEX) + ")";
+              // 0x18 = FINGERPRINT_FLASHERR (flash write), not "bad slot" (that is usually 0x0B)
+              if (storeRes == 0x18) {
+                detail += " — flash write error: use a stable 5V supply, short wires, retry; "
+                          "Clear All Fingerprints then wait a few seconds before enrolling.";
+              }
+              triggerAuthFailed(detail);
             }
           } else {
-            triggerAuthFailed("RegModel failed");
+            triggerAuthFailed("RegModel failed (0x" + String(regRes, HEX) + ")");
           }
         } else {
-          // DUPLICATE CHECK: Search existing library before proceeding
-          uint16_t duplicateID = 0;
-          uint16_t score = 0;
-          // Use the SAME buffer we just used for Img2Tz
-          if (r307Search(bufferId, &duplicateID, &score) == 0x00) {
-            Serial.printf("[ENROLL] Duplicate found! Slot: %d\n", duplicateID);
-            matchedFingerprintID = duplicateID; // Store to report back
-            triggerAuthFailed("Already registered (ID: " + String(duplicateID) + ")");
-            return;
+          // INTERMEDIATE SCAN: If this is the first scan, we just move on.
+          // If this is the second scan, we can optionally run an intermediate RegModel 
+          // to strengthen the buffer, but for R307, the most stable way for 3 scans is:
+          // 1. Scan 1 -> Buf 1
+          // 2. Scan 2 -> Buf 2
+          // 3. RegModel -> Result in Buf 1 & 2
+          // 4. Scan 3 -> Buf 2
+          // 5. Final RegModel -> Result in Buf 1 & 2
+          
+          if (currentScan == 1) { // This was the 2nd scan (currentScan 0->1)
+             Serial.println("[ENROLL] Intermediate RegModel for Scan 1 & 2...");
+             r307RegModel(); // Combine first two scans
+             delay(50);
           }
 
-          // INTERMEDIATE SCAN: confirm and wait for remove
+          // confirm and wait for remove
           lastErrorMessage = "Scan " + String(currentScan + 1) + " complete. Remove finger.";
           triggerFingerprintDetection(); // increments currentScan and shows green LED
         }
@@ -802,21 +968,29 @@ void detectFingerprint() {
         triggerAuthFailed("Img2Tz failed (0x" + String(res, HEX) + ")");
       }
     } else if (currentState == VERIFYING) {
-      if (r307Img2Tz(1) == 0x00) {
-        uint16_t fingerID = 0;
-        uint16_t score = 0;
-        if (r307Search(1, &fingerID, &score) == 0x00) {
-          matchedFingerprintID = fingerID;
-          lastErrorMessage = "Matched ID: " + String(fingerID);
-          // Signal done so handleDetectionMode goes to STANDBY, not ENROLLING
-          enrollmentActive = false;
-          currentScan = MAX_SCANS;
-          triggerFingerprintDetection();
-        } else {
-          triggerAuthFailed("Account not found");
-        }
+      server.handleClient();
+      uint8_t i2 = r307Img2Tz(1);
+      server.handleClient();
+      if (i2 != 0x00) {
+        // Soft fail: keep verification session so user can lift finger and try again
+        resumeStateAfterWaitRemove = VERIFYING;
+        currentState = WAIT_REMOVE;
+        lastErrorMessage = "Poor scan — lift finger and try again";
+        return;
+      }
+      uint16_t fingerID = 0;
+      uint16_t score = 0;
+      uint8_t sr = r307Search(1, &fingerID, &score, verifySearchPageCount);
+      server.handleClient();
+      if (sr == 0x00) {
+        matchedFingerprintID = (int)fingerID;
+        lastErrorMessage = "Matched ID: " + String(fingerID);
+        enrollmentActive = false;
+        currentScan = MAX_SCANS;
+        triggerFingerprintDetection();
       } else {
-        triggerAuthFailed("Scan failed");
+        // Not in library (wrong / unregistered): three beeps, then wait for finger lift and retry verify
+        triggerAuthFailed("Fingerprint not recognized (not registered)", true);
       }
     }
   } else if (code == 0x01 || code == 0x02 || code == 0xFF) {
@@ -956,6 +1130,32 @@ bool r307ReceiveResponse(uint8_t* response, uint16_t* responseLength, uint32_t t
   return false;
 }
 
+// Read template library size (AS608 / R307 ReadSysPara — same layout as Adafruit_Fingerprint::getParameters)
+bool r307RefreshFingerprintCapacity() {
+  for (int attempt = 0; attempt < 3; attempt++) {
+    clearR307Buffer();
+    r307SendCommand(R307_CMD_READ_SYSPARA, NULL, 0);
+    uint8_t response[64];
+    uint16_t respLen = 0;
+    if (!r307ReceiveResponse(response, &respLen, 1000)) {
+      delay(50);
+      continue;
+    }
+    if (response[6] != R307_ACK_PACKET || response[9] != 0x00) {
+      delay(50);
+      continue;
+    }
+    uint16_t cap = ((uint16_t)response[14] << 8) | response[15];
+    if (cap >= 1 && cap <= 2000) {
+      r307FingerprintCapacity = cap;
+      Serial.printf("[R307] Library capacity: %u templates\n", (unsigned)r307FingerprintCapacity);
+      return true;
+    }
+    delay(50);
+  }
+  return false;
+}
+
 // Generate fingerprint image (Synchronous for perfect detection)
 uint8_t r307GenerateImage() {
   // Clear any noise before sending command
@@ -984,29 +1184,88 @@ uint8_t r307Img2Tz(uint8_t slot) {
 }
 
 uint8_t r307RegModel() {
+  clearR307Buffer();
   r307SendCommand(R307_CMD_REG_MODEL, NULL, 0);
   uint8_t response[12];
   uint16_t respLen = 0;
-  if (r307ReceiveResponse(response, &respLen, 1000)) {
+  if (r307ReceiveResponse(response, &respLen, 2000)) { // Increased timeout for model generation
+    return response[9];
+  }
+  return 0xFF;
+}
+
+uint8_t r307StoreModelFromBuffer(uint8_t charBuffer, uint16_t pageId) {
+  clearR307Buffer();
+  uint8_t data[3] = {charBuffer, (uint8_t)((pageId >> 8) & 0xFF), (uint8_t)(pageId & 0xFF)};
+  r307SendCommand(R307_CMD_STORE, data, 3);
+  uint8_t response[12];
+  uint16_t respLen = 0;
+  if (r307ReceiveResponse(response, &respLen, 5000)) {
+    return response[9];
+  }
+  return 0xFF;
+}
+
+/** Delete one template page (same packet as HTTP /delete-fingerprint). Returns confirmation byte. */
+uint8_t r307DeletePage(uint16_t pageId) {
+  clearR307Buffer();
+  uint8_t data[4] = {
+    (uint8_t)((pageId >> 8) & 0xFF),
+    (uint8_t)(pageId & 0xFF),
+    0x00,
+    0x01
+  };
+  r307SendCommand(R307_CMD_DELETE, data, 4);
+  uint8_t response[12];
+  uint16_t respLen = 0;
+  if (r307ReceiveResponse(response, &respLen, 2000)) {
     return response[9];
   }
   return 0xFF;
 }
 
 uint8_t r307StoreModel(uint16_t id) {
-  uint8_t data[3] = {0x01, (uint8_t)((id >> 8) & 0xFF), (uint8_t)(id & 0xFF)};
-  r307SendCommand(R307_CMD_STORE, data, 3);
-  uint8_t response[12];
-  uint16_t respLen = 0;
-  if (r307ReceiveResponse(response, &respLen, 1000)) {
-    return response[9];
+  uint8_t last = 0xFF;
+  for (int attempt = 0; attempt < 6; attempt++) {
+    delay(80 + (uint32_t)attempt * 120);
+    uint8_t r = r307StoreModelFromBuffer(1, id);
+    last = r;
+    if (r == 0x00) {
+      return 0x00;
+    }
+    if (r != 0x18) {
+      return r;
+    }
+    r = r307StoreModelFromBuffer(2, id);
+    last = r;
+    if (r == 0x00) {
+      return 0x00;
+    }
+    if (r != 0x18) {
+      return r;
+    }
   }
-  return 0xFF;
+  return last;
 }
 
-uint8_t r307Search(uint8_t bufferId, uint16_t* fingerID, uint16_t* score) {
-  // data[0] is the buffer ID (0x01 or 0x02)
-  uint8_t data[5] = {bufferId, 0x00, 0x00, 0x03, 0xE8}; // BufferId, Start 0, Num 1000
+uint8_t r307Search(uint8_t bufferId, uint16_t* fingerID, uint16_t* score, uint16_t maxPagesOverride) {
+  uint16_t searchCount = r307FingerprintCapacity > 0 ? r307FingerprintCapacity : 1000;
+  if (searchCount > 1000) {
+    searchCount = 1000;
+  }
+  if (maxPagesOverride > 0 && maxPagesOverride < searchCount) {
+    searchCount = maxPagesOverride;
+  }
+  if (searchCount < 1) {
+    searchCount = 1;
+  }
+  uint8_t data[5] = {
+    bufferId,
+    0x00,
+    0x00,
+    (uint8_t)(searchCount >> 8),
+    (uint8_t)(searchCount & 0xFF)
+  };
   r307SendCommand(R307_CMD_SEARCH, data, 5);
   uint8_t response[16];
   uint16_t respLen = 0;

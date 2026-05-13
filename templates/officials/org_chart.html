@@ -1,0 +1,405 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Organizational Chart - Barangay Management System{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+    .org-node-container { transition: all 0.5s ease; }
+    .org-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    .org-card:hover { transform: scale(1.05); }
+    .org-card:active { transform: scale(0.95); }
+    
+    .type-executive { background: linear-gradient(to bottom right, #306844, #255235); color: white; }
+    .type-admin { background: linear-gradient(to bottom right, #2563eb, #1d4ed8); color: white; }
+    .type-council { background: linear-gradient(to bottom right, #f59e0b, #d97706); color: white; }
+    .type-staff { background: #FFFFFF; border: 1px solid #E2E8F0; color: #1E293B; }
+
+    .line-vertical { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 2px; height: 40px; background: #e2e8f0; }
+    .line-horizontal { position: absolute; top: 0; height: 2px; background: #e2e8f0; }
+    .line-tick { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 2px; height: 24px; background: #e2e8f0; }
+
+    /* Custom scrollbar for the canvas */
+    #org-canvas::-webkit-scrollbar { width: 6px; height: 6px; }
+    #org-canvas::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    #org-canvas::-webkit-scrollbar-track { background: transparent; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fixed inset-0 lg:left-[240px] top-[70px] bg-[#F8FAFC] flex flex-col overflow-hidden font-sans text-slate-900 z-10">
+    <!-- Sub-Navbar (Internal to the view) -->
+    <nav class="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between z-30 shadow-sm">
+        <div class="flex items-center gap-4">
+            <div class="bg-[#306844] p-2.5 rounded-xl text-white">
+                <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
+            </div>
+            <div class="flex flex-col">
+                <h1 class="text-xl font-black tracking-tight leading-none mb-1">Brgy. Sico Sico Management System</h1>
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Organization Chart</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-6">
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4"></i>
+                <input 
+                    type="text" 
+                    id="memberSearch"
+                    placeholder="Find member..."
+                    class="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 w-64 text-sm font-medium outline-none transition-all"
+                >
+            </div>
+            <div class="h-8 w-px bg-slate-200"></div>
+            <button class="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-xl font-bold text-sm hover:bg-emerald-100 transition">
+                <i data-lucide="shield-check" class="w-4 h-4"></i> Verified Directory
+            </button>
+        </div>
+    </nav>
+
+    <!-- Main Interactive Canvas -->
+    <div class="flex-1 relative overflow-hidden bg-slate-50">
+        <!-- Floating Controls -->
+        <div class="absolute top-6 left-6 z-20 flex flex-col gap-3">
+            <div class="mb-2">
+                {% url 'officials:list' as officials_list_url %}
+                {% include 'components/back_button.html' with back_url=officials_list_url back_label='Back' %}
+            </div>
+            <button onclick="handleZoom(0.1)" class="p-3 bg-white hover:bg-slate-50 rounded-xl shadow-lg border border-slate-100 text-slate-600 transition active:scale-95"><i data-lucide="zoom-in" class="w-5 h-5"></i></button>
+            <button onclick="handleZoom(-0.1)" class="p-3 bg-white hover:bg-slate-50 rounded-xl shadow-lg border border-slate-100 text-slate-600 transition active:scale-95"><i data-lucide="zoom-out" class="w-5 h-5"></i></button>
+            <button onclick="resetZoom()" class="p-3 bg-white hover:bg-slate-50 rounded-xl shadow-lg border border-slate-100 text-slate-600 transition active:scale-95"><i data-lucide="maximize" class="w-5 h-5"></i></button>
+        </div>
+
+        <!-- Legend -->
+        <div class="absolute bottom-6 left-6 z-20 bg-white/80 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
+            <p class="text-[10px] font-black uppercase text-slate-400 mb-1 tracking-widest">Barangay Role Key</p>
+            <div class="flex items-center gap-3"><div class="w-3 h-3 rounded-full bg-[#306844]"></div> <span class="text-xs font-bold text-slate-700">Punong Barangay</span></div>
+            <div class="flex items-center gap-3"><div class="w-3 h-3 rounded-full bg-blue-600"></div> <span class="text-xs font-bold text-slate-700">Secretary & Treasurer</span></div>
+            <div class="flex items-center gap-3"><div class="w-3 h-3 rounded-full bg-amber-500"></div> <span class="text-xs font-bold text-slate-700">Sangguniang Barangay</span></div>
+            <div class="flex items-center gap-3"><div class="w-3 h-3 border border-slate-200 rounded-full bg-white"></div> <span class="text-xs font-bold text-slate-700">Staff & Volunteers</span></div>
+        </div>
+
+    <!-- Zoomable Container -->
+    <div 
+        id="org-canvas"
+        class="w-full h-full cursor-grab active:cursor-grabbing flex items-start justify-center select-none overflow-hidden"
+    >
+        <div 
+            id="zoom-container"
+            class="transition-transform duration-300 ease-out"
+            style="transform: translate(0px, 0px) scale(0.9); transform-origin: center center;"
+        >
+            <div id="org-tree-root" class="inline-block px-40 pt-64 pb-40"></div>
+        </div>
+    </div>
+    </div>
+
+    </div>
+</div>
+
+<!-- Profile Detail Slide-over (Moved outside to avoid parent clipping) -->
+<div id="profile-slideover" class="fixed inset-0 z-[9999] hidden flex items-center justify-end p-6 bg-slate-900/40 backdrop-blur-sm transition-opacity">
+    <div class="w-full max-w-sm bg-white rounded-3xl shadow-2xl h-full flex flex-col overflow-hidden transform translate-x-full transition-transform duration-500" id="slideover-content">
+        <div class="h-32 bg-[#306844] relative flex items-end justify-center pb-6">
+            <button 
+                onclick="closeDetail()"
+                class="absolute top-4 right-4 p-2 bg-black/20 hover:bg-black/40 text-white rounded-full transition"
+            >
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            
+            <div class="w-24 h-24 bg-white rounded-2xl p-1 shadow-xl translate-y-12">
+                <div id="detail-initials-container" class="w-full h-full bg-slate-100 rounded-xl flex items-center justify-center text-slate-800 font-black text-2xl overflow-hidden">
+                    <img id="detail-photo" class="w-full h-full object-cover hidden" src="" alt="">
+                    <span id="detail-initials">--</span>
+                </div>
+                <div class="absolute -bottom-1 -right-1 w-8 h-8 bg-emerald-500 border-4 border-white rounded-full flex items-center justify-center">
+                    <i data-lucide="shield-check" class="text-white w-4 h-4"></i>
+                </div>
+            </div>
+        </div>
+        
+        <div class="px-8 pb-8 pt-16 flex-1 overflow-y-auto">
+            <h3 id="detail-name" class="text-2xl font-black text-slate-900 mb-1">---</h3>
+            <p id="detail-role" class="text-emerald-700 font-bold uppercase tracking-widest text-xs mb-8">---</p>
+
+            <div class="space-y-6">
+                <div class="space-y-4">
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest">Contact Information</p>
+                    <div class="flex items-center gap-4 group cursor-pointer">
+                        <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-emerald-600 transition">
+                            <i data-lucide="mail" class="w-4.5 h-4.5"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase">Email Address</p>
+                            <p id="detail-email" class="text-sm font-bold text-slate-700">---</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 group cursor-pointer">
+                        <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-emerald-600 transition">
+                            <i data-lucide="phone" class="w-4.5 h-4.5"></i>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase">Phone Number</p>
+                            <p id="detail-phone" class="text-sm font-bold text-slate-700">---</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-6 border-t border-slate-100">
+                    <p class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Quick Actions</p>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="btn-edit-profile" class="py-3 bg-[#306844] text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-[#255235] transition shadow-lg shadow-emerald-100">
+                            Edit Profile
+                        </button>
+                        <button id="btn-view-dtr" class="py-3 bg-slate-100 text-slate-600 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-200 transition">
+                            View DTR
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 bg-slate-50 border-t border-slate-100">
+           <button 
+            onclick="closeDetail()"
+            class="w-full py-4 bg-white border border-slate-200 rounded-2xl shadow-sm text-slate-500 font-bold text-xs uppercase tracking-widest hover:bg-slate-50 hover:text-slate-700 transition"
+           >
+             Close Detail
+           </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ORG_DATA = {{ org_data_json|safe }};
+
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isDragging = false;
+    let startX, startY;
+    
+    let collapsedNodes = new Set();
+
+    function getTypeStyles(type) {
+        switch (type) {
+            case 'executive': return 'type-executive shadow-emerald-200';
+            case 'admin': return 'type-admin shadow-blue-200';
+            case 'council': return 'type-council shadow-amber-200';
+            default: return 'type-staff shadow-slate-100';
+        }
+    }
+
+    function renderNode(node) {
+        const hasChildren = node.children && node.children.length > 0;
+        const isCollapsed = collapsedNodes.has(node.id);
+        
+        let childrenHtml = '';
+        if (hasChildren && !isCollapsed) {
+            const childCount = node.children.length;
+            childrenHtml = `
+                <div class="flex pt-10 relative">
+                    <div class="line-vertical"></div>
+                    <div class="flex gap-8 relative">
+                        ${node.children.map((child, index) => {
+                            let lineHtml = '';
+                            if (childCount > 1) {
+                                let horizStyle = '';
+                                if (index === 0) horizStyle = 'left: 50%; right: 0;';
+                                else if (index === childCount - 1) horizStyle = 'left: 0; right: 50%;';
+                                else horizStyle = 'left: 0; right: 0;';
+                                
+                                lineHtml = `
+                                    <div class="line-horizontal" style="${horizStyle}"></div>
+                                    <div class="line-tick"></div>
+                                `;
+                            }
+                            return `
+                                <div class="relative pt-6">
+                                    ${lineHtml}
+                                    ${renderNode(child)}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="flex flex-col items-center relative transition-all duration-500" data-node-id="${node.id}">
+                <div 
+                    onclick="selectMember('${node.id}')"
+                    class="org-card relative z-10 w-64 p-4 rounded-2xl cursor-pointer shadow-lg group ${getTypeStyles(node.type)}"
+                >
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl ${node.type === 'staff' ? 'bg-slate-100 border border-slate-200' : 'bg-white/20 backdrop-blur-sm'} flex items-center justify-center font-black text-sm overflow-hidden flex-shrink-0">
+                            <img src="${node.photo || `https://api.dicebear.com/7.x/identicon/svg?seed=official_${node.id}&backgroundColor=ffffff`}" class="w-full h-full object-cover">
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h4 class="font-bold text-sm leading-tight ${node.type === 'staff' ? 'text-slate-900' : 'text-white'} whitespace-normal break-words">${node.name}</h4>
+                            <p class="text-[9px] opacity-80 font-bold uppercase tracking-wider ${node.type === 'staff' ? 'text-slate-500' : 'text-white/90'} whitespace-normal mt-0.5">${node.role}</p>
+                        </div>
+                    </div>
+                    
+                    ${hasChildren ? `
+                        <button 
+                            onclick="toggleNode(event, '${node.id}')"
+                            class="absolute -bottom-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full flex items-center justify-center text-slate-400 border border-slate-100 shadow-sm hover:text-emerald-600 hover:scale-110 transition-all"
+                        >
+                            <i data-lucide="${isCollapsed ? 'chevron-down' : 'chevron-up'}" class="w-3.5 h-3.5"></i>
+                        </button>
+                    ` : ''}
+                </div>
+                ${childrenHtml}
+            </div>
+        `;
+    }
+
+    function toggleNode(event, nodeId) {
+        event.stopPropagation();
+        if (collapsedNodes.has(nodeId)) collapsedNodes.delete(nodeId);
+        else collapsedNodes.add(nodeId);
+        updateTree();
+    }
+
+    function updateTree() {
+        document.getElementById('org-tree-root').innerHTML = renderNode(ORG_DATA);
+        lucide.createIcons();
+    }
+
+    function findNode(id, node = ORG_DATA) {
+        if (node.id === id) return node;
+        if (node.children) {
+            for (let child of node.children) {
+                const found = findNode(id, child);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    function selectMember(id) {
+        const node = findNode(id);
+        if (!node) return;
+
+        document.getElementById('detail-name').innerText = node.name;
+        document.getElementById('detail-role').innerText = node.role;
+        document.getElementById('detail-initials').innerText = node.initials;
+        document.getElementById('detail-email').innerText = node.email || 'N/A';
+        document.getElementById('detail-phone').innerText = node.phone || 'N/A';
+        
+        const photoImg = document.getElementById('detail-photo');
+        const initialsSpan = document.getElementById('detail-initials');
+        const identiconUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=official_${node.id}&backgroundColor=ffffff`;
+        photoImg.src = node.photo || identiconUrl;
+        photoImg.classList.remove('hidden');
+        initialsSpan.classList.add('hidden');
+
+        const slideover = document.getElementById('profile-slideover');
+        const content = document.getElementById('slideover-content');
+
+        // Update buttons
+        const editBtn = document.getElementById('btn-edit-profile');
+        const dtrBtn = document.getElementById('btn-view-dtr');
+        
+        // Only show actions for actual official nodes (not group placeholders)
+        const isOfficial = !['root', 'council_group', 'security_group', 'health_group'].includes(node.id);
+        
+        if (isOfficial) {
+            editBtn.parentElement.classList.remove('hidden');
+            editBtn.onclick = () => window.location.href = `/officials/${node.id}/edit/`;
+            dtrBtn.onclick = () => window.location.href = `/attendance/dtr/${node.id}/`;
+        } else {
+            editBtn.parentElement.classList.add('hidden');
+        }
+        
+        slideover.classList.remove('hidden');
+        setTimeout(() => {
+            content.classList.remove('translate-x-full');
+        }, 10);
+    }
+
+    function closeDetail() {
+        const slideover = document.getElementById('profile-slideover');
+        const content = document.getElementById('slideover-content');
+        
+        content.classList.add('translate-x-full');
+        setTimeout(() => {
+            slideover.classList.add('hidden');
+        }, 500);
+    }
+
+    function handleZoom(delta) {
+        scale = Math.min(Math.max(scale + delta, 0.3), 3);
+        applyTransform();
+    }
+
+    function resetZoom() {
+        scale = 0.85;
+        translateX = 0;
+        translateY = 50; // Adjusted for items-start
+        applyTransform();
+    }
+
+    function applyTransform() {
+        const container = document.getElementById('zoom-container');
+        // Use translate before scale for better intuitive movement
+        container.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        updateTree();
+        resetZoom(); // Initial centering
+        
+        const canvas = document.getElementById('org-canvas');
+        
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // Only left click
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+            canvas.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            applyTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'grab';
+        });
+
+        // Mouse wheel zoom
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -0.1 : 0.1;
+            handleZoom(delta);
+        }, { passive: false });
+        
+        // Search functionality
+        document.getElementById('memberSearch').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.org-card');
+            cards.forEach(card => {
+                const name = card.querySelector('h4').innerText.toLowerCase();
+                const role = card.querySelector('p').innerText.toLowerCase();
+                if (name.includes(query) || role.includes(query)) {
+                    card.style.opacity = '1';
+                    card.style.transform = 'scale(1)';
+                } else {
+                    card.style.opacity = '0.3';
+                    card.style.transform = 'scale(0.95)';
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

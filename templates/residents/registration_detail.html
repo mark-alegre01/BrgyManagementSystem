@@ -99,9 +99,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="breadcrumb">
-    <a href="{% url 'residents:registration_list' %}"><i class="fas fa-arrow-left"></i> Back to Registrations</a>
-</div>
+{% url 'residents:registration_list' as registration_list_url %}
+{% include 'components/back_button.html' with back_url=registration_list_url back_label='Back' %}
 
 <div class="page-header mt-3">
     <div class="page-title">

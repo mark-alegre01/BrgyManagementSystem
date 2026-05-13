@@ -5,10 +5,13 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-8">
-        <div class="card shadow-sm border-0">
-            <div class="card-header bg-white py-3">
-                <h5 class="mb-0 text-primary"><i class="fas fa-calendar-plus me-2"></i>Book an Appointment</h5>
-            </div>
+{% url 'appointment_list' as appointment_list_url %}
+{% include 'components/back_button.html' with back_url=appointment_list_url back_label='Back' %}
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-white py-3">
+        <h5 class="mb-0 text-primary"><i class="fas fa-calendar-plus me-2"></i>Book an Appointment</h5>
+    </div>
+
             <div class="card-body p-4">
                 <form method="post">
                     {% csrf_token %}
@@ -45,8 +48,7 @@
                         {{ form.specification }}
                     </div>
 
-                    <div class="mt-4 d-flex justify-content-between">
-                        <a href="{% url 'appointment_list' %}" class="btn btn-light">Back to List</a>
+                    <div class="mt-4 text-right">
                         <button type="submit" class="btn btn-primary px-4">Confirm Appointment</button>
                     </div>
                 </form>

@@ -19,6 +19,8 @@ urlpatterns = [
     path('registrations/<int:pk>/', views.registration_detail, name='registration_detail'),
     path('registrations/<int:pk>/approve/', views.approve_registration, name='approve_registration'),
     path('registrations/<int:pk>/reject/', views.reject_registration, name='reject_registration'),
+    path('registrations/<int:pk>/delete/', views.registration_delete, name='registration_delete'),
+    path('registrations/bulk-delete/', views.registration_bulk_delete, name='registration_bulk_delete'),
     path('purok/add/', views.purok_add_api, name='purok_add_api'),
     path('fingerprint-lookup/', views.get_resident_by_fingerprint, name='fingerprint_lookup'),
 ]

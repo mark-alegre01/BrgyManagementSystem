@@ -3,7 +3,7 @@
 {% block title %}Daily Time Record - Attendance System{% endblock %}
 
 {% block breadcrumb %}
-<span><a href="{% url 'attendance:dashboard' %}">Attendance</a> / DTR Summary</span>
+<span>Brgy. Sico Sico Management System / <a href="{% url 'attendance:dashboard' %}">Attendance</a> / DTR Summary</span>
 {% endblock %}
 
 {% block content %}
@@ -60,10 +60,16 @@
           <td><span class="badge badge-danger">{{ item.absent }}</span></td>
           <td><strong>{{ item.total_hours }} hrs</strong></td>
           <td>
-            <a href="{% url 'attendance:dtr_detail' item.official.pk %}?month={{ month }}&year={{ year }}"
-              class="btn btn-outline btn-icon" title="View Detailed DTR">
-              <i class="fas fa-eye"></i>
-            </a>
+            <div class="btn-group">
+              <a href="{% url 'attendance:dtr_detail' item.official.pk %}?month={{ month }}&year={{ year }}"
+                class="btn btn-outline btn-icon" title="View Detailed DTR">
+                <i class="fas fa-eye"></i>
+              </a>
+              <a href="{% url 'attendance:dtr_print' item.official.pk %}?month={{ month }}&year={{ year }}"
+                class="btn btn-outline btn-icon" title="Print DTR" target="_blank">
+                <i class="fas fa-print"></i>
+              </a>
+            </div>
           </td>
         </tr>
         {% empty %}

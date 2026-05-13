@@ -114,28 +114,41 @@
 {% endblock %}
 
 {% block content %}
+{% url 'attendance:dashboard' as attendance_dashboard_url %}
+{% include 'components/back_button.html' with back_url=attendance_dashboard_url back_label='Back' %}
+
 <div class="biometric-attendance-card">
-    <!-- Settings Trigger inside the card -->
-    <div style="position: absolute; top: 20px; right: 20px;">
-        <button class="btn btn-outline-secondary btn-sm rounded-circle" data-toggle="modal" data-target="#attendanceScheduleModal" style="width: 38px; height: 38px;">
-            <i class="fas fa-cog"></i>
-        </button>
-    </div>
+
+
+    <button class="absolute top-6 right-6 p-3 bg-white hover:bg-slate-50 rounded-2xl shadow-sm border border-slate-100 text-slate-400 hover:text-emerald-600 transition-all active:scale-95 group" 
+            data-toggle="modal" data-target="#attendanceScheduleModal" title="DTR Schedule Settings">
+        <i class="fas fa-cog text-xl group-hover:rotate-90 transition-transform duration-500"></i>
+    </button>
 
     <div class="mb-2">
-        <h1 class="font-weight-bold" style="color: #0f172a; margin-bottom: 2px; font-size: 1.25rem; letter-spacing: -0.5px;">Daily Time Record</h1>
+        <div id="event-mode-badge" class="hidden mb-2">
+            <span class="px-3 py-1 bg-emerald-600 text-white text-[10px] font-black rounded-full uppercase tracking-widest shadow-sm">
+                Event Mode Active
+            </span>
+        </div>
+        <h1 id="attendance-title" class="font-weight-bold" style="color: #0f172a; margin-bottom: 2px; font-size: 1.25rem; letter-spacing: -0.5px;">Daily Time Record</h1>
         <div id="current-live-day" class="font-weight-bold text-primary uppercase tracking-tight mb-1" style="font-size: 1.5rem; letter-spacing: -0.5px;">-------</div>
         
-        <div class="d-flex justify-content-center gap-2 mb-1">
-            <div class="px-2 py-1 bg-white rounded-lg border border-slate-200 shadow-sm">
-                <span class="text-[8px] font-bold text-slate-500 uppercase block mb-0 text-center">In</span>
-                <span id="display-time-in" class="text-[11px] font-bold text-slate-800">--:--</span>
-            </div>
-            <div class="px-2 py-1 bg-white rounded-lg border border-slate-200 shadow-sm">
-                <span class="text-[8px] font-bold text-slate-500 uppercase block mb-0 text-center">Out</span>
-                <span id="display-time-out" class="text-[11px] font-bold text-slate-800">--:--</span>
+        <div id="shift-display" class="mb-1">
+            <div class="inline-flex items-center gap-2 px-3 py-1 bg-white rounded-lg border border-slate-200 shadow-sm">
+                <span class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Shift Starts at</span>
+                <span id="display-time-in" class="text-[11px] font-black text-primary">--:--</span>
             </div>
         </div>
+
+        <div id="event-display" class="hidden mb-3">
+            <div class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700">
+                <i class="fas fa-calendar-alt text-xs"></i>
+                <span id="event-time-display" class="text-xs font-bold">--:--</span>
+            </div>
+        </div>
+        
+        <div id="exit-event-container" class="hidden mt-2"></div>
     </div>
 
     <div id="status-badge" class="status-badge-lg badge-waiting">
@@ -170,6 +183,30 @@
         </div>
         <div class="mt-3 text-secondary">
             <i class="fas fa-calendar-check mr-1"></i> Recorded at <span id="result-time" class="font-weight-bold">--:--</span>
+        </div>
+    </div>
+
+    <!-- Event Attendees List (Visible only in Event Mode) -->
+    <div id="event-attendees-section" class="hidden mt-8 text-left animate-in">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-black text-slate-800 tracking-tight">Present Officials</h3>
+            <button id="downloadPdfBtn" class="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition shadow-lg shadow-slate-200">
+                <i class="fas fa-file-pdf"></i> Download PDF
+            </button>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-400 uppercase text-[9px] font-black tracking-widest">
+                    <tr>
+                        <th class="px-5 py-4">Name</th>
+                        <th class="px-5 py-4">Position</th>
+                        <th class="px-5 py-4">Time In</th>
+                    </tr>
+                </thead>
+                <tbody id="attendees-list-body" class="divide-y divide-slate-100">
+                    <!-- Attendees will be injected here -->
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
@@ -456,26 +493,103 @@
         const dayConfig = weeklySchedule[currentDay];
         
         const timeInEl = document.getElementById('display-time-in');
-        const timeOutEl = document.getElementById('display-time-out');
         
-        if (timeInEl && timeOutEl) {
+        if (timeInEl) {
             if (dayConfig) {
                 timeInEl.textContent = minutesToDisplay(dayConfig.in);
-                timeOutEl.textContent = minutesToDisplay(dayConfig.out);
                 timeInEl.parentElement.style.opacity = '1';
-                timeOutEl.parentElement.style.opacity = '1';
             } else {
                 timeInEl.textContent = '--:--';
-                timeOutEl.textContent = '--:--';
                 timeInEl.parentElement.style.opacity = '0.5';
-                timeOutEl.parentElement.style.opacity = '0.5';
             }
         }
     }
 
+    let isScanning = false;
+    let pollingInterval = null;
+    let scanTimeout = null;
+    let hasShownError = false;
+    let currentActiveEvent = null;
+
+    function fetchAttendees() {
+        if (!currentActiveEvent) return;
+        
+        fetch(`{% url 'attendance:api_event_attendance_list' %}?date=${currentActiveEvent.date}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const tbody = document.getElementById('attendees-list-body');
+                    tbody.innerHTML = '';
+                    
+                    if (data.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="3" class="px-5 py-8 text-center text-slate-400 font-medium">No one is present yet.</td></tr>';
+                    } else {
+                        data.data.forEach(person => {
+                            const tr = document.createElement('tr');
+                            tr.className = 'hover:bg-slate-50 transition-colors';
+                            tr.innerHTML = `
+                                <td class="px-5 py-3 font-bold text-slate-800">${person.name}</td>
+                                <td class="px-5 py-3 text-slate-500 text-xs">${person.position}</td>
+                                <td class="px-5 py-3 text-slate-700 font-bold text-xs">${person.time_in}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                }
+            });
+    }
+
+    function checkEventMode() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventId = urlParams.get('event_id');
+        
+        if (eventId) {
+            const events = JSON.parse(localStorage.getItem('custom_attendance_events') || '[]');
+            const activeEvent = events.find(e => e.id == eventId);
+            
+            if (activeEvent) {
+                currentActiveEvent = activeEvent;
+                // UI Changes for Event Mode
+                document.getElementById('attendance-title').innerText = activeEvent.name;
+                document.getElementById('event-mode-badge').classList.remove('hidden');
+                document.getElementById('event-display').classList.remove('hidden');
+                document.getElementById('exit-event-container').classList.remove('hidden');
+                document.getElementById('event-time-display').innerText = `Scheduled for ${activeEvent.time}`;
+                document.getElementById('event-attendees-section').classList.remove('hidden');
+                
+                // Hide normal shift display
+                document.getElementById('shift-display').classList.add('hidden');
+                
+                // You could also change the background or add a border
+                document.querySelector('.biometric-attendance-card').style.border = '2px solid #10b981';
+                document.querySelector('.biometric-attendance-card').style.borderRadius = '30px';
+                document.querySelector('.biometric-attendance-card').style.background = 'rgba(236, 253, 245, 0.5)';
+                
+                fetchAttendees();
+                return activeEvent;
+            }
+        }
+        return null;
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         initScheduleData();
-        renderCurrentShift();
+        const activeEvent = checkEventMode();
+        
+        if (!activeEvent) {
+            renderCurrentShift();
+        }
+
+        // PDF Download Listener
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        if (downloadPdfBtn) {
+            downloadPdfBtn.onclick = () => {
+                if (currentActiveEvent) {
+                    window.location.href = `{% url 'attendance:event_attendance_pdf' %}?date=${currentActiveEvent.date}&event_name=${encodeURIComponent(currentActiveEvent.name)}`;
+                }
+            };
+        }
+        
         setInterval(updateClock, 1000);
         updateClock();
 
@@ -536,11 +650,11 @@
                 }, 400);
             }
 
-            fetch('{% url "core:biometric_login_start" %}', {
+            fetch('{% url "core:biometric_attendance_start" %}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ role: 'auto' })
+                body: JSON.stringify({})
             })
             .then(res => res.json())
             .then(data => {
@@ -557,7 +671,7 @@
 
         function startPolling() {
             pollingInterval = setInterval(() => {
-                fetch('/biometric-status-check/', {
+                fetch('{% url "core:biometric_attendance_status_check" %}', {
                     credentials: 'include'
                 })
                 .then(res => res.json())
@@ -616,6 +730,11 @@
             resultCard.style.display = 'block';
             btnStop.classList.add('d-none');
             btnStart.classList.remove('d-none'); // Show immediately for quick next scan
+            
+            // Refresh attendees list if in event mode
+            if (currentActiveEvent) {
+                fetchAttendees();
+            }
             
             // Auto-reset colors/visuals after 5s, but keep button visible
             setTimeout(() => {

@@ -204,6 +204,10 @@
 <div class="page-container">
     <div class="form-glass-card">
         <div class="hero-section">
+            <div class="mb-3">
+                {% url 'core:dashboard' as core_dashboard_url %}
+                {% include 'components/back_button.html' with back_url=core_dashboard_url back_label='Back' %}
+            </div>
             <div class="hero-icon">
                 <i class="fas fa-file-signature"></i>
             </div>

@@ -4,11 +4,18 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
+from django.core.cache import cache
 from datetime import date, datetime, time
 from .models import AttendanceLog, FaceEncoding
 from officials.models import Official
 import json
 from biometrics.utils import get_biometric_provider
+from django.http import HttpResponse
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 
 
 @login_required
@@ -232,21 +239,30 @@ def api_biometric_verify(request):
         
         official = None
         if is_auto:
-            # Check the biometric cache first for the specifically matched user
-            from django.core.cache import cache
-            request_id = request.session.get('biometric_request_id')
-            if request_id:
-                state = cache.get(f"biometric:{request_id}")
-                if state and state.get('status') == 'authenticated':
-                    matched_user_id = state.get('user_id')
-                    if matched_user_id:
-                        from django.contrib.auth import get_user_model
-                        User = get_user_model()
-                        try:
-                            user = User.objects.get(id=matched_user_id)
-                            official = getattr(user, 'official_profile', None)
-                        except User.DoesNotExist:
-                            pass
+            # Clock in/out after ESP32 attendance scan (any active functionary)
+            att_rid = request.session.get('biometric_attendance_request_id')
+            if att_rid:
+                att_state = cache.get(f"biometric_attendance:{att_rid}")
+                if att_state and att_state.get('status') == 'authenticated':
+                    oid = att_state.get('official_id')
+                    if oid:
+                        official = Official.objects.filter(pk=oid, status='active').first()
+
+            # Biometric login session (Captain / Secretary / Treasurer only)
+            if not official:
+                request_id = request.session.get('biometric_request_id')
+                if request_id:
+                    state = cache.get(f"biometric:{request_id}")
+                    if state and state.get('status') == 'authenticated':
+                        matched_user_id = state.get('user_id')
+                        if matched_user_id:
+                            from django.contrib.auth import get_user_model
+                            User = get_user_model()
+                            try:
+                                user = User.objects.get(id=matched_user_id)
+                                official = getattr(user, 'official_profile', None)
+                            except User.DoesNotExist:
+                                pass
 
             # Fallback to current user ONLY if no biometric match was cached
             if not official and request.user.is_authenticated:
@@ -305,6 +321,11 @@ def api_biometric_verify(request):
         else:
             return JsonResponse({'status': 'info', 'message': f'{official.resident.full_name} already completed DTR for today.'})
 
+        if is_auto:
+            att_rid = request.session.get('biometric_attendance_request_id')
+            if att_rid:
+                cache.delete(f"biometric_attendance:{att_rid}")
+
         return JsonResponse({
             'status': 'success',
             'message': f'{action} successful',
@@ -346,3 +367,94 @@ def api_face_recognize(request):
 def biometric_attendance(request):
     """Page for officials to record attendance via biometric."""
     return render(request, 'attendance/biometric_attendance.html')
+
+
+@login_required
+def api_event_attendance_list(request):
+    """Return JSON list of present officials for a specific date."""
+    date_str = request.GET.get('date')
+    if not date_str:
+        return JsonResponse({'status': 'error', 'message': 'Date required'}, status=400)
+    
+    try:
+        query_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'status': 'error', 'message': 'Invalid date format'}, status=400)
+    
+    logs = AttendanceLog.objects.filter(date=query_date).select_related('official__resident')
+    
+    data = []
+    for log in logs:
+        data.append({
+            'name': log.official.resident.full_name,
+            'position': log.official.get_position_display(),
+            'time_in': log.time_in.strftime('%I:%M %p') if log.time_in else '-',
+            'status': log.get_status_display(),
+        })
+    
+    return JsonResponse({'status': 'success', 'data': data})
+
+
+@login_required
+def event_attendance_pdf(request):
+    """Generate PDF report for attendance on a specific date."""
+    date_str = request.GET.get('date')
+    event_name = request.GET.get('event_name', 'Event Attendance')
+    
+    if not date_str:
+        return HttpResponse('Date required', status=400)
+    
+    try:
+        query_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return HttpResponse('Invalid date format', status=400)
+    
+    logs = AttendanceLog.objects.filter(date=query_date).select_related('official__resident').order_by('time_in')
+    
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="attendance_{date_str}.pdf"'
+    
+    doc = SimpleDocTemplate(response, pagesize=letter)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Header
+    elements.append(Paragraph(f"<b>BARANGAY SICO-SICO MANAGEMENT SYSTEM</b>", styles['Title']))
+    elements.append(Paragraph(f"Attendance Report: {event_name}", styles['Heading2']))
+    elements.append(Paragraph(f"Date: {query_date.strftime('%B %d, %Y')}", styles['Normal']))
+    elements.append(Spacer(1, 12))
+    
+    # Table Data
+    data = [['Official Name', 'Position', 'Time In', 'Status']]
+    for log in logs:
+        data.append([
+            log.official.resident.full_name,
+            log.official.get_position_display(),
+            log.time_in.strftime('%I:%M %p') if log.time_in else '-',
+            log.get_status_display()
+        ])
+    
+    if len(data) == 1:
+        data.append(['No records found', '', '', ''])
+    
+    # Table Styling
+    t = Table(data, colWidths=[200, 150, 80, 80])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10b981')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    elements.append(t)
+    
+    # Footer
+    elements.append(Spacer(1, 24))
+    elements.append(Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Italic']))
+    
+    doc.build(elements)
+    return response

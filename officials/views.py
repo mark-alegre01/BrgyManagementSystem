@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 import json
+import time
 import requests
 from django.contrib.auth import get_user_model
 User = get_user_model()
@@ -34,14 +35,16 @@ def get_officials_by_category(request):
     
     if category == 'officials':
         # Punong Barangay, Kagawad, SK Chairman, Secretary, Treasurer
-        officials = officials.filter(position__in=['captain', 'kagawad', 'secretary', 'treasurer', 'sk_chairman'])
+        officials = officials.filter(position__in=['captain', 'kagawad', 'secretary', 'treasurer', 'sk_chairman', 'sk_kagawad'])
     elif category == 'bhw':
-        officials = officials.filter(position='health_worker')
+        officials = officials.filter(position='bhw')
     elif category == 'tanod':
         officials = officials.filter(position='tanod')
     elif category == 'staff':
         # Clerk, BNS, Day Care, Lupon, Staff
-        officials = officials.filter(position__in=['nutrition_scholar', 'day_care_worker', 'lupon', 'clerk', 'staff'])
+        staff_positions = ['nutrition_scholar', 'day_care_worker', 'lupon', 'clerk', 'staff']
+        officials = officials.filter(position__in=staff_positions)
+    # If category is 'all' or unknown, officials remains the full list
     
     data = [
         {
@@ -136,11 +139,15 @@ def esp32_start_enrollment_proxy(request):
     try:
         # Bypassing proxies for local network reliability
         response = requests.post(url, timeout=25, proxies={'http': None, 'https': None})
-        response.raise_for_status()
         try:
             payload = response.json()
         except ValueError:
-            payload = {'status': 'success', 'message': response.text}
+            payload = {
+                'status': 'error' if response.status_code >= 400 else 'success',
+                'message': response.text or 'Invalid response from ESP32',
+            }
+        if response.status_code >= 400 and payload.get('status') != 'error':
+            payload['status'] = 'error'
         return JsonResponse(payload, status=response.status_code)
     except requests.RequestException as exc:
         if exc.response is not None:
@@ -339,6 +346,109 @@ def official_list(request):
 
 
 @login_required
+def org_chart(request):
+    """Display the organizational chart with dynamic data."""
+    officials = Official.objects.filter(status='active').select_related('resident', 'user')
+    
+    # Organize by position
+    captain = officials.filter(position='captain').first()
+    secretary = officials.filter(position='secretary').first()
+    treasurer = officials.filter(position='treasurer').first()
+    kagawads = officials.filter(position='kagawad')
+    sk_chairman = officials.filter(position='sk_chairman').first()
+    
+    def format_node(official, type_name):
+        if not official: return None
+        # Extract initials
+        names = official.resident.full_name.split()
+        initials = "".join([n[0] for n in names if n][:2]).upper()
+        
+        return {
+            'id': str(official.id),
+            'name': official.resident.full_name,
+            'role': official.get_position_display(),
+            'initials': initials,
+            'photo': official.resident.photo.url if official.resident.photo else None,
+            'email': official.user.email if (official.user and official.user.email) else 'N/A',
+            'phone': official.resident.contact_number or 'N/A',
+            'type': type_name,
+            'children': []
+        }
+
+    root = format_node(captain, 'executive')
+    if not root:
+        root = {
+            'id': 'root',
+            'name': 'Barangay Office',
+            'role': 'Punong Barangay (Vacant)',
+            'initials': 'BR',
+            'type': 'executive',
+            'children': []
+        }
+
+    # Admin Staff Group
+    admin_group = []
+    sec_node = format_node(secretary, 'admin')
+    if sec_node: 
+        staff = officials.filter(position__in=['clerk', 'staff', 'lupon', 'day_care_worker'])
+        sec_node['children'] = [format_node(s, 'staff') for s in staff]
+        admin_group.append(sec_node)
+        
+    tre_node = format_node(treasurer, 'admin')
+    if tre_node: 
+        finance_staff = officials.filter(position__in=['nutrition_scholar'])
+        tre_node['children'] = [format_node(fs, 'staff') for fs in finance_staff]
+        admin_group.append(tre_node)
+    
+    # Council Group
+    council_children = [format_node(k, 'council') for k in kagawads]
+    
+    sk_node = format_node(sk_chairman, 'council')
+    if sk_node:
+        sk_kagawads = officials.filter(position='sk_kagawad')
+        sk_node['children'] = [format_node(skk, 'council') for skk in sk_kagawads]
+        council_children.append(sk_node)
+
+    council_node = {
+        'id': 'council_group',
+        'name': 'Sangguniang Barangay',
+        'role': 'Barangay Council',
+        'initials': 'SB',
+        'type': 'council',
+        'children': council_children
+    }
+
+    # BHW and Tanods as separate branches or under Captain?
+    # Let's add Tanods and BHWs as departments under root for completeness
+    security_node = {
+        'id': 'security_group',
+        'name': 'Public Safety',
+        'role': 'Barangay Tanod',
+        'initials': 'PS',
+        'type': 'staff',
+        'children': [format_node(t, 'staff') for t in officials.filter(position='tanod')]
+    }
+    
+    health_node = {
+        'id': 'health_group',
+        'name': 'Health Services',
+        'role': 'BHW Department',
+        'initials': 'HS',
+        'type': 'staff',
+        'children': [format_node(h, 'staff') for h in officials.filter(position='bhw')]
+    }
+
+    root['children'] = admin_group + [council_node]
+    if security_node['children']: root['children'].append(security_node)
+    if health_node['children']: root['children'].append(health_node)
+    
+    context = {
+        'org_data_json': json.dumps(root)
+    }
+    return render(request, 'officials/org_chart.html', context)
+
+
+@login_required
 @user_passes_test(is_barangay_admin)
 def biometric_register(request):
     profile, _created = UserProfile.objects.get_or_create(user=request.user)
@@ -432,9 +542,19 @@ def official_add(request):
             'username': profile.user.username if has_account else ''
         })
 
+    # Filter positions if type=staff is provided
+    add_type = request.GET.get('type')
+    positions = Official.POSITION_CHOICES
+    
+    if add_type == 'staff':
+        # Filter for non-council staff positions
+        staff_positions = ['tanod', 'bhw', 'nutrition_scholar', 'day_care_worker', 'lupon', 'clerk', 'staff']
+        positions = [p for p in positions if p[0] in staff_positions]
+
     context = {
         'residents_data': residents_data,
-        'positions': Official.POSITION_CHOICES,
+        'positions': positions,
+        'add_type': add_type,
     }
     return render(request, 'officials/form.html', context)
 
@@ -687,31 +807,68 @@ def onboard_verify_otp(request, token):
 
 
 # ============= 3-SCAN BIOMETRIC ENROLLMENT API =============
+
+def _get_effective_fingerprint_max_slots():
+    """
+    Prefer the ESP32 sensor's reported library size (GET /status → max_fingerprint_slots),
+    capped by FINGERPRINT_SENSOR_MAX_SLOTS. If the scanner is offline or has not reported
+    capacity yet, use a conservative default (300) so slot IDs stay valid on typical R307
+    modules even when settings allow a higher ceiling.
+    """
+    settings_cap = max(1, int(getattr(settings, 'FINGERPRINT_SENSOR_MAX_SLOTS', 1000)))
+    offline_safe_cap = min(settings_cap, 300)
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+    try:
+        response = requests.get(
+            f'{esp32_base_url}/status',
+            timeout=4,
+            proxies={'http': None, 'https': None},
+        )
+        response.raise_for_status()
+        data = response.json()
+        raw = data.get('max_fingerprint_slots') or data.get('library_capacity')
+        if raw is None:
+            return offline_safe_cap
+        esp_cap = int(raw)
+        if esp_cap <= 0:
+            return offline_safe_cap
+        return max(1, min(settings_cap, esp_cap))
+    except Exception:
+        return offline_safe_cap
+
+
+def _allocate_next_fingerprint_slot(capacity):
+    """
+    Next free AS608/R307 page index in 0 .. capacity-1 (hardware is 0-based).
+    Picks the lowest free index. Returns None if the library is full.
+    """
+    if capacity <= 0:
+        return None
+    used_ids = set(
+        Resident.objects.filter(fingerprint_id__isnull=False).values_list('fingerprint_id', flat=True)
+    )
+    for page_id in range(capacity):
+        if page_id not in used_ids:
+            return page_id
+    return None
+
+
 @login_required
 def start_multi_scan_enrollment(request, pk):
     """Initialize 3-scan fingerprint enrollment session."""
     official = get_object_or_404(Official, pk=pk)
     resident = official.resident
-    
-    if not resident.fingerprint_id:
-        # To prevent fingerprint mismatch issues, we prefer IDs that are higher than any currently used.
-        # This avoids reusing slot IDs of recently deleted users whose fingerprints might still be in the sensor.
-        from django.db.models import Max
-        max_used = Resident.objects.all().aggregate(Max('fingerprint_id'))['fingerprint_id__max'] or 0
-        next_id = max_used + 1
-        
-        if next_id > 1000:
-            # If we reached the sensor limit, look for the first available gap
-            used_ids = set(Resident.objects.filter(fingerprint_id__isnull=False).values_list('fingerprint_id', flat=True))
-            next_id = 1
-            while next_id in used_ids and next_id <= 1000:
-                next_id += 1
-        
-        if next_id > 1000:
+
+    capacity = _get_effective_fingerprint_max_slots()
+    fid = resident.fingerprint_id
+    # R307/AS608 template indices are 0 .. capacity-1
+    needs_slot = fid is None or fid < 0 or fid >= capacity
+    if needs_slot:
+        slot = _allocate_next_fingerprint_slot(capacity)
+        if slot is None:
             return JsonResponse({'status': 'error', 'message': 'No free fingerprint slots available'}, status=507)
-        
-        resident.fingerprint_id = next_id
-        resident.save()
+        resident.fingerprint_id = slot
+        resident.save(update_fields=['fingerprint_id'])
 
     # Initialize enrollment session in Django
     if 'biometric_enrollment' not in request.session:
@@ -833,14 +990,27 @@ def remove_fingerprint(request, pk):
     official = get_object_or_404(Official, pk=pk)
     resident = official.resident
     
-    # 1. Attempt to delete from sensor if ID exists
-    if resident.fingerprint_id:
+    # 1. Erase template on R307 (retry — WiFi/serial can miss the first attempt)
+    if resident.fingerprint_id is not None:
         esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
-        try:
-            requests.post(f"{esp32_base_url}/delete-fingerprint?id={resident.fingerprint_id}", timeout=5, proxies={'http': None, 'https': None})
-        except Exception as e:
-            print(f"[Biometric] Sensor deletion failed for {resident.full_name}: {e}")
-            # We continue even if hardware fails to keep DB in sync
+        slot = resident.fingerprint_id
+        for attempt in range(3):
+            try:
+                r = requests.post(
+                    f"{esp32_base_url}/delete-fingerprint?id={slot}",
+                    timeout=8,
+                    proxies={'http': None, 'https': None},
+                )
+                if r.ok:
+                    try:
+                        if r.json().get('status') == 'success':
+                            break
+                    except ValueError:
+                        break
+            except Exception as e:
+                if attempt == 2:
+                    print(f"[Biometric] Sensor delete failed for {resident.full_name} page {slot}: {e}")
+            time.sleep(0.25)
             
     # 2. Clear Django fields
     official.fingerprint_template = ""

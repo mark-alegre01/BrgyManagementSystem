@@ -7,13 +7,12 @@
 {% endblock %}
 
 {% block content %}
+{% url 'residents:household_list' as household_list_url %}
+{% include 'components/back_button.html' with back_url=household_list_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
     <h1>{% if editing %}Edit Household{% else %}Create New Household{% endif %}</h1>
     <span>Fill in the household details below</span>
-  </div>
-  <div class="header-actions">
-    <a href="{% url 'residents:household_list' %}" class="btn btn-outline">Cancel</a>
   </div>
 </div>
 

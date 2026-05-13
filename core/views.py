@@ -23,6 +23,7 @@ from datetime import date
 from .utils.backup import perform_backup, get_backup_destinations, create_backup_archive
 from biometrics.utils import get_biometric_provider
 from django.conf import settings
+from django.db.models import Max
 import requests
 
 
@@ -45,6 +46,8 @@ OFFICIAL_USERNAME_BY_ROLE = {
 
 MIN_FINGERPRINT_TEMPLATE_LEN = 10
 
+# ESP32 passwordless login: only these positions may complete Django login via fingerprint.
+BIOMETRIC_LOGIN_ALLOWED_POSITIONS = ('captain', 'secretary', 'treasurer')
 
 ROLE_TEMPLATE_MAP = {
     'captain': 'core/dashboard_captain.html',
@@ -52,10 +55,14 @@ ROLE_TEMPLATE_MAP = {
     'secretary': 'core/dashboard_secretary.html',
     'treasurer': 'core/dashboard_treasurer.html',
     'kagawad': 'core/dashboard_kagawad.html',
-    'sk_chairperson': 'core/dashboard_sk.html',
-    'lupong_member': 'core/dashboard_lupon.html',
+    'sk_chairman': 'core/dashboard_sk.html',
+    'sk_chairperson': 'core/dashboard_sk.html',  # alias
+    'lupon': 'core/dashboard_lupon.html',
+    'lupong_member': 'core/dashboard_lupon.html',  # alias
     'bhw': 'core/dashboard_default.html',
+    'tanod': 'core/dashboard_default.html',
     'staff': 'core/dashboard_default.html',
+    'clerk': 'core/dashboard_default.html',
     'resident': 'core/dashboard_resident.html',
 }
 
@@ -63,29 +70,40 @@ ROLE_TEMPLATE_MAP = {
 @login_required
 def dashboard(request):
     """Role-based dashboard dispatcher."""
-    # Clear biometric flag on dashboard load if they just logged in
-    # This can be used for attendance tracking
+    # Consume biometric flags set by biometric_login_complete
     biometrically_verified = request.session.pop('biometrically_verified', False)
-    
+    biometric_position = request.session.pop('biometric_position', None)
+
     today = date.today()
 
-    # Determine role (Prioritize active official position, then UserProfile role)
+    # Determine role:
+    # Priority 1: role explicitly set during biometric login
+    # Priority 2: active Official record linked to this user
+    # Priority 3: UserProfile / User.role fallback
     role = 'resident'
-    
-    # 1. Check if user is an active official
-    official = getattr(request.user, 'official_profile', None)
-    if official and official.status == 'active':
-        role = official.position
+
+    if biometric_position:
+        # Trust the position recorded at biometric login time
+        role = biometric_position
     else:
-        # 2. Fallback to UserProfile role
+        # 1. Check if user has an active official position
         try:
-            profile_role = request.user.profile.role
-            if profile_role:
-                role = profile_role
+            official = request.user.official_profile
+            if official and official.status == 'active':
+                role = official.position
         except Exception:
             pass
-            
-    # 3. Superuser always gets admin/captain view
+
+        if role == 'resident':
+            # 2. Fallback to UserProfile / User.role
+            try:
+                profile_role = request.user.profile.role
+                if profile_role:
+                    role = profile_role
+            except Exception:
+                pass
+
+    # Superuser always gets admin/captain view
     if request.user.is_superuser:
         role = 'admin'
 
@@ -197,13 +215,16 @@ def biometric_verify_login(request):
 
         user = User.objects.get(id=user_id)
 
-        # Only allow biometric login for users with a registered fingerprint template
+        # Biometric login: allow classic long template OR R307 slot on linked resident
         profile = UserProfile.objects.filter(user=user).first()
-        if (
-            not profile
-            or not profile.fingerprint_template
-            or len(profile.fingerprint_template) < MIN_FINGERPRINT_TEMPLATE_LEN
-        ):
+        resident = profile.resident if profile else None
+        tpl_ok = (
+            profile
+            and profile.fingerprint_template
+            and len(profile.fingerprint_template) >= MIN_FINGERPRINT_TEMPLATE_LEN
+        )
+        sensor_ok = resident is not None and resident.fingerprint_id is not None
+        if not profile or (not tpl_ok and not sensor_ok):
             if request_id:
                 cache.set(
                     f"biometric:{request_id}",
@@ -288,12 +309,7 @@ def biometric_login_start(request):
         request_id = secrets.token_urlsafe(16)
         request.session['biometric_request_id'] = request_id
         
-        # Trigger ESP32 verification mode
-        esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
-        try:
-            requests.post(f"{esp32_base_url}/start-verification", timeout=5, proxies={'http': None, 'https': None})
-        except Exception as e:
-            print(f"[Biometric] Failed to trigger ESP32: {str(e)}")
+        _esp32_trigger_start_verification()
 
         cache.set(f"biometric:{request_id}", {"status": "pending", "role": role, "username": username}, timeout=120)
         
@@ -324,7 +340,11 @@ def biometric_status_check(request):
     # Poll ESP32 for detection
     esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
     try:
-        resp = requests.get(f"{esp32_base_url}/status", timeout=2, proxies={'http': None, 'https': None})
+        resp = requests.get(
+            f"{esp32_base_url}/status",
+            timeout=(5, 12),
+            proxies={'http': None, 'https': None},
+        )
         if resp.ok:
             data = resp.json()
             
@@ -336,60 +356,230 @@ def biometric_status_check(request):
                 cache.set(f"biometric:{request_id}", {"status": "failed", "reason": reason}, timeout=120)
                 return JsonResponse({'status': 'failed', 'reason': reason})
 
-            # Fingerprint matched only when state is 'detected' (scan 3 complete during VERIFYING)
+            # Fingerprint matched only when state is 'detected' (verify success pulse) or standby after.
+            # fingerprint_id is 0-based (page 0 is valid); ESP omits the key when no match pending.
             esp32_state = data.get('state', '')
-            matched_id = data.get('fingerprint_id', 0)
-            
-            if esp32_state in ('detected', 'standby') and matched_id and matched_id > 0:
+            has_fp = 'fingerprint_id' in data
+            matched_id = data.get('fingerprint_id') if has_fp else None
+
+            # Fingerprint matched — only Captain, Secretary, Treasurer may use biometric *login*
+            if esp32_state in ('detected', 'standby') and has_fp and matched_id is not None:
                 from officials.models import Official as OfficialModel
                 user = None
-                
-                # 1. Try: Official whose Resident record has this fingerprint_id
+
+                # Only allow active officials with an authorised position
                 try:
                     official_rec = OfficialModel.objects.select_related('resident', 'user').filter(
                         resident__fingerprint_id=matched_id,
                         resident__is_active=True,
+                        status='active',
+                        position__in=BIOMETRIC_LOGIN_ALLOWED_POSITIONS,
                         user__isnull=False
                     ).first()
                     if official_rec:
-                        print(f"[Biometric] Found match for ID {matched_id}: {official_rec.resident.full_name} (Official)")
+                        print(f"[Biometric] Matched ID {matched_id}: "
+                              f"{official_rec.resident.full_name} ({official_rec.position})")
                         user = official_rec.user
                 except Exception as e:
                     print(f"[Biometric] Official lookup failed: {e}")
-                
-                # 2. Fallback: Resident with a linked UserProfile
+
+                # If no authorised official was found, reject immediately
                 if not user:
+                    # Check if any resident/other official owns this fingerprint_id
+                    # so we can give a meaningful error
+                    unauthorized = Resident.objects.filter(
+                        fingerprint_id=matched_id, is_active=True
+                    ).exists()
+                    reason = (
+                        "Fingerprint is not authorised for biometric login. "
+                        "Only the Barangay Captain, Secretary, and Treasurer may sign in with fingerprint."
+                        if unauthorized
+                        else "Fingerprint not registered for biometric login."
+                    )
                     try:
-                        resident = Resident.objects.filter(
-                            fingerprint_id=matched_id, is_active=True
-                        ).select_related('user_profile__user').first()
-                        if resident and hasattr(resident, 'user_profile') and resident.user_profile and resident.user_profile.user:
-                            print(f"[Biometric] Found match for ID {matched_id}: {resident.full_name} (Resident)")
-                            user = resident.user_profile.user
-                    except Exception as e:
-                        print(f"[Biometric] Resident lookup failed: {e}")
-                
-                if not user:
-                    try:
-                        requests.post(f"{esp32_base_url}/error-feedback", timeout=2, proxies={'http': None, 'https': None})
+                        requests.post(f"{esp32_base_url}/error-feedback", timeout=2,
+                                      proxies={'http': None, 'https': None})
                     except Exception:
                         pass
-                    reason = "Fingerprint not registered to any account"
                     cache.set(f"biometric:{request_id}", {"status": "failed", "reason": reason}, timeout=30)
                     return JsonResponse({'status': 'failed', 'reason': reason})
-                
+
                 # Store user_id in cache — biometric_login_complete will do the actual login()
                 cache.set(f"biometric:{request_id}", {"status": "authenticated", "user_id": user.id}, timeout=60)
-                
+
                 # Stop ESP32 verification
                 try:
-                    requests.post(f"{esp32_base_url}/stop-enrollment", timeout=1, proxies={'http': None, 'https': None})
+                    requests.post(f"{esp32_base_url}/stop-enrollment", timeout=1,
+                                  proxies={'http': None, 'https': None})
                 except Exception:
                     pass
-                
+
                 return JsonResponse({'status': 'authenticated'})
+            # Wrong finger / bad scan during verify — ESP stays in session (soft retry).
+            # Surface a hint to the login page without ending the biometric poll.
+            esp_st = (data.get('state') or '').strip()
+            last_err = (data.get('last_error') or '').strip()
+            low = last_err.lower()
+            if esp_st in ('wait_remove', 'verifying') and (
+                'not recognized' in low or 'poor scan' in low or 'remove finger' in low
+            ):
+                return JsonResponse({
+                    'status': 'pending',
+                    'hint': 'Fingerprint not recognized. Remove your finger from the sensor, then try again.',
+                })
     except Exception as e:
         print(f"[Biometric] Status poll failed: {str(e)}")
+
+    return JsonResponse({'status': 'pending'})
+
+
+def _esp32_trigger_start_verification():
+    """POST /start-verification on the ESP32 with optional max_page for faster library search."""
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+    max_slot = (
+        Resident.objects.filter(is_active=True, fingerprint_id__isnull=False)
+        .aggregate(m=Max('fingerprint_id'))
+        .get('m')
+    )
+    try:
+        if max_slot is not None:
+            requests.post(
+                f"{esp32_base_url}/start-verification",
+                data={'max_page': str(int(max_slot))},
+                timeout=5,
+                proxies={'http': None, 'https': None},
+            )
+        else:
+            requests.post(
+                f"{esp32_base_url}/start-verification",
+                timeout=5,
+                proxies={'http': None, 'https': None},
+            )
+    except Exception as e:
+        print(f"[Biometric] Failed to trigger ESP32: {str(e)}")
+
+
+@csrf_exempt
+@login_required
+def biometric_attendance_start(request):
+    """
+    Start ESP32 verification for clock in/out. Any active barangay official with an enrolled
+    fingerprint may match (unlike biometric_login_start, which is login-only for 3 roles).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+    request_id = secrets.token_urlsafe(16)
+    request.session['biometric_attendance_request_id'] = request_id
+    _esp32_trigger_start_verification()
+    cache.set(f"biometric_attendance:{request_id}", {'status': 'pending'}, timeout=120)
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Attendance fingerprint scan started.',
+        'request_id': request_id,
+    })
+
+
+@csrf_exempt
+@login_required
+def biometric_attendance_status_check(request):
+    """Poll ESP32 after biometric_attendance_start; accept any active official with a matching slot."""
+    request_id = request.session.get('biometric_attendance_request_id')
+    if not request_id:
+        return JsonResponse({'status': 'none'})
+
+    state = cache.get(f"biometric_attendance:{request_id}") or {'status': 'pending'}
+    if state.get('status') == 'failed':
+        return JsonResponse({'status': 'failed', 'reason': state.get('reason')})
+    if state.get('status') == 'authenticated':
+        return JsonResponse({'status': 'authenticated'})
+
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+    try:
+        resp = requests.get(
+            f"{esp32_base_url}/status",
+            timeout=(5, 12),
+            proxies={'http': None, 'https': None},
+        )
+        if resp.ok:
+            data = resp.json()
+            esp32_state_raw = data.get('state', '')
+            last_error = (data.get('last_error') or '').lower()
+            if esp32_state_raw == 'auth_failed' and (
+                'not found' in last_error or 'account not found' in last_error
+            ):
+                reason = data.get('last_error', 'Fingerprint not recognized.')
+                cache.set(
+                    f"biometric_attendance:{request_id}",
+                    {'status': 'failed', 'reason': reason},
+                    timeout=120,
+                )
+                return JsonResponse({'status': 'failed', 'reason': reason})
+
+            esp32_state = data.get('state', '')
+            has_fp = 'fingerprint_id' in data
+            matched_id = data.get('fingerprint_id') if has_fp else None
+
+            if esp32_state in ('detected', 'standby') and has_fp and matched_id is not None:
+                from officials.models import Official as OfficialModel
+                official_rec = OfficialModel.objects.select_related('resident', 'user').filter(
+                    resident__fingerprint_id=matched_id,
+                    resident__is_active=True,
+                    status='active',
+                ).first()
+                if not official_rec:
+                    if Resident.objects.filter(fingerprint_id=matched_id, is_active=True).exists():
+                        reason = (
+                            'This fingerprint is not linked to an active barangay functionary. '
+                            'Personnel must be enrolled as an official before using attendance scan.'
+                        )
+                    else:
+                        reason = 'Fingerprint not registered in this system.'
+                    try:
+                        requests.post(
+                            f"{esp32_base_url}/error-feedback",
+                            timeout=2,
+                            proxies={'http': None, 'https': None},
+                        )
+                    except Exception:
+                        pass
+                    cache.set(
+                        f"biometric_attendance:{request_id}",
+                        {'status': 'failed', 'reason': reason},
+                        timeout=30,
+                    )
+                    return JsonResponse({'status': 'failed', 'reason': reason})
+
+                cache.set(
+                    f"biometric_attendance:{request_id}",
+                    {
+                        'status': 'authenticated',
+                        'official_id': official_rec.id,
+                        'user_id': official_rec.user_id,
+                    },
+                    timeout=60,
+                )
+                try:
+                    requests.post(
+                        f"{esp32_base_url}/stop-enrollment",
+                        timeout=1,
+                        proxies={'http': None, 'https': None},
+                    )
+                except Exception:
+                    pass
+                return JsonResponse({'status': 'authenticated'})
+
+            esp_st = (data.get('state') or '').strip()
+            last_err = (data.get('last_error') or '').strip()
+            low = last_err.lower()
+            if esp_st in ('wait_remove', 'verifying') and (
+                'not recognized' in low or 'poor scan' in low or 'remove finger' in low
+            ):
+                return JsonResponse({
+                    'status': 'pending',
+                    'hint': 'Fingerprint not recognized. Remove your finger from the sensor, then try again.',
+                })
+    except Exception as e:
+        print(f"[Biometric] Attendance status poll failed: {str(e)}")
 
     return JsonResponse({'status': 'pending'})
 
@@ -401,6 +591,7 @@ def biometric_login_complete(request):
     Called by the frontend after receiving 'authenticated' from the polling endpoint.
     Performs the actual Django login() here (full HTTP request, not AJAX) so the
     session cookie is reliably set before the browser follows the redirect.
+    Biometric login is restricted to Captain, Secretary, and Treasurer only.
     """
     request_id = request.session.get('biometric_request_id')
     if not request_id:
@@ -423,6 +614,22 @@ def biometric_login_complete(request):
         messages.error(request, 'User account not found.')
         return redirect('core:login')
 
+    # Final role guard: confirm the matched user is an authorised official
+    from officials.models import Official as OfficialModel
+    official_rec = OfficialModel.objects.filter(
+        user=user,
+        status='active',
+        position__in=BIOMETRIC_LOGIN_ALLOWED_POSITIONS,
+    ).first()
+    if not official_rec:
+        cache.delete(f"biometric:{request_id}")
+        messages.error(
+            request,
+            'Access denied. Biometric login is only available to the Barangay Captain, '
+            'Secretary, and Treasurer.'
+        )
+        return redirect('core:login')
+
     # Perform the real Django login here (full HTTP request)
     if not hasattr(user, 'backend'):
         user.backend = 'django.contrib.auth.backends.ModelBackend'
@@ -432,6 +639,15 @@ def biometric_login_complete(request):
     # Clean up the cache entry
     cache.delete(f"biometric:{request_id}")
 
+    # Redirect directly to the role-specific dashboard
+    position = official_rec.position  # 'captain', 'secretary', or 'treasurer'
+    role_dashboard_map = {
+        'captain': 'core:dashboard',
+        'secretary': 'core:dashboard',
+        'treasurer': 'core:dashboard',
+    }
+    # Set session flag so dashboard() picks the right role even before profile refresh
+    request.session['biometric_position'] = position
     return redirect('core:dashboard')
 
 @login_required
@@ -444,17 +660,34 @@ def biometric_reset_all(request):
     # 1. Clear Django Database
     Resident.objects.all().update(fingerprint_id=None, fingerprint_template=None)
     
-    # 2. Notify ESP32 to empty its library (redundancy)
+    # 2. Erase all templates on the R307 module (flash can take several seconds)
     esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
     esp32_status = "offline"
     try:
-        resp = requests.post(f"{esp32_base_url}/empty-library", timeout=3, proxies={'http': None, 'https': None})
+        resp = requests.post(
+            f"{esp32_base_url}/empty-library",
+            timeout=15,
+            proxies={'http': None, 'https': None},
+        )
         if resp.ok:
-            esp32_status = "synced"
-    except Exception:
-        pass
-        
-    messages.success(request, f"Biometric records cleared. ESP32 sync: {esp32_status}")
+            try:
+                payload = resp.json()
+                if payload.get('status') == 'success':
+                    esp32_status = "sensor cleared"
+                else:
+                    esp32_status = f"sensor error: {payload.get('message', resp.text)[:120]}"
+            except ValueError:
+                esp32_status = "sensor cleared" if resp.status_code == 200 else f"HTTP {resp.status_code}"
+        else:
+            esp32_status = f"HTTP {resp.status_code}"
+    except Exception as exc:
+        esp32_status = f"offline ({str(exc)[:80]})"
+
+    messages.success(
+        request,
+        f"Database biometric fields cleared. Fingerprint module: {esp32_status}. "
+        "You can register fingerprints again from the enrollment page.",
+    )
     return redirect('officials:biometric_register')
 
 def login_view(request):

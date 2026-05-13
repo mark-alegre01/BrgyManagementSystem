@@ -15,6 +15,12 @@ urlpatterns = [
     path('biometric-verify-login-start/', views.biometric_verify_login_start, name='biometric_verify_login_start'),
     path('biometric-login-start/', views.biometric_login_start, name='biometric_login_start'),
     path('biometric-status-check/', views.biometric_status_check, name='biometric_status_check'),
+    path('biometric-attendance-start/', views.biometric_attendance_start, name='biometric_attendance_start'),
+    path(
+        'biometric-attendance-status-check/',
+        views.biometric_attendance_status_check,
+        name='biometric_attendance_status_check',
+    ),
     path('biometric-login-complete/', views.biometric_login_complete, name='biometric_login_complete'),
     path('biometric-reset-all/', views.biometric_reset_all, name='biometric_reset_all'),
     path('backup/choose/', views.backup_setup, name='backup_setup'),

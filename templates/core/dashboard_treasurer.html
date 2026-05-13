@@ -10,11 +10,6 @@
     <span>Welcome, {{ request.user.get_full_name|default:request.user.username }} &mdash; <strong>Barangay
         Treasurer</strong></span>
   </div>
-  <div class="header-actions">
-    <a href="{% url 'certifications:list' %}" class="btn btn-outline">
-      <i class="fas fa-certificate"></i> View Certificates
-    </a>
-  </div>
 </div>
 
 <div class="stats-grid">
@@ -54,19 +49,12 @@
     <strong>Treasury Access</strong>
     <p>Monitor certificate transactions and staff attendance for payroll reference.</p>
   </div>
-  <div class="quick-actions">
-    <a href="{% url 'certifications:list' %}" class="btn btn-outline btn-sm"><i class="fas fa-certificate"></i>
-      Certificates</a>
-    <a href="{% url 'attendance:dashboard' %}" class="btn btn-outline btn-sm"><i class="fas fa-fingerprint"></i>
-      Attendance</a>
-  </div>
 </div>
 
 <div class="charts-grid">
   <div class="card">
     <div class="card-header">
       <h3>Certificates Issued (Recent)</h3>
-      <a href="{% url 'certifications:list' %}" class="btn btn-outline btn-sm">View All</a>
     </div>
     <div class="table-responsive">
       <table>
@@ -99,7 +87,6 @@
   <div class="card">
     <div class="card-header">
       <h3>Today's Attendance</h3>
-      <a href="{% url 'attendance:dashboard' %}" class="btn btn-outline btn-sm">Full DTR</a>
     </div>
     <div class="table-responsive">
       <table>

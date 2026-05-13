@@ -37,7 +37,7 @@ def draw_watermark(canvas, doc, is_resident=False):
         canvas.setFillColor(colors.red)
         canvas.translate(letter[0]/2, letter[1]/2)
         canvas.rotate(45)
-        canvas.drawCentredString(0, 0, "NOT VALID WITHOUT SEAL")
+        # Watermark text removed per user request
         
     canvas.restoreState()
 

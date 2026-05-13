@@ -79,13 +79,17 @@
 {% endblock %}
 
 {% block content %}
+{% url 'officials:list' as officials_list_url %}
+{% include 'components/back_button.html' with back_url=officials_list_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
-    <h1>{% if editing %}Edit Official Record{% else %}Appoint New Official{% endif %}</h1>
-    <span>Assign residents to barangay positions and manage system access</span>
-  </div>
-  <div class="header-actions">
-    <a href="{% url 'officials:list' %}" class="btn btn-outline">Cancel</a>
+    <h1>
+      {% if editing %}Edit Official Record
+      {% elif add_type == 'staff' %}Appoint New Staff Member
+      {% else %}Appoint New Official
+      {% endif %}
+    </h1>
+    <span>{% if add_type == 'staff' %}Assign residents to barangay staff roles (Tanod, BHW, etc.){% else %}Assign residents to barangay positions and manage system access{% endif %}</span>
   </div>
 </div>
 

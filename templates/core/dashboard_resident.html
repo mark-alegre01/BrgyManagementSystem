@@ -146,9 +146,11 @@
     <div class="resident-hero">
         <div class="resident-hero-avatar">
             {% if resident_record and resident_record.photo %}
-            <img src="{{ resident_record.photo.url }}" alt="Photo">
+            <img src="{{ resident_record.photo.url }}" alt="Photo" style="width: 100%; height: 100%; object-fit: cover;">
+            {% elif request.user.avatar %}
+            <img src="{{ request.user.avatar.url }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
             {% else %}
-            <i class="fas fa-user"></i>
+            <img src="https://api.dicebear.com/7.x/identicon/svg?seed=resident_{{ resident_record.pk|default:request.user.username }}&backgroundColor=ffffff" alt="Identicon" style="width: 100%; height: 100%; object-fit: cover;">
             {% endif %}
         </div>
         <div class="resident-hero-info">

@@ -21,9 +21,9 @@
       <i class="fas fa-download"></i> Download Document
     </a>
     {% endif %}
-    <a href="{% url 'ordinances:list' %}" class="btn btn-outline">
-      <i class="fas fa-chevron-left"></i> Back to List
-    </a>
+{% url 'ordinances:list' as ordinances_list_url %}
+{% include 'components/back_button.html' with back_url=ordinances_list_url back_label='Back' %}
+
   </div>
 </div>
 

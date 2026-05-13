@@ -30,7 +30,7 @@ def resident_list(request):
     gender = request.GET.get('gender', '')
     status = request.GET.get('status', '')
 
-    residents = Resident.objects.all()
+    residents = Resident.objects.filter(is_official=False)
 
     if query:
         residents = residents.filter(
@@ -299,15 +299,10 @@ def resident_edit(request, pk):
             # Check if an official record already exists for this resident
             official = Official.objects.filter(resident=resident).first()
             
-            # Lifecycle: Link User and update Role
+            # Lifecycle: Link User and position (Model save will handle role sync)
             user = None
             if hasattr(resident, 'user_profile'):
                 user = resident.user_profile.user
-                try:
-                    role_name = official_position if Role.objects.filter(name=official_position).exists() else 'staff'
-                    resident.user_profile.role = role_name
-                except Exception:
-                    pass
 
             if official:
                 official.user = user
@@ -323,18 +318,12 @@ def resident_edit(request, pk):
                     term_start=timezone.now().date()
                 )
         elif not is_official and hasattr(resident, 'official_record'):
-            # If no longer an official, we mark it inactive and clear user link
+            # If no longer an official, we mark it inactive
             official = resident.official_record
             official.status = 'inactive'
-            official.user = None
+            # We keep the official.user link but the official.save() will now handle 
+            # resetting the User.role back to 'resident' automatically.
             official.save()
-            
-            # Revert User role to resident
-            if hasattr(resident, 'user_profile'):
-                try:
-                    resident.user_profile.role = 'resident'
-                except Exception:
-                    pass
 
         messages.success(request, f'Resident {resident.full_name} updated successfully.')
         return redirect('residents:view', pk=resident.pk)
@@ -384,7 +373,6 @@ def resident_update_fingerprint(request, pk):
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=405)
 
 @login_required
-@transaction.atomic
 def resident_delete(request, pk):
     """Delete a resident – admin/staff only."""
     if is_resident_role(request):
@@ -393,19 +381,17 @@ def resident_delete(request, pk):
     resident = get_object_or_404(Resident, pk=pk)
     if request.method == 'POST':
         full_name = resident.full_name
-        
-        # Delete associated User account if it exists
+        # NOTE: Do NOT manually delete the user here.
+        # The pre_delete signal (cleanup_user_on_resident_delete) in residents/models.py
+        # already handles cascading User deletion. Doing it twice inside an atomic block
+        # causes a TransactionManagementError.
         try:
-            if hasattr(resident, 'user_profile'):
-                user = resident.user_profile.user
-                user.delete()
-        except Exception:
-            pass
-            
-        resident.delete()
-        messages.success(request, f'Resident {full_name} and associated accounts have been permanently deleted.')
+            resident.delete()
+            messages.success(request, f'Resident {full_name} and associated accounts have been permanently deleted.')
+        except Exception as e:
+            messages.error(request, f'Could not delete resident: {e}')
         return redirect('residents:list')
-    
+
     # If not POST, just redirect back to list
     return redirect('residents:list')
 
@@ -617,6 +603,40 @@ def reject_registration(request, pk):
         return redirect('residents:registration_list')
     
     return redirect('residents:registration_detail', pk=pk)
+
+@login_required
+def registration_delete(request, pk):
+    """Delete a specific registration."""
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin'])):
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+    
+    registration = get_object_or_404(ResidentRegistration, pk=pk)
+    if request.method == 'POST':
+        ref = registration.reference_number
+        registration.delete()
+        messages.success(request, f"Registration {ref} has been deleted.")
+    return redirect('residents:registration_list')
+
+@login_required
+def registration_bulk_delete(request):
+    """Delete registrations based on status filter."""
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin'])):
+        messages.error(request, "Permission denied.")
+        return redirect('core:dashboard')
+    
+    if request.method == 'POST':
+        status = request.POST.get('status')
+        if status in ['pending', 'approved', 'rejected']:
+            registrations = ResidentRegistration.objects.filter(status=status)
+            count = registrations.count()
+            registrations.delete()
+            messages.success(request, f"Deleted {count} {status} registrations.")
+        elif status == 'all':
+            count = ResidentRegistration.objects.all().count()
+            ResidentRegistration.objects.all().delete()
+            messages.success(request, f"Deleted all {count} registrations.")
+    return redirect('residents:registration_list')
 @login_required
 @csrf_exempt
 def purok_add_api(request):
@@ -644,9 +664,9 @@ def purok_add_api(request):
 def get_resident_by_fingerprint(request):
     """Lookup resident name by fingerprint slot ID."""
     fingerprint_id = request.GET.get('id')
-    if not fingerprint_id:
+    if fingerprint_id is None or fingerprint_id == '':
         return JsonResponse({'status': 'error', 'message': 'Missing ID'}, status=400)
-    
+
     resident = Resident.objects.filter(fingerprint_id=fingerprint_id).first()
     if resident:
         return JsonResponse({

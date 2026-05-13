@@ -8,6 +8,7 @@
   <title>{% block title %}Barangay Management System{% endblock %}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
@@ -42,16 +43,16 @@
         </a>
       </div>
 
-      {% if r == 'resident' %}
-      <!-- RESIDENT PORTAL -->
+      <!-- PERSONAL -->
       <div class="nav-section">
-        <span class="nav-section-title">MY PORTAL</span>
+        <span class="nav-section-title">PERSONAL</span>
         {% if user_profile.resident %}
         <a href="{% url 'residents:view' user_profile.resident.pk %}"
-          class="nav-item {% if request.resolver_match.app_name == 'residents' %}active{% endif %}">
+          class="nav-item {% if request.resolver_match.app_name == 'residents' and request.resolver_match.url_name == 'resident_view' %}active{% endif %}">
           <i class="fas fa-user-circle"></i><span>My Profile</span>
         </a>
         {% endif %}
+        {% if r == 'resident' %}
         <a href="{% url 'certifications:request_certificate' %}"
           class="nav-item {% if request.resolver_match.url_name == 'request_certificate' %}active{% endif %}">
           <i class="fas fa-file-signature"></i><span>Request Certificate</span>
@@ -105,7 +106,7 @@
         <a href="{% url 'residents:registration_list' %}"
           class="nav-item {% if request.resolver_match.url_name == 'registration_list' %}active{% endif %}">
           <i class="fas fa-user-clock"></i><span>Pending Registrations</span>
-          {% if pending_registrations_count > 0 %}
+          {% if pending_registrations_count > 0 and request.resolver_match.url_name != 'registration_list' %}
           <span class="badge badge-danger" style="margin-left: auto;">{{ pending_registrations_count }}</span>
           {% endif %}
         </a>
@@ -120,7 +121,7 @@
 
         <a href="{% url 'certifications:list' %}"
           class="nav-item {% if request.resolver_match.app_name == 'certifications' and request.resolver_match.url_name == 'list' %}active{% endif %}">
-          <i class="fas fa-file-certificate"></i><span>Certifications</span>
+          <i class="fas fa-certificate"></i><span>Certifications</span>
         </a>
         <a href="{% url 'certifications:request_list' %}"
           class="nav-item {% if request.resolver_match.url_name == 'request_list' %}active{% endif %}">
@@ -178,7 +179,15 @@
 
     <div class="sidebar-footer">
       <div class="user-info">
-        <div class="user-avatar"><i class="fas fa-user"></i></div>
+        <div class="user-avatar">
+          {% if user_profile.resident.photo %}
+          <img src="{{ user_profile.resident.photo.url }}" alt="Avatar">
+          {% elif request.user.avatar %}
+          <img src="{{ request.user.avatar.url }}" alt="Avatar">
+          {% else %}
+          <img src="https://api.dicebear.com/7.x/identicon/svg?seed=resident_{{ user_profile.resident.pk|default:request.user.username }}&backgroundColor=ffffff" alt="Avatar">
+          {% endif %}
+        </div>
         <div class="user-details">
           <span class="user-name">{{ request.user.get_full_name|default:request.user.username }}</span>
           <span class="user-role">
@@ -206,7 +215,7 @@
       <div class="navbar-left">
         <button class="menu-toggle" id="menuToggle"><i class="fas fa-bars"></i></button>
         <div class="breadcrumb">
-          {% block breadcrumb %}<span><i class="fas fa-home"></i> Dashboard</span>{% endblock %}
+          {% block breadcrumb %}<span>Brgy. Sico Sico Management System</span>{% endblock %}
         </div>
       </div>
       <div class="navbar-right">
