@@ -90,7 +90,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "brgy_db",
         "USER": "brgy_user",
-        "PASSWORD": "your_secure_password",
+        "PASSWORD": "admin123",
         "HOST": "192.168.1.41",
         "PORT": "5432",
     }
