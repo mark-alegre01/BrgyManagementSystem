@@ -7,7 +7,7 @@ SECRET_KEY = "django-insecure-brgy-system-change-this-in-production-2024"
 
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = ["*", "192.168.1.41", "localhost", "127.0.0.1", "barangay.local"]
 
 # Local ESP32 fingerprint module proxy target
 ESP32_BASE_URL = 'http://192.168.1.55'
@@ -19,6 +19,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8001",
     "http://localhost:8001",
     "http://192.168.1.63:8001",
+    "http://192.168.1.41",
+    "http://192.168.1.41:8001",
     "http://brgysicosico.local:8001",
     "http://brgysicosico:8001",
     "https://*.trycloudflare.com",
@@ -82,26 +84,17 @@ TEMPLATES = [
 WSGI_APPLICATION = "barangay_project.wsgi.application"
 
 # Use PostgreSQL if DB_TYPE is set to 'postgres' or if DB_HOST is provided, otherwise fallback to SQLite
-DB_TYPE = os.environ.get("DB_TYPE", "sqlite")
-
-if DB_TYPE == "postgres" or os.environ.get("DB_HOST"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("DB_NAME", "sicosico_db"),
-            "USER": os.environ.get("DB_USER", "postgres"),
-            "PASSWORD": os.environ.get("DB_PASSWORD", "postgres"),
-            "HOST": os.environ.get("DB_HOST", "localhost"),
-            "PORT": os.environ.get("DB_PORT", "5432"),
-        }
+# Using Orange Pi Zero 3 (Static IP: 192.168.1.41) as the Database Server
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "brgy_db",
+        "USER": "brgy_user",
+        "PASSWORD": "your_secure_password",
+        "HOST": "192.168.1.41",
+        "PORT": "5432",
     }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
