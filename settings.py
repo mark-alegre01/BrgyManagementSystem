@@ -26,7 +26,7 @@ SECRET_KEY = "django-insecure-l5c3)u(1jer_siq#rx-y5xqa(+!f9a*cd@w!4*^!8ru8mya%(4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.45', '*.ts.net', '*.tailscale.net', 'barangay.local']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.50', '*.ts.net', '*.tailscale.net', 'barangay.local']
 
 # Local ESP32 fingerprint module proxy target
 ESP32_BASE_URL = 'http://192.168.1.55'
@@ -83,14 +83,14 @@ WSGI_APPLICATION = "barangay_system.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# Using Orange Pi Zero 3 (Static IP: 192.168.1.45) as the Database Server
+# Using Orange Pi Zero 3 (Static IP: 192.168.1.50) as the Database Server
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "brgy_db",
         "USER": "brgy_user",
         "PASSWORD": "admin123",
-        "HOST": "192.168.1.45",
+        "HOST": "192.168.1.50",
         "PORT": "5432",
     }
 }
@@ -145,7 +145,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.tailscale.net',
     'http://barangay.local',
     'http://127.0.0.1',
-    'http://192.168.1.45',
+    'http://192.168.1.50',
 ]
 
 # Support for HTTPS through Tailscale/Cloudflare tunnels
