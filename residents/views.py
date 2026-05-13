@@ -349,6 +349,10 @@ def resident_capture_fingerprint(request, pk):
         messages.error(request, "You do not have permission to perform this action.")
         return redirect('core:dashboard')
     resident = get_object_or_404(Resident, pk=pk)
+    
+    if not resident.is_official:
+        messages.error(request, "Biometric registration is only available for Barangay Officials and Functionaries.")
+        return redirect('residents:view', pk=pk)
 
     messages.info(request, "Fingerprint enrollment started using the connected ESP32 R307 fingerprint module.")
     return redirect('residents:view', pk=pk)
@@ -365,6 +369,8 @@ def resident_update_fingerprint(request, pk):
             data = json.loads(request.body)
             template = data.get('template')
             if template:
+                if not resident.is_official:
+                    return JsonResponse({'status': 'error', 'message': 'Only officials can register biometrics'}, status=403)
                 resident.fingerprint_template = template
                 resident.save()
                 return JsonResponse({'status': 'success'})

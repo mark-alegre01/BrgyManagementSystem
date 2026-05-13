@@ -82,10 +82,12 @@ class Official(models.Model):
         # Sync resident.is_official
         if self.resident:
             # If status is active, resident.is_official MUST be True
-            # If status is inactive/on_leave, resident.is_official should be False (as per user request "Go back of being a Resident")
+            # If status is inactive/on_leave, resident.is_official should be False
             new_is_official = (self.status == 'active')
             if self.resident.is_official != new_is_official:
                 self.resident.is_official = new_is_official
+                # Only save if we are NOT already in the middle of a biometric sync 
+                # (which does its own resident.save)
                 self.resident.save(update_fields=['is_official'])
         
         # Handle role transition

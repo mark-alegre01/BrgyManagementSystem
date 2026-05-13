@@ -41,10 +41,10 @@ def get_officials_by_category(request):
     elif category == 'tanod':
         officials = officials.filter(position='tanod')
     elif category == 'staff':
-        # Clerk, BNS, Day Care, Lupon, Staff
+        # Clerk, BNS, Day Care, Lupon, Staff, etc.
         staff_positions = ['nutrition_scholar', 'day_care_worker', 'lupon', 'clerk', 'staff']
         officials = officials.filter(position__in=staff_positions)
-    # If category is 'all' or unknown, officials remains the full list
+    # If category is 'all' or unknown, officials remains the full list of active officials/staff
     
     data = [
         {
@@ -909,6 +909,35 @@ def get_scan_status(request, pk):
     })
 
 
+def _biometric_marker_registered(official):
+    """True when resident row marks this official as enrolled (template flag or real template)."""
+    tpl = official.fingerprint_template if official else None
+    return bool(tpl and len(tpl) > 10)
+
+
+def _persist_biometric_enrollment_complete(request, official):
+    """
+    Mark official/resident as enrolled after 3 successful ESP32 scans.
+    Clears the in-progress enrollment session for this official.
+    """
+    if 'biometric_enrollment' in request.session and str(official.id) in request.session['biometric_enrollment']:
+        del request.session['biometric_enrollment'][str(official.id)]
+        request.session.modified = True
+    # Explicitly update the resident record which is the single source of truth
+    resident = official.resident
+    if resident:
+        resident.fingerprint_template = 'REGISTERED_ON_SENSOR'
+        # Note: fingerprint_id should have been set during start_multi_scan_enrollment
+        resident.save(update_fields=['fingerprint_template'])
+        
+        # Logging for diagnostics on Orange Pi
+        print(f"DEBUG: Biometric persistence complete for Official {official.id} (Resident {resident.id})")
+    
+    # Still call official.save() to trigger any signals or side effects if needed, 
+    # but the template is already safely in the Resident table.
+    official.save()
+
+
 @login_required
 def sync_scan_progress(request, pk):
     """Sync scan progress coming from ESP32 into Django session."""
@@ -930,20 +959,37 @@ def sync_scan_progress(request, pk):
 
     if 'biometric_enrollment' not in request.session:
         request.session['biometric_enrollment'] = {}
-    if str(official.id) not in request.session['biometric_enrollment']:
-        request.session['biometric_enrollment'][str(official.id)] = {'scan_count': 0, 'scans': [], 'active': True}
 
-    current = request.session['biometric_enrollment'][str(official.id)].get('scan_count', 0)
+    enrollment = request.session['biometric_enrollment'].get(str(official.id))
+    if enrollment is None:
+        return JsonResponse(
+            {
+                'status': 'error',
+                'message': 'No enrollment session. Close the dialog and tap Register again.',
+            },
+            status=400,
+        )
+
+    current = enrollment.get('scan_count', 0)
+    registration_complete = False
     # Only move forward
     if esp_scan > current:
-        request.session['biometric_enrollment'][str(official.id)]['scan_count'] = min(esp_scan, 3)
+        new_count = min(esp_scan, 3)
+        request.session['biometric_enrollment'][str(official.id)]['scan_count'] = new_count
         request.session.modified = True
+        current = new_count
+        if new_count >= 3 and not _biometric_marker_registered(official):
+            _persist_biometric_enrollment_complete(request, official)
+            registration_complete = True
+        elif new_count >= 3:
+            registration_complete = True
 
     return JsonResponse({
         'status': 'success',
         'official_id': official.id,
-        'current_scan': request.session['biometric_enrollment'][str(official.id)]['scan_count'],
+        'current_scan': current,
         'scans_required': 3,
+        'registration_complete': registration_complete,
     })
 
 
@@ -951,27 +997,30 @@ def sync_scan_progress(request, pk):
 def register_fingerprint_after_scans(request, pk):
     """Register fingerprint template after 3 successful scans."""
     official = get_object_or_404(Official, pk=pk)
-    
+
+    if _biometric_marker_registered(official):
+        if 'biometric_enrollment' in request.session and str(official.id) in request.session['biometric_enrollment']:
+            del request.session['biometric_enrollment'][str(official.id)]
+            request.session.modified = True
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Fingerprint already registered for {official.resident.full_name} (Slot {official.resident.fingerprint_id})',
+            'official_id': official.id,
+            'slot_id': official.resident.fingerprint_id,
+        })
+
     enrollment_data = request.session.get('biometric_enrollment', {}).get(str(official.id), {})
     scan_count = enrollment_data.get('scan_count', 0)
-    
+
     if scan_count < 3:
         return JsonResponse({
             'status': 'error',
             'message': f'Not enough scans. Completed: {scan_count}/3'
         }, status=400)
-    
+
     try:
-        # Clear session
-        if 'biometric_enrollment' in request.session and str(official.id) in request.session['biometric_enrollment']:
-            del request.session['biometric_enrollment'][str(official.id)]
-            request.session.modified = True
-        
-        # We don't generate mock templates anymore since we rely on slot IDs
-        # But we can keep a flag or a simple string to indicate registration
-        official.fingerprint_template = "REGISTERED_ON_SENSOR"
-        official.save()
-        
+        _persist_biometric_enrollment_complete(request, official)
+
         return JsonResponse({
             'status': 'success',
             'message': f'Fingerprint successfully registered for {official.resident.full_name} (Slot {official.resident.fingerprint_id})',

@@ -343,6 +343,7 @@
             filtered.forEach(off => {
                 const isReg = !!off.has_fingerprint;
                 const initials = getInitials(off.full_name);
+                const regLabel = isReg ? 'Registered' : 'Not registered';
                 
                 // Desktop Row
                 const tr = document.createElement('tr');
@@ -359,7 +360,7 @@
                     <td class="px-4 py-3 align-middle font-weight-bold text-secondary small">${off.position || 'N/A'}</td>
                     <td class="px-4 py-3 align-middle text-center">
                         <span class="status-pill-modern ${isReg ? 'status-pill-online' : 'status-pill-offline'}">
-                            ${isReg ? 'Online' : 'Offline'}
+                            ${regLabel}
                         </span>
                     </td>
                     <td class="px-4 py-3 align-middle text-right">
@@ -386,7 +387,7 @@
                             <div class="avatar-circle-modern mr-2" style="width: 32px; height: 32px; font-size: 10px;">${initials}</div>
                             <div class="font-weight-bold text-dark small">${off.full_name}</div>
                         </div>
-                        <span class="status-pill-modern ${isReg ? 'status-pill-online' : 'status-pill-offline'}">${isReg ? 'Online' : 'Offline'}</span>
+                        <span class="status-pill-modern ${isReg ? 'status-pill-online' : 'status-pill-offline'}">${regLabel}</span>
                     </div>
                     <div class="d-flex align-items-center justify-content-between">
                          <span class="text-muted" style="font-size: 10px;">${off.position || 'N/A'}</span>
@@ -405,7 +406,7 @@
         }
 
         function loadPersonnel(category) {
-            fetch(`/officials/api/by-category/?category=${category}`)
+            fetch(`/officials/api/by-category/?category=${category}`, { credentials: 'same-origin' })
                 .then(res => res.json())
                 .then(data => {
                     if (data.status === 'success') {
@@ -455,11 +456,31 @@
             }
         }
 
+        function completeEnrollmentUI() {
+            updateModalUI(3, 'Personnel registered', 'success');
+            loadPersonnel(categorySelect.value);
+        }
+
+        function tryRegisterFallback() {
+            if (!currentOfficialId || lastState === 'success') return;
+            fetch(`/officials/${currentOfficialId}/enrollment/register/`, { credentials: 'same-origin' })
+                .then(res => res.json().then(body => ({ ok: res.ok, body })))
+                .then(({ ok, body }) => {
+                    if (ok && body.status === 'success' && lastState !== 'success') {
+                        if (statusInterval) clearInterval(statusInterval);
+                        statusInterval = null;
+                        lastState = 'success';
+                        completeEnrollmentUI();
+                    }
+                })
+                .catch(() => {});
+        }
+
         function startMonitoring() {
             if (statusInterval) clearInterval(statusInterval);
             lastSyncedScan = 0;
             statusInterval = setInterval(() => {
-                fetch(ESP32_PROXY_STATUS_URL)
+                fetch(ESP32_PROXY_STATUS_URL, { credentials: 'same-origin' })
                     .then(res => res.json())
                     .then(data => {
                         const scanCount = data.current_scan || 0;
@@ -498,32 +519,36 @@
                             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
                             fetch(`/officials/${currentOfficialId}/enrollment/sync-progress/`, {
                                 method: 'POST',
+                                credentials: 'same-origin',
                                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                                 body: JSON.stringify({ current_scan: scanCount })
-                            }).then(() => {
-                                lastSyncedScan = scanCount;
-                                if (scanCount === 3 && lastState !== 'success') {
-                                    clearInterval(statusInterval);
-                                    lastState = 'success';
-                                    finishEnrollment();
-                                }
-                            });
+                            })
+                                .then(res => res.json().then(body => ({ ok: res.ok, body })))
+                                .then(({ ok, body }) => {
+                                    if (!ok || body.status !== 'success') {
+                                        if (scanCount === 3) tryRegisterFallback();
+                                        return;
+                                    }
+                                    lastSyncedScan = Math.max(lastSyncedScan, scanCount);
+                                    const backendDone = body.registration_complete === true || (body.current_scan || 0) >= 3;
+                                    if (scanCount === 3 && backendDone) {
+                                        if (lastState === 'success') return;
+                                        lastState = 'success';
+                                        if (statusInterval) clearInterval(statusInterval);
+                                        statusInterval = null;
+                                        completeEnrollmentUI();
+                                    } else if (scanCount === 3 && !backendDone) {
+                                        tryRegisterFallback();
+                                    }
+                                })
+                                .catch(() => {
+                                    if (scanCount === 3) tryRegisterFallback();
+                                });
                         }
                         if (scanCount < 3) lastState = status;
                     })
                     .catch(err => console.error("Monitor error:", err));
             }, 800);
-        }
-
-        function finishEnrollment() {
-            fetch(`/officials/${currentOfficialId}/enrollment/register/`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        updateModalUI(3, "Personnel Registered", "success");
-                        loadPersonnel(categorySelect.value);
-                    }
-                });
         }
 
         personSearch.addEventListener('input', renderPersonnel);
@@ -536,11 +561,11 @@
                 const originalContent = btn.innerHTML;
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
-                fetch(`/officials/${currentOfficialId}/enrollment/start/`)
+                fetch(`/officials/${currentOfficialId}/enrollment/start/`, { credentials: 'same-origin' })
                     .then(res => res.json())
                     .then(data => {
                         if (data.status === 'success') {
-                            return fetch(`${ESP32_PROXY_START_URL}?id=${data.slot_id}`, {method: 'POST'});
+                            return fetch(`${ESP32_PROXY_START_URL}?id=${data.slot_id}`, { method: 'POST', credentials: 'same-origin' });
                         } else throw new Error(data.message);
                     })
                     .then(espRes => {
@@ -587,6 +612,7 @@
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
             fetch(`/officials/${id}/enrollment/remove/`, {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: { 'X-CSRFToken': csrfToken }
             })
             .then(res => res.json())
@@ -608,8 +634,8 @@
         });
 
         enrollResetBtn.addEventListener('click', () => {
-            fetch(ESP32_PROXY_STOP_URL, {method: 'POST'})
-                .then(() => fetch(ESP32_PROXY_START_URL, {method: 'POST'}))
+            fetch(ESP32_PROXY_STOP_URL, { method: 'POST', credentials: 'same-origin' })
+                .then(() => fetch(ESP32_PROXY_START_URL, { method: 'POST', credentials: 'same-origin' }))
                 .then(() => {
                     updateModalUI(0, "Place finger on sensor", "enrolling");
                     startMonitoring();
@@ -620,7 +646,7 @@
             if (btnText.textContent === "Finish Setup") {
                 if (window.$) $('#biometricModal').modal('hide');
             } else if (btnText.textContent === "Retry Scan") {
-                fetch(ESP32_PROXY_START_URL, {method: 'POST'})
+                fetch(ESP32_PROXY_START_URL, { method: 'POST', credentials: 'same-origin' })
                     .then(() => {
                         updateModalUI(currentScanCount, "Place finger on sensor", "enrolling");
                         startMonitoring();
@@ -631,7 +657,7 @@
         if (window.$) {
             $('#biometricModal').on('hidden.bs.modal', function () {
                 clearInterval(statusInterval);
-                fetch(ESP32_PROXY_STOP_URL, {method: 'POST'}).catch(() => {});
+                fetch(ESP32_PROXY_STOP_URL, { method: 'POST', credentials: 'same-origin' }).catch(() => {});
             });
         }
 
