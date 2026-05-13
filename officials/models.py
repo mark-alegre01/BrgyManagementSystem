@@ -95,10 +95,15 @@ class Official(models.Model):
                 # Sync role to position
                 role_obj = Role.objects.filter(name=self.position).first()
                 if not role_obj:
-                    # Try to find a sensible fallback or keep current if it's already an official role
-                    role_obj = Role.objects.filter(name='staff').first()
+                    # Auto-create the role if it's missing to prevent login issues
+                    display_name = dict(self.POSITION_CHOICES).get(self.position, self.position.replace('_', ' ').title())
+                    level = 1 if self.position in ['captain', 'admin'] else 2
+                    role_obj, _ = Role.objects.get_or_create(
+                        name=self.position,
+                        defaults={'display_name': display_name, 'permission_level': level}
+                    )
                 
-                if role_obj and self.user.role != role_obj:
+                if self.user.role != role_obj:
                     self.user.role = role_obj
                     self.user.save(update_fields=['role'])
             elif self.status == 'inactive' and old_status == 'active':

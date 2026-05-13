@@ -715,7 +715,10 @@ def login_view(request):
         if user is not None:
             profile = getattr(user, 'profile', None)
             user_role_name = profile.role if profile else (user.role.name if user.role else 'resident')
-            is_official_user = user.is_superuser or (user.role and user.role.permission_level < 3)
+            # Use official record as fallback check for role permission
+            from officials.models import Official
+            has_active_official_record = Official.objects.filter(user=user, status='active').exists()
+            is_official_user = user.is_superuser or (user.role and user.role.permission_level < 3) or has_active_official_record
 
             # Enforce separation as requested by the user
             if user_type == 'resident' and is_official_user:
