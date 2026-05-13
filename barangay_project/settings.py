@@ -7,7 +7,7 @@ SECRET_KEY = "django-insecure-brgy-system-change-this-in-production-2024"
 
 DEBUG = True
 
-ALLOWED_HOSTS = ["*", "192.168.1.50", "localhost", "127.0.0.1", "barangay.local"]
+ALLOWED_HOSTS = ["*", "192.168.1.47", "localhost", "127.0.0.1", "barangay.local"]
 
 # Local ESP32 fingerprint module proxy target
 ESP32_BASE_URL = 'http://192.168.1.55'
@@ -19,8 +19,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8001",
     "http://localhost:8001",
     "http://192.168.1.63:8001",
-    "http://192.168.1.50",
-    "http://192.168.1.50:8001",
+    "http://192.168.1.47",
+    "http://192.168.1.47:8001",
     "http://brgysicosico.local:8001",
     "http://brgysicosico:8001",
     "https://*.trycloudflare.com",
@@ -84,14 +84,14 @@ TEMPLATES = [
 WSGI_APPLICATION = "barangay_project.wsgi.application"
 
 # Use PostgreSQL if DB_TYPE is set to 'postgres' or if DB_HOST is provided, otherwise fallback to SQLite
-# Using Orange Pi Zero 3 (Static IP: 192.168.1.50) as the Database Server
+# Using Orange Pi Zero 3 (Static IP: 192.168.1.47) as the Database Server
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "brgy_db",
         "USER": "brgy_user",
         "PASSWORD": "admin123",
-        "HOST": "192.168.1.50",
+        "HOST": "192.168.1.47",
         "PORT": "5432",
     }
 }
