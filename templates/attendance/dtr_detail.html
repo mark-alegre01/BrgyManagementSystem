@@ -1,6 +1,11 @@
 {% extends 'base.html' %}
+{% load attendance_tags %}
 
 {% block title %}DTR Details - {{ official.resident.full_name }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.tailwindcss.com"></script>
+{% endblock %}
 
 {% block breadcrumb %}
 <span><a href="{% url 'attendance:dashboard' %}">Attendance</a> / <a href="{% url 'attendance:dtr' %}">DTR Summary</a> /
@@ -8,12 +13,22 @@
 {% endblock %}
 
 {% block content %}
-{% url 'attendance:dtr' as attendance_dtr_url %}
-{% include 'components/back_button.html' with back_url=attendance_dtr_url back_label='Back' %}
+{% url 'attendance:dashboard' as attendance_dashboard_url %}
+{% include 'components/back_button.html' with back_url=attendance_dashboard_url back_label='Back' %}
 <div class="page-header">
-  <div class="page-title">
-    <h1>Detailed DTR</h1>
-    <span>Attendance log for {{ official.resident.full_name }} ({{ month }}/{{ year }})</span>
+  <div class="page-title" style="display: flex; align-items: center; gap: 15px;">
+    {% if official.resident.photo %}
+    <img src="{{ official.resident.photo.url }}" alt="{{ official.resident.full_name }}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    {% elif official.user.avatar %}
+    <img src="{{ official.user.avatar.url }}" alt="{{ official.resident.full_name }}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    {% else %}
+    <img src="https://api.dicebear.com/7.x/identicon/svg?seed=resident_{{ official.resident.pk|default:official.user.username }}&backgroundColor=ffffff" alt="{{ official.resident.full_name }}" style="width: 50px; height: 50px; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    {% endif %}
+    <div style="display: flex; flex-direction: column;">
+      <h1 style="margin-bottom: 0; font-size: 1.5rem; font-weight: 900; color: #1e293b;">{{ official.resident.full_name }}</h1>
+      <span style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">{{ official.get_position_display }}</span>
+      <span style="font-size: 0.85rem; color: #94a3b8; margin-top: 6px;">Detailed DTR &mdash; For the month of {{ month_name }} {{ year }}</span>
+    </div>
   </div>
   <div class="header-actions">
     <a href="{% url 'attendance:dtr_print' official.pk %}?month={{ month }}&year={{ year }}" target="_blank"
@@ -28,7 +43,7 @@
     <div class="card bg-primary text-white p-4 text-center">
       <h4 class="mb-1">Total Hours</h4>
       <div class="display-4 font-weight-bold">{{ total_hours }}</div>
-      <span class="small opacity-75">for the month of {{ month|date:"F"|default:month }} {{ year }}</span>
+      <span class="small opacity-75">For the month of {{ month_name }} {{ year }}</span>
     </div>
   </div>
   <div class="col" style="flex: 1;">
@@ -45,28 +60,71 @@
     <table>
       <thead>
         <tr>
-          <th>Date</th>
-          <th>Time In</th>
-          <th>Time Out</th>
-          <th>Status</th>
-          <th>Method</th>
-          <th>Hours</th>
+          <th style="text-align: center;">Date</th>
+          <th style="text-align: center;">AM IN</th>
+          <th style="text-align: center;">AM OUT</th>
+          <th style="text-align: center;">PM IN</th>
+          <th style="text-align: center;">PM OUT</th>
+          <th style="text-align: center;">Total Hours</th>
         </tr>
       </thead>
       <tbody>
         {% for log in logs %}
         <tr>
-          <td><strong>{{ log.date|date:"M d, Y" }}</strong> <span class="text-muted small">({{ log.date|date:"l" }})</span></td>
-          <td>{{ log.time_in|time:"h:i A"|default:"---" }}</td>
-          <td>{{ log.time_out|time:"h:i A"|default:"---" }}</td>
-          <td>
-            <span
-              class="badge {% if log.status ==  'present' %}badge-success{% elif log.status ==  'late' %}badge-warning{% else %}badge-danger{% endif %}">
-              {{ log.get_status_display }}
-            </span>
+          <td class="text-center font-bold text-slate-800">{{ log.date|date:"M d, Y" }}</td>
+          <td class="text-center">
+            {% if log.am_in %}
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
+                  <span class="font-bold text-slate-700">{{ log.am_in|time:"h:i A" }}</span>
+                  {% if log.status == 'late' %}
+                  <span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">Late ({{ log.am_in|late_duration:log.shift_am_in }})</span>
+                  {% else %}
+                  <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">Present</span>
+                  {% endif %}
+                </div>
+            {% else %}
+                <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+            {% endif %}
           </td>
-          <td class="text-capitalize">{{ log.method }}</td>
-          <td><strong>{{ log.hours_worked|floatformat:2 }}</strong></td>
+          <td class="text-center">
+            {% if log.am_out %}
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
+                  <span class="font-bold text-slate-700">{{ log.am_out|time:"h:i A" }}</span>
+                  <span class="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-black tracking-widest border border-blue-100 uppercase">Done</span>
+                </div>
+            {% elif log.am_in %}
+                <span class="text-muted italic text-[10px]">---</span>
+            {% else %}
+                <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if log.pm_in %}
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
+                  <span class="font-bold text-slate-700">{{ log.pm_in|time:"h:i A" }}</span>
+                  {% if log.status == 'late' %}
+                  <span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">Late</span>
+                  {% else %}
+                  <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">Present</span>
+                  {% endif %}
+                </div>
+            {% else %}
+                <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+            {% endif %}
+          </td>
+          <td class="text-center">
+            {% if log.pm_out %}
+                <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
+                  <span class="font-bold text-slate-700">{{ log.pm_out|time:"h:i A" }}</span>
+                  <span class="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-black tracking-widest border border-blue-100 uppercase">Done</span>
+                </div>
+            {% elif log.pm_in %}
+                <span class="text-muted italic text-[10px]">---</span>
+            {% else %}
+                <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+            {% endif %}
+          </td>
+          <td class="text-center font-weight-bold text-primary">{{ log.hours_worked }}</td>
         </tr>
         {% empty %}
         <tr>
@@ -106,6 +164,11 @@
   .badge-danger {
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
+  }
+
+  .badge-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
   }
 </style>
 {% endblock %}

@@ -1,0 +1,214 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load attendance_tags %}
+
+{% block title %}Daily Attendance Report - {{ date|date:"M d, Y" }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.tailwindcss.com"></script>
+{% endblock %}
+
+{% block breadcrumb %}
+<span>Brgy. Sico Sico Management System / <a href="{% url 'attendance:dashboard' %}" class="hover:text-emerald-600">Attendance</a> / <a href="{% url 'attendance:history_calendar' %}" class="hover:text-emerald-600">History</a> / {{ date|date:"M d, Y" }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto p-4">
+    {% url 'attendance:history_calendar' as calendar_url %}
+    {% include 'components/back_button.html' with back_url=calendar_url|add_str:'?month='|add_str:date.month|add_str:'&year='|add_str:date.year back_label='Back' %}
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 mt-4 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">Attendance Report</h1>
+            <p class="text-slate-500 font-medium leading-none">{{ date|date:"l, F d, Y" }}</p>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <button onclick="toggleDayOff('{{ date|date:'Y-m-d' }}')" 
+                    id="dayOffBtn"
+                    class="{% if is_day_off %}bg-red-50 text-red-600 hover:bg-red-100 border-red-200{% else %}bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-200{% endif %} px-4 py-2 rounded-xl text-xs font-black transition-all border shadow-sm flex items-center gap-2">
+                <i data-lucide="{% if is_day_off %}sun{% else %}calendar-off{% endif %}" class="w-4 h-4"></i>
+                {% if is_day_off %}Revert to Working Day{% else %}Mark as Day Off{% endif %}
+            </button>
+        </div>
+    </div>
+
+    <!-- Report Table -->
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-widest border-b border-slate-200">
+                    <tr>
+                        <th class="px-6 py-4 w-[35%]">Official Profile</th>
+                        <th class="px-6 py-4 text-center">AM IN</th>
+                        <th class="px-6 py-4 text-center">AM OUT</th>
+                        <th class="px-6 py-4 text-center">PM IN</th>
+                        <th class="px-6 py-4 text-center">PM OUT</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% if is_day_off %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-20 text-center">
+                            <div class="flex flex-col items-center gap-3">
+                                <div class="w-16 h-16 bg-blue-50 text-blue-300 rounded-full flex items-center justify-center">
+                                    <i data-lucide="sun" class="w-8 h-8"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-black text-slate-800">Scheduled Day Off</h3>
+                                    <p class="text-slate-400 font-medium text-sm">There are no attendance records for this date as it is a non-working day.</p>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% elif is_future %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-20 text-center">
+                            <div class="flex flex-col items-center gap-3">
+                                <div class="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center">
+                                    <i data-lucide="calendar-clock" class="w-8 h-8"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-black text-slate-800">Attendance Not Started</h3>
+                                    <p class="text-slate-400 font-medium text-sm">Records for this date will appear once the day begins.</p>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    {% for item in report %}
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-full bg-slate-100 overflow-hidden border border-slate-200 flex-shrink-0">
+                                    {% if item.official.resident.photo %}
+                                    <img src="{{ item.official.resident.photo.url }}" class="w-full h-full object-cover">
+                                    {% else %}
+                                    <img src="https://api.dicebear.com/7.x/identicon/svg?seed=resident_{{ item.official.resident.pk }}&backgroundColor=ffffff" class="w-full h-full object-cover">
+                                    {% endif %}
+                                </div>
+                                <div class="flex flex-col min-w-0">
+                                    <span class="font-bold text-slate-800 whitespace-normal break-words leading-tight">{{ item.official.resident.full_name }}</span>
+                                    <div class="mt-0.5 pt-0.5 border-t border-slate-100 w-fit">
+                                        <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">{{ item.official.get_position_display }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-center">
+                            {% with log=item.log %}
+                                {% if log and log.am_in %}
+                                    <div class="flex flex-col items-center gap-1">
+                                        <span class="text-sm font-bold text-slate-700">
+                                            {{ log.am_in|time:"h:i A" }}
+                                        </span>
+                                        {% if item.status == 'present' %}
+                                        <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">On Time</span>
+                                        {% elif item.status == 'late' %}
+                                        <span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">
+                                            Late ({{ log.am_in|late_duration:shift_config.am_in }})
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
+                        <td class="px-3 py-2.5 text-center">
+                            <div class="flex flex-col items-center">
+                                {% with log=item.log %}
+                                    {% if log and log.am_out %}
+                                        <div class="flex flex-col items-center gap-1">
+                                            <span class="font-bold text-slate-700 text-sm">{{ log.am_out|time:"h:i A" }}</span>
+                                            <span class="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-black tracking-widest border border-blue-100 uppercase">Done</span>
+                                        </div>
+                                    {% elif log and log.am_in %}
+                                        <span class="text-slate-300 italic text-[10px]">---</span>
+                                    {% else %}
+                                        <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+                        </td>
+                        <td class="px-3 py-2.5 text-center">
+                            <div class="flex flex-col items-center">
+                                {% with log=item.log %}
+                                    {% if log and log.pm_in %}
+                                        <div class="flex flex-col items-center gap-1">
+                                            <span class="font-bold text-slate-700 text-sm">{{ log.pm_in|time:"h:i A" }}</span>
+                                            {% if item.status == 'late' %}
+                                                 <span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">Late</span>
+                                            {% else %}
+                                                <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">Present</span>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+                        </td>
+                        <td class="px-3 py-2.5 text-center">
+                            <div class="flex flex-col items-center">
+                                {% with log=item.log %}
+                                    {% if log and log.pm_out %}
+                                        <div class="flex flex-col items-center gap-1">
+                                            <span class="font-bold text-slate-700 text-sm">{{ log.pm_out|time:"h:i A" }}</span>
+                                            <span class="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-black tracking-widest border border-blue-100 uppercase">Done</span>
+                                        </div>
+                                    {% elif log and log.pm_in %}
+                                        <span class="text-slate-300 italic text-[10px]">---</span>
+                                    {% else %}
+                                        <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-10 text-center text-slate-400 font-medium">
+                            No records found for this date.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (window.lucide) lucide.createIcons();
+    });
+
+    function toggleDayOff(dateStr) {
+        if (!confirm('Are you sure you want to change the work status for this date?')) return;
+        
+        const formData = new FormData();
+        formData.append('date', dateStr);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch("{% url 'attendance:api_toggle_special_date' %}", {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
+    }
+</script>
+{% endblock %}

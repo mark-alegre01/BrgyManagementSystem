@@ -96,48 +96,43 @@
             <button type="button" class="close position-absolute" data-dismiss="modal" aria-label="Close" style="right: 20px; top: 20px; z-index: 10;">
                 <span aria-hidden="true">&times;</span>
             </button>
-            <div class="modal-body p-4 p-md-5">
+            <div class="modal-body p-3 p-md-4">
                 
-                <div class="text-center mb-4">
-                    <h2 id="enroll-title" class="h4 font-weight-bold text-dark mb-1">Biometrics</h2>
-                    <p id="enroll-instruction" class="text-muted small font-weight-medium">Place finger on sensor</p>
+                <div class="text-center mb-3">
+                    <div id="enroll-avatar-container" class="avatar-circle-modern mx-auto mb-2" style="width: 50px; height: 50px;">
+                        <img id="enroll-avatar-img" src="" class="w-full h-full object-cover rounded-full">
+                    </div>
+                    <h2 id="enroll-title" class="h5 font-weight-bold text-dark mb-1">Biometrics</h2>
+                    <p id="enroll-official-name" class="text-primary small font-weight-bold mb-1"></p>
+                    <p id="enroll-instruction" class="text-muted small font-weight-medium mb-0">Place finger on sensor</p>
                 </div>
 
                 <!-- Segments -->
-                <div class="d-flex mb-4 px-2" style="gap: 10px;">
-                    <div class="flex-fill bg-light rounded-pill overflow-hidden" style="height: 6px;">
+                <div class="d-flex mb-3 px-2" style="gap: 8px;">
+                    <div class="flex-fill bg-light rounded-pill overflow-hidden" style="height: 5px;">
                         <div id="seg-1" class="h-100 bg-primary transition-all" style="width: 0%;"></div>
                     </div>
-                    <div class="flex-fill bg-light rounded-pill overflow-hidden" style="height: 6px;">
+                    <div class="flex-fill bg-light rounded-pill overflow-hidden" style="height: 5px;">
                         <div id="seg-2" class="h-100 bg-primary transition-all" style="width: 0%;"></div>
                     </div>
-                    <div class="flex-fill bg-light rounded-pill overflow-hidden" style="height: 6px;">
+                    <div class="flex-fill bg-light rounded-pill overflow-hidden" style="height: 5px;">
                         <div id="seg-3" class="h-100 bg-primary transition-all" style="width: 0%;"></div>
                     </div>
                 </div>
 
                 <!-- Scanner Area -->
-                <div class="d-flex justify-content-center mb-4">
-                    <div id="scanner-box" class="scanner-container d-flex align-items-center justify-content-center bg-light border-2 rounded-xl position-relative overflow-hidden" style="width: 160px; height: 160px; border: 2px solid #e9ecef;">
+                <div class="d-flex justify-content-center mb-3">
+                    <div id="scanner-box" class="scanner-container d-flex align-items-center justify-content-center bg-light border-2 rounded-xl position-relative overflow-hidden" style="width: 120px; height: 120px; border: 2px solid #e9ecef;">
                         <div id="scanner-laser" class="position-absolute bg-primary d-none" style="left: 10%; right: 10%; height: 2px; box-shadow: 0 0 10px #007bff; animation: scanner-line 2s infinite ease-in-out;"></div>
-                        <i id="fingerprint-icon" class="fas fa-fingerprint text-light" style="font-size: 5rem; transition: color 0.3s;"></i>
-                        <i id="success-icon" class="fas fa-shield-check text-success d-none" style="font-size: 5rem;"></i>
+                        <i id="fingerprint-icon" class="fas fa-fingerprint text-light" style="font-size: 4rem; transition: color 0.3s;"></i>
+                        <i id="success-icon" class="fas fa-shield-check text-success d-none" style="font-size: 4rem;"></i>
                     </div>
                 </div>
 
-                <div class="controls px-2">
-                    <button id="enroll-scan-btn" class="btn btn-primary btn-block py-3 font-weight-bold rounded-xl shadow-sm mb-3">
-                        <span id="btn-text">Ready to Scan</span>
+                <div class="controls px-2 text-center">
+                    <button id="enroll-scan-btn" class="btn btn-success btn-block py-2 font-weight-bold rounded-xl shadow-sm d-none">
+                        <span id="btn-text">Finish Setup</span>
                     </button>
-                    <button id="enroll-reset-btn" class="btn btn-link btn-block btn-sm text-muted font-weight-bold text-decoration-none">
-                        <i class="fas fa-undo-alt mr-1"></i> START OVER
-                    </button>
-                </div>
-
-                <div class="mt-4 pt-3 border-top text-center">
-                    <span class="text-muted small font-weight-bold tracking-widest uppercase">
-                        <i class="fas fa-shield-alt mr-1 opacity-50"></i> Secure System v4
-                    </span>
                 </div>
 
             </div>
@@ -147,19 +142,19 @@
 
 <!-- Reset Modal -->
 <div class="modal fade" id="resetBiometricModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
         <div class="modal-content rounded-xl border-0 shadow-lg">
-            <div class="modal-body p-5 text-center">
-                <div class="bg-danger-light text-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px; background: #fff5f5;">
-                    <i class="fas fa-eraser fa-2x"></i>
+            <div class="modal-body p-4 text-center">
+                <div class="bg-danger-light text-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px; background: #fff5f5;">
+                    <i class="fas fa-eraser fa-lg"></i>
                 </div>
-                <h3 class="font-weight-bold text-dark mb-2">Clear All Fingerprints?</h3>
-                <p class="text-muted small mb-4">This will permanently delete <strong>all registered biometric data</strong>. All personnel must re-register to regain access.</p>
+                <h5 class="font-weight-bold text-dark mb-1">Clear All Fingerprints?</h5>
+                <p class="text-muted small mb-3" style="font-size: 11px;">This will permanently delete <strong>all registered biometric data</strong>. All personnel must re-register.</p>
                 <div class="d-flex flex-column gap-2">
-                    <a href="{% url 'core:biometric_reset_all' %}" class="btn btn-danger py-3 font-weight-bold rounded-xl shadow-sm d-block text-white text-decoration-none">
-                        Confirm and Clear All
+                    <a href="{% url 'core:biometric_reset_all' %}" class="btn btn-danger py-2 font-weight-bold rounded-lg shadow-sm d-block text-white text-decoration-none" style="font-size: 12px;">
+                        Confirm & Clear
                     </a>
-                    <button type="button" class="btn btn-light py-2 font-weight-bold text-muted text-decoration-none" data-dismiss="modal">
+                    <button type="button" class="btn btn-light py-1 font-weight-bold text-muted text-decoration-none" data-dismiss="modal" style="font-size: 12px;">
                         Cancel
                     </button>
                 </div>
@@ -170,19 +165,19 @@
 
 <!-- Delete Single Modal -->
 <div class="modal fade" id="deleteSingleModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-dialog modal-dialog-centered modal-sm" role="document">
         <div class="modal-content rounded-xl border-0 shadow-lg">
-            <div class="modal-body p-5 text-center">
-                <div class="bg-warning-light text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px; background: #fffdf5;">
-                    <i class="fas fa-user-minus fa-2x"></i>
+            <div class="modal-body p-4 text-center">
+                <div class="bg-warning-light text-warning rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 50px; height: 50px; background: #fffdf5;">
+                    <i class="fas fa-user-minus fa-lg"></i>
                 </div>
-                <h3 class="font-weight-bold text-dark mb-2">Remove Registration?</h3>
-                <p class="text-muted small mb-4">Are you sure you want to delete the fingerprint for <strong id="delete-target-name">this member</strong>?</p>
+                <h5 class="font-weight-bold text-dark mb-1">Remove Registration?</h5>
+                <p class="text-muted small mb-3" style="font-size: 11px;">Are you sure you want to delete the fingerprint for <strong id="delete-target-name">this member</strong>?</p>
                 <div class="d-flex flex-column gap-2">
-                    <button id="confirm-single-delete" class="btn btn-warning text-white py-3 font-weight-bold rounded-xl shadow-sm">
+                    <button id="confirm-single-delete" class="btn btn-warning text-white py-2 font-weight-bold rounded-lg shadow-sm" style="font-size: 12px;">
                         Confirm Removal
                     </button>
-                    <button type="button" class="btn btn-light py-2 font-weight-bold text-muted text-decoration-none" data-dismiss="modal">
+                    <button type="button" class="btn btn-light py-1 font-weight-bold text-muted text-decoration-none" data-dismiss="modal" style="font-size: 12px;">
                         Cancel
                     </button>
                 </div>
@@ -199,17 +194,15 @@
 
     /* Custom Avatar */
     .avatar-circle-modern {
-        width: 38px;
-        height: 38px;
-        background: #f0f4ff;
-        color: #4361ee;
-        border: 1px solid #e0e7ff;
-        border-radius: 10px;
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-weight: 800;
-        font-size: 11px;
+        overflow: hidden;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
     }
 
     /* Status Badges */
@@ -236,7 +229,7 @@
     }
 
     /* Modal Tweaks */
-    .secure-setup-card { max-width: 380px; margin: auto; }
+    .secure-setup-card { max-width: 320px; margin: auto; }
     .scanner-active { border-color: #4361ee !important; background: #f5f7ff !important; }
     .scanner-success { border-color: #10b981 !important; background: #f0fdf4 !important; }
 
@@ -350,7 +343,9 @@
                 tr.innerHTML = `
                     <td class="px-4 py-3 align-middle">
                         <div class="d-flex align-items-center">
-                            <div class="avatar-circle-modern mr-3">${initials}</div>
+                            <div class="avatar-circle-modern mr-3">
+                                <img src="${off.photo || `https://api.dicebear.com/7.x/identicon/svg?seed=resident_${off.resident_id || off.id}&backgroundColor=ffffff`}" class="w-full h-full object-cover">
+                            </div>
                             <div>
                                 <div class="font-weight-bold text-dark small">${off.full_name}</div>
                                 <div class="text-muted" style="font-size: 10px;">ID: ${off.id}</div>
@@ -384,7 +379,9 @@
                 mobileCard.innerHTML = `
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <div class="d-flex align-items-center">
-                            <div class="avatar-circle-modern mr-2" style="width: 32px; height: 32px; font-size: 10px;">${initials}</div>
+                            <div class="avatar-circle-modern mr-2" style="width: 32px; height: 32px;">
+                                <img src="${off.photo || `https://api.dicebear.com/7.x/identicon/svg?seed=resident_${off.resident_id || off.id}&backgroundColor=ffffff`}" class="w-full h-full object-cover">
+                            </div>
                             <div class="font-weight-bold text-dark small">${off.full_name}</div>
                         </div>
                         <span class="status-pill-modern ${isReg ? 'status-pill-online' : 'status-pill-offline'}">${regLabel}</span>
@@ -434,7 +431,7 @@
                 scannerLaser.classList.add('d-none');
                 btnText.textContent = "Finish Setup";
                 enrollScanBtn.disabled = false;
-                enrollScanBtn.className = "btn btn-success btn-block py-3 font-weight-bold rounded-xl shadow-sm mb-3";
+                enrollScanBtn.className = "btn btn-success btn-block py-2 font-weight-bold rounded-xl shadow-sm";
             } else {
                 const isScanning = (status === 'enrolling' || status === 'detected');
                 enrollTitle.textContent = "Biometrics";
@@ -444,15 +441,8 @@
                 fingerprintIcon.className = "fas fa-fingerprint " + (isScanning ? 'fingerprint-scanning' : 'text-light');
                 scannerLaser.classList.toggle('d-none', !isScanning);
                 
-                if (status === 'error') {
-                    btnText.textContent = "Retry Scan";
-                    enrollScanBtn.disabled = false;
-                    enrollScanBtn.className = "btn btn-danger btn-block py-3 font-weight-bold rounded-xl shadow-sm mb-3";
-                } else {
-                    btnText.textContent = isScanning ? "Scanning..." : "Ready to Scan";
-                    enrollScanBtn.disabled = isScanning;
-                    enrollScanBtn.className = `btn btn-primary btn-block py-3 font-weight-bold rounded-xl shadow-sm mb-3 ${isScanning ? 'opacity-50' : ''}`;
-                }
+                // Hide button during scanning and error states
+                enrollScanBtn.className = "d-none";
             }
         }
 
@@ -581,6 +571,12 @@
                                 throw new Error('Scanner rejected enrollment (HTTP ' + espRes.status + ')');
                             });
                         }
+                        const off = allOfficials.find(o => o.id == currentOfficialId);
+                        if (off) {
+                            document.getElementById('enroll-official-name').textContent = off.full_name;
+                            document.getElementById('enroll-avatar-img').src = off.photo || `https://api.dicebear.com/7.x/identicon/svg?seed=resident_${off.resident_id || off.id}&backgroundColor=ffffff`;
+                        }
+                        
                         updateModalUI(0, "Place finger on sensor", "enrolling");
                         if (window.$) $('#biometricModal').modal('show');
                         startMonitoring();
@@ -633,14 +629,7 @@
             });
         });
 
-        enrollResetBtn.addEventListener('click', () => {
-            fetch(ESP32_PROXY_STOP_URL, { method: 'POST', credentials: 'same-origin' })
-                .then(() => fetch(ESP32_PROXY_START_URL, { method: 'POST', credentials: 'same-origin' }))
-                .then(() => {
-                    updateModalUI(0, "Place finger on sensor", "enrolling");
-                    startMonitoring();
-                });
-        });
+
 
         enrollScanBtn.addEventListener('click', () => {
             if (btnText.textContent === "Finish Setup") {

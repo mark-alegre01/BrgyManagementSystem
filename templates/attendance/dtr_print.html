@@ -116,7 +116,7 @@
     <div class="info-col">
       <div class="info-item">
         <div class="label">NAME:</div>
-        <div class="value">{{ official.resident.full_name|upper }}</div>
+        <div class="value"><strong>{{ official.resident.full_name|upper }}</strong></div>
       </div>
       <div class="info-item">
         <div class="label">POSITION:</div>
@@ -126,7 +126,7 @@
     <div class="info-col" style="text-align: right;">
       <div class="info-item">
         <div class="label">FOR THE MONTH OF:</div>
-        <div class="value">{{ month }} / {{ year }}</div>
+        <div class="value">{{ month_name|upper }} {{ year }}</div>
       </div>
       <div class="info-item">
         <div class="label">TOTAL HOURS:</div>
@@ -155,10 +155,10 @@
       {% for log in logs %}
       <tr>
         <td>{{ log.date|date:"d" }}</td>
-        <td>{% if log.time_in|time:"H" < "12" %}{{ log.time_in|time:"h:i A" }}{% else %}---{% endif %}</td>
-        <td>{% if log.time_out|time:"H" < "12" %}{{ log.time_out|time:"h:i A" }}{% else %}---{% endif %}</td>
-        <td>{% if log.time_in|time:"H" >= "12" %}{{ log.time_in|time:"h:i A" }}{% else %}---{% endif %}</td>
-        <td>{% if log.time_out|time:"H" >= "12" %}{{ log.time_out|time:"h:i A" }}{% else %}---{% endif %}</td>
+        <td>{{ log.am_in|time:"h:i A"|default:"---" }}</td>
+        <td>{{ log.am_out|time:"h:i A"|default:"---" }}</td>
+        <td>{{ log.pm_in|time:"h:i A"|default:"---" }}</td>
+        <td>{{ log.pm_out|time:"h:i A"|default:"---" }}</td>
         <td>{{ log.hours_worked|floatformat:2 }}</td>
         <td>{{ log.get_status_display }}</td>
       </tr>

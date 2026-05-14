@@ -49,8 +49,10 @@ def get_officials_by_category(request):
     data = [
         {
             'id': official.id,
+            'resident_id': official.resident.id,
             'full_name': official.resident.full_name,
             'position': official.get_position_display(),
+            'photo': official.resident.photo.url if official.resident.photo else None,
             'has_fingerprint': bool(official.fingerprint_template and len(official.fingerprint_template) > 10)
         }
         for official in officials
@@ -365,6 +367,7 @@ def org_chart(request):
         
         return {
             'id': str(official.id),
+            'resident_id': str(official.resident.id),
             'name': official.resident.full_name,
             'role': official.get_position_display(),
             'initials': initials,

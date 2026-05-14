@@ -7,7 +7,7 @@ SECRET_KEY = "django-insecure-brgy-system-change-this-in-production-2024"
 
 DEBUG = True
 
-ALLOWED_HOSTS = ["*", "192.168.1.47", "localhost", "127.0.0.1", "barangay.local"]
+ALLOWED_HOSTS = ["*", "192.168.1.47", "192.168.1.49", "localhost", "127.0.0.1", "barangay.local"]
 
 # Local ESP32 fingerprint module proxy target
 ESP32_BASE_URL = 'http://192.168.1.55'
@@ -21,6 +21,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://192.168.1.63:8001",
     "http://192.168.1.47",
     "http://192.168.1.47:8001",
+    "http://192.168.1.49:8001",
     "http://brgysicosico.local:8001",
     "http://brgysicosico:8001",
     "https://*.trycloudflare.com",

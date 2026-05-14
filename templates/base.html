@@ -43,39 +43,7 @@
         </a>
       </div>
 
-      <!-- PERSONAL -->
-      <div class="nav-section">
-        <span class="nav-section-title">PERSONAL</span>
-        {% if user_profile.resident %}
-        <a href="{% url 'residents:view' user_profile.resident.pk %}"
-          class="nav-item {% if request.resolver_match.app_name == 'residents' and request.resolver_match.url_name == 'resident_view' %}active{% endif %}">
-          <i class="fas fa-user-circle"></i><span>My Profile</span>
-        </a>
-        {% endif %}
-        {% if r == 'resident' %}
-        <a href="{% url 'certifications:request_certificate' %}"
-          class="nav-item {% if request.resolver_match.url_name == 'request_certificate' %}active{% endif %}">
-          <i class="fas fa-file-signature"></i><span>Request Certificate</span>
-        </a>
-        <a href="{% url 'certifications:my_requests' %}"
-          class="nav-item {% if request.resolver_match.url_name == 'my_requests' %}active{% endif %}">
-          <i class="fas fa-clipboard-list"></i><span>My Requests</span>
-        </a>
-        <a href="{% url 'certifications:list' %}"
-          class="nav-item {% if request.resolver_match.url_name == 'list' and request.resolver_match.app_name == 'certifications' %}active{% endif %}">
-          <i class="fas fa-scroll"></i><span>My Certificates</span>
-        </a>
-        <a href="{% url 'core:notifications' %}"
-          class="nav-item {% if request.resolver_match.url_name == 'notifications' %}active{% endif %}">
-          <i class="fas fa-bell"></i>
-          <span>Notifications</span>
-          {% if unread_notifications_count > 0 %}
-          <span <span
-            style="margin-left:auto;background:#ef4444;color:#fff;border-radius:20px;padding:1px 7px;font-size:.72rem;font-weight:700;">{{ unread_notifications_count }}</span>
-          {% endif %}
-        </a>
-      </div>
-      {% endif %}
+
 
       <!-- MANAGEMENT -->
       {% if s or r != 'resident' %}
@@ -178,7 +146,7 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-info">
+      <div class="user-info" style="cursor: pointer;" data-toggle="modal" data-target="#fullProfileDetailModal">
         <div class="user-avatar">
           {% if user_profile.resident.photo %}
           <img src="{{ user_profile.resident.photo.url }}" alt="Avatar">
@@ -248,10 +216,170 @@
     {% endfor %}
   </div>
   {% endif %}
+  <!-- Profile Detail Modal -->
+  <div class="modal fade" id="profileDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg rounded-xl">
+        <div class="modal-header border-0 pb-0">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body text-center pt-0">
+          <div class="user-avatar mx-auto mb-3" style="width: 100px; height: 100px; border-radius: 50%; overflow: hidden; border: 4px solid var(--primary-light);">
+            {% if user_profile.resident.photo %}
+            <img src="{{ user_profile.resident.photo.url }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+            {% elif request.user.avatar %}
+            <img src="{{ request.user.avatar.url }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+            {% else %}
+            <img src="https://api.dicebear.com/7.x/identicon/svg?seed=resident_{{ user_profile.resident.pk|default:request.user.username }}&backgroundColor=ffffff" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+            {% endif %}
+          </div>
+          <h4 class="font-weight-bold mb-1">{{ request.user.get_full_name|default:request.user.username }}</h4>
+          <p class="text-muted mb-3">{{ request.user.email|default:"No email provided" }}</p>
+          
+          <div class="role-badge mb-4">
+            <span class="badge badge-primary px-3 py-2 rounded-pill">
+              {% if request.user.is_superuser %}Administrator
+              {% elif user_role == 'captain' %}Punong Barangay
+              {% elif user_role == 'secretary' %}Barangay Secretary
+              {% elif user_role == 'treasurer' %}Barangay Treasurer
+              {% elif user_role == 'kagawad' %}Kagawad
+              {% elif user_role == 'sk_chairperson' %}SK Chairperson
+              {% elif user_role == 'lupong_member' %}Lupon Member
+              {% elif user_role == 'resident' %}Resident
+              {% else %}Staff{% endif %}
+            </span>
+          </div>
+
+          <div class="profile-actions d-flex flex-column gap-2 px-4 pb-4">
+            <button type="button" class="btn btn-primary rounded-lg py-2" data-toggle="modal" data-target="#fullProfileDetailModal" data-dismiss="modal">
+              <i class="fas fa-user-circle mr-2"></i> View Full Profile
+            </button>
+            <a href="{% url 'core:logout' %}" class="btn btn-outline-danger rounded-lg py-2">
+              <i class="fas fa-sign-out-alt mr-2"></i> Logout
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full Profile Detail Modal -->
+  <div class="modal fade" id="fullProfileDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg rounded-xl overflow-hidden">
+        <div class="modal-header bg-primary text-white border-0 py-3">
+          <h5 class="modal-title font-weight-bold">My Personal Profile</h5>
+          <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body p-0">
+          {% if user_profile.resident %}
+          <div class="d-flex flex-column flex-md-row">
+            <div class="bg-light p-4 text-center" style="min-width: 250px;">
+              <div class="user-avatar mx-auto mb-3" style="width: 120px; height: 120px; border-radius: 50%; overflow: hidden; border: 5px solid white; shadow: var(--shadow-md);">
+                {% if user_profile.resident.photo %}
+                <img src="{{ user_profile.resident.photo.url }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+                {% else %}
+                <img src="https://api.dicebear.com/7.x/identicon/svg?seed=resident_{{ user_profile.resident.pk }}&backgroundColor=ffffff" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+                {% endif %}
+              </div>
+              <h5 class="font-weight-bold mb-1">{{ user_profile.resident.full_name }}</h5>
+              <span class="badge badge-primary rounded-pill px-3">{{ user_role|title }}</span>
+              <hr>
+              <div class="text-left mt-3">
+                <small class="text-muted d-block uppercase font-weight-bold" style="font-size: 10px;">Contact Info</small>
+                <p class="mb-2" style="font-size: 13px;"><i class="fas fa-phone mr-2 text-primary"></i> {{ user_profile.resident.contact_number|default:"---" }}</p>
+                <p class="mb-0" style="font-size: 13px;"><i class="fas fa-envelope mr-2 text-primary"></i> {{ request.user.email|default:"---" }}</p>
+              </div>
+            </div>
+            <div class="p-4 flex-grow-1 bg-white">
+              <h6 class="font-weight-bold border-bottom pb-2 mb-3 text-primary"><i class="fas fa-info-circle mr-2"></i> Basic Information</h6>
+              <div class="row mb-4">
+                <div class="col-sm-6 mb-3">
+                  <label class="d-block text-muted small mb-0">Gender</label>
+                  <span class="font-weight-600">{{ user_profile.resident.get_gender_display }}</span>
+                </div>
+                <div class="col-sm-6 mb-3">
+                  <label class="d-block text-muted small mb-0">Birthdate</label>
+                  <span class="font-weight-600">{{ user_profile.resident.birthdate }} (Age: {{ user_profile.resident.age }})</span>
+                </div>
+                <div class="col-sm-6 mb-3">
+                  <label class="d-block text-muted small mb-0">Civil Status</label>
+                  <span class="font-weight-600">{{ user_profile.resident.get_civil_status_display }}</span>
+                </div>
+                <div class="col-sm-6 mb-3">
+                  <label class="d-block text-muted small mb-0">Occupation</label>
+                  <span class="font-weight-600">{{ user_profile.resident.display_occupation }}</span>
+                </div>
+              </div>
+
+              <h6 class="font-weight-bold border-bottom pb-2 mb-3 text-primary"><i class="fas fa-map-marker-alt mr-2"></i> Address Details</h6>
+              <div class="row">
+                <div class="col-12 mb-3">
+                  <label class="d-block text-muted small mb-0">Full Address</label>
+                  <span class="font-weight-600">{{ user_profile.resident.address }}</span>
+                </div>
+                <div class="col-sm-6 mb-3">
+                  <label class="d-block text-muted small mb-0">Purok / Zone</label>
+                  <span class="font-weight-600">{{ user_profile.resident.purok }}</span>
+                </div>
+                <div class="col-sm-6 mb-3">
+                  <label class="d-block text-muted small mb-0">Household</label>
+                  <span class="font-weight-600">
+                    {% if user_profile.resident.household %}
+                    Household #{{ user_profile.resident.household.household_no }}
+                    {% else %}Not assigned{% endif %}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <div class="p-5 text-center">
+            <i class="fas fa-user-slash fa-3x text-muted mb-3"></i>
+            <h5>No resident profile linked to this user.</h5>
+          </div>
+          {% endif %}
+        </div>
+        <div class="modal-footer bg-light border-0">
+          <button type="button" class="btn btn-secondary rounded-lg px-4" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.min.js"></script>
   <script src="{% static 'js/app.js' %}"></script>
+  <script>
+    // Sidebar Scroll Persistence
+    document.addEventListener('DOMContentLoaded', function() {
+      const sidebarNav = document.querySelector('.sidebar-nav');
+      if (sidebarNav) {
+        // Restore scroll position
+        const scrollPos = localStorage.getItem('sidebarScroll');
+        if (scrollPos) {
+          sidebarNav.scrollTop = scrollPos;
+        }
+
+        // Save scroll position on click/scroll
+        sidebarNav.addEventListener('scroll', function() {
+          localStorage.setItem('sidebarScroll', sidebarNav.scrollTop);
+        });
+
+        // Also save before navigating
+        document.querySelectorAll('.nav-item').forEach(item => {
+          item.addEventListener('click', function() {
+            localStorage.setItem('sidebarScroll', sidebarNav.scrollTop);
+          });
+        });
+      }
+    });
+  </script>
   {% block extra_js %}{% endblock %}
 </body>
 

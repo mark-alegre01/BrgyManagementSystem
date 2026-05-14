@@ -23,7 +23,7 @@
         {% if resident.photo %}
         <img src="{{ resident.photo.url }}" alt="{{ resident.full_name }}">
         {% else %}
-        <img src="https://api.dicebear.com/7.x/identicon/svg?seed={{ resident.pk }}&backgroundColor=ffffff" alt="{{ resident.full_name }}" class="identicon-placeholder">
+        <img src="https://api.dicebear.com/7.x/identicon/svg?seed=resident_{{ resident.pk }}&backgroundColor=ffffff" alt="{{ resident.full_name }}" class="identicon-placeholder">
         {% endif %}
       </div>
       <div class="profile-info">
@@ -67,23 +67,7 @@
   </div>
 
   <div class="profile-main">
-    {% if resident.is_official %}
-    <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h3>Biometrics</h3>
-        <a href="{% url 'residents:capture_fingerprint' resident.pk %}" class="btn btn-sm btn-primary">
-          <i class="fas fa-fingerprint"></i> Capture Fingerprint
-        </a>
-      </div>
-      <div class="card-body">
-        {% if resident.fingerprint_template %}
-        <div class="alert alert-success mb-0">
-          <i class="fas fa-check-circle"></i> Fingerprint registered
-        </div>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
+
 
     <div class="card mt-4">
       <div class="card-header">
@@ -201,9 +185,7 @@
           <a href="{% url 'residents:edit' resident.pk %}" class="btn btn-primary">
             <i class="fas fa-edit"></i> Edit Profile
           </a>
-          <a href="{% url 'residents:delete' resident.pk %}" class="btn btn-outline-danger">
-            <i class="fas fa-user-minus"></i> Deactivate Resident
-          </a>
+
         </div>
       </div>
     </div>

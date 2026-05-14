@@ -16,4 +16,9 @@ urlpatterns = [
     path('biometric-attendance/', views.biometric_attendance, name='biometric_attendance'),
     path('api/event-attendance-list/', views.api_event_attendance_list, name='api_event_attendance_list'),
     path('api/event-attendance-pdf/', views.event_attendance_pdf, name='event_attendance_pdf'),
+    path('history/', views.attendance_history_calendar, name='history_calendar'),
+    path('history/<str:date_str>/', views.daily_attendance_report, name='daily_report'),
+    path('api/shift-settings/', views.api_get_shift_settings, name='api_get_shift_settings'),
+    path('api/shift-settings/save/', views.api_save_shift_settings, name='api_save_shift_settings'),
+    path('api/toggle-special-date/', views.api_toggle_special_date, name='api_toggle_special_date'),
 ]

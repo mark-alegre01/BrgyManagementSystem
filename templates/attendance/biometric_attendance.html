@@ -213,19 +213,28 @@
 
 <!-- Attendance Schedule Modal -->
 <div class="modal fade" id="attendanceScheduleModal" tabindex="-1" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 380px;">
-        <div class="modal-content" style="border-radius: 20px; border: none; overflow: hidden; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.3);">
+    <div class="modal-dialog modal-dialog-centered" role="document" style="max-width: 500px;">
+        <div class="modal-content" style="border-radius: 30px; border: none; overflow: hidden; box-shadow: 0 30px 60px -12px rgba(0,0,0,0.4), 0 18px 36px -18px rgba(0,0,0,0.45);">
             <!-- Header -->
             <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-white text-left">
                 <div>
                     <h2 class="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                        Availability
+                        Shift Setup
                         <span class="px-2 py-0.5 bg-blue-100 text-[9px] text-blue-700 rounded-full font-black uppercase tracking-wider">Weekly</span>
                     </h2>
+                    <p class="text-[9px] text-slate-400 mt-0.5 font-medium">Set work hours and manage device</p>
                 </div>
                 <div class="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors" data-dismiss="modal" style="cursor: pointer;">
                     <i class="fas fa-times text-slate-500 text-xs"></i>
                 </div>
+            </div>
+
+            <!-- Bulk Apply Toggle -->
+            <div class="px-5 py-2 border-b border-slate-50 bg-slate-50/30">
+                <label class="flex items-center gap-2 cursor-pointer group m-0">
+                    <input type="checkbox" id="bulkApplyToggle" class="w-3 h-3 rounded border-slate-300 text-blue-600 focus:ring-blue-500 transition cursor-pointer">
+                    <span class="text-[9px] font-bold text-slate-500 group-hover:text-slate-700 transition uppercase tracking-wider">Apply to all days upon saving</span>
+                </label>
             </div>
 
             <!-- Tabs Navigation -->
@@ -243,10 +252,13 @@
                             <h3 id="displayDayName" class="text-sm font-bold text-slate-900">Monday</h3>
                             <p id="dayInsight" class="text-[9px] text-blue-600 font-bold uppercase tracking-wider">Active Slot</p>
                         </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="dayStatusToggle" checked class="sr-only peer">
-                            <div class="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Day Off</span>
+                            <label class="relative inline-flex items-center cursor-pointer m-0">
+                                <input type="checkbox" id="dayStatusToggle" checked class="sr-only peer">
+                                <div class="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Time Grid -->
@@ -270,12 +282,7 @@
 
             <!-- Footer Actions -->
             <div class="px-5 py-4 bg-slate-50 border-t border-slate-100 space-y-3">
-                <div class="flex items-center justify-center">
-                    <button id="copyToAll" class="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider transition-colors flex items-center gap-1 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100">
-                        <i class="fas fa-copy text-[9px]"></i>
-                        Apply to all
-                    </button>
-                </div>
+
                 <div class="flex gap-2">
                     <button id="resetBtn" class="flex-1 py-2 text-[10px] font-bold text-slate-500 hover:text-slate-700 transition-colors">Reset</button>
                     <button id="saveBtn" onclick="saveScheduleSettings()" class="flex-[2.5] py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs shadow-lg shadow-slate-200 transition-all active:scale-95">
@@ -432,7 +439,20 @@
 
     function saveScheduleSettings() {
         saveCurrentDayState();
+        
+        const bulkApply = document.getElementById('bulkApplyToggle')?.checked;
         let finalSchedule = {};
+        
+        if (bulkApply) {
+            // Apply current day settings to all
+            const currentDay = scheduleData[activeDayIndex];
+            scheduleData.forEach(day => {
+                day.enabled = currentDay.enabled;
+                day.timeIn = currentDay.timeIn;
+                day.timeOut = currentDay.timeOut;
+            });
+        }
+
         scheduleData.forEach(day => {
             if (day.enabled) {
                 finalSchedule[day.key] = {
@@ -447,7 +467,7 @@
         weeklySchedule = finalSchedule;
         
         if (window.showNotification) {
-            window.showNotification('Weekly schedule saved successfully!', 'success');
+            window.showNotification(bulkApply ? 'Schedule applied to all days!' : 'Weekly schedule saved successfully!', 'success');
         }
         
         renderCurrentShift();
@@ -600,6 +620,29 @@
 
         const btnStart = document.getElementById('btn-start-attendance');
         const btnStop = document.getElementById('btn-stop-attendance');
+
+        // Hide back button and padding if loaded inside an iframe (Scan Modal)
+        if (window.self !== window.top || new URLSearchParams(window.location.search).get('hide_back')) {
+            const backBtn = document.querySelector('.page-header a.btn-outline-secondary');
+            if (backBtn) backBtn.style.display = 'none';
+            document.body.style.backgroundColor = '#ffffff';
+            const container = document.querySelector('.container-fluid');
+            if(container) {
+                container.style.padding = '0';
+                container.style.marginTop = '0';
+            }
+            const card = document.querySelector('.biometric-attendance-card');
+            if(card) {
+                card.style.boxShadow = 'none';
+                card.style.border = 'none';
+                card.style.margin = '0 auto';
+                card.style.minHeight = '100vh';
+                card.style.borderRadius = '0';
+            }
+            const pageHeader = document.querySelector('.page-header');
+            if (pageHeader) pageHeader.style.display = 'none';
+        }
+
         const scanVisual = document.getElementById('scan-visual');
         const statusBadge = document.getElementById('status-badge');
         const instructionText = document.getElementById('instruction-text');
@@ -610,12 +653,25 @@
         let scanTimeout = null;
         let hasShownError = false;
 
+        // Read mode from URL if present
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlMode = urlParams.get('mode') || 'attendance';
+
+        // Update title based on mode
+        const pageTitle = document.querySelector('h2');
+        if (pageTitle) {
+            if (urlMode === 'in') pageTitle.innerHTML = '<i class="fas fa-fingerprint text-emerald-600 mr-2"></i> Time In Scan';
+            else if (urlMode === 'out') pageTitle.innerHTML = '<i class="fas fa-fingerprint text-emerald-600 mr-2"></i> Time Out Scan';
+        }
+
         function stopScanner() {
             if (!isScanning) return;
             isScanning = false;
             clearInterval(pollingInterval);
             clearTimeout(scanTimeout);
-            
+            pollingInterval = null;
+            scanTimeout = null;
+
             // SYNC HARDWARE: Tell ESP32 to stop and go back to standby
             fetch('{% url "officials:esp32_stop_enrollment_proxy" %}', {
                 method: 'POST',
@@ -631,7 +687,8 @@
             instructionText.textContent = 'Click the button below to start the scanner';
         }
 
-        btnStart.addEventListener('click', function() {
+        function startUI() {
+            if (isScanning) return;
             isScanning = true;
             btnStart.classList.add('d-none');
             btnStop.classList.remove('d-none');
@@ -649,56 +706,126 @@
                     resultCard.classList.remove('fade-out');
                 }, 400);
             }
+            hasShownError = false;
+        }
 
+        btnStart.addEventListener('click', function() {
+            startUI();
+            console.log('[Scan] Sending start request to Django...');
             fetch('{% url "core:biometric_attendance_start" %}', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token }}' },
                 credentials: 'include',
-                body: JSON.stringify({})
+                body: JSON.stringify({ mode: urlMode })
             })
-            .then(res => res.json())
+            .then(res => {
+                console.log('[Scan] Server responded:', res.status);
+                return res.json();
+            })
             .then(data => {
-                if (data.status === 'success') { startPolling(); } 
-                else { stopScanner(); }
+                console.log('[Scan] Response data:', data);
+                if (data.status === 'success') {
+                    if (!data.esp32_connected) {
+                        // Django reached but ESP32 hardware is offline
+                        showError('Scanner hardware is offline. Check device connection.');
+                        stopScanner();
+                        return;
+                    }
+                    console.log('[Scan] ESP32 connected, starting active polling...');
+                    startActivePolling();
+                } else {
+                    console.error('[Scan] Server error:', data.message);
+                    showError(data.message || 'Failed to start scanner. Please try again.');
+                    stopScanner();
+                }
             })
-            .catch(() => stopScanner());
-
-            hasShownError = false;
-            scanTimeout = setTimeout(() => { stopScanner(); }, 30000);
+            .catch(err => {
+                console.error('[Scan] Fetch failed:', err);
+                showError('Cannot connect to server. Please check your network.');
+                stopScanner();
+            });
         });
 
         btnStop.addEventListener('click', () => stopScanner());
 
-        function startPolling() {
+        // PASSIVE hardware listener — runs always, watches for hardware button presses
+        // Does NOT need a request_id, just detects when hardware goes into 'verifying' state
+        function startPassivePolling() {
+            setInterval(() => {
+                if (isScanning) return; // Active scan is handling it
+                fetch('{% url "core:biometric_attendance_status_check" %}', {
+                    credentials: 'include'
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'authenticated') {
+                        // Hardware button scan completed — trigger full record flow
+                        startUI();
+                        recordAttendance(data.attendance_mode);
+                    } else if (data.status === 'failed' && !hasShownError) {
+                        hasShownError = true;
+                        stopScanner();
+                        showError(data.reason || 'Fingerprint not recognized');
+                    } else if (data.status === 'pending' && data.esp32_state === 'verifying') {
+                        // Hardware button pressed, sync UI
+                        startUI();
+                    }
+                }).catch(() => {});
+            }, 2000);
+        }
+
+        // ACTIVE polling — runs after clicking Start Scan (has a valid request_id in session)
+        function startActivePolling() {
+            if (pollingInterval) return;
+
             pollingInterval = setInterval(() => {
                 fetch('{% url "core:biometric_attendance_status_check" %}', {
                     credentials: 'include'
                 })
                 .then(res => res.json())
                 .then(data => {
-                    if (data.status === 'authenticated') { recordAttendance(); } 
+                    if (data.status === 'authenticated') { 
+                        recordAttendance(data.attendance_mode); 
+                    } 
                     else if (data.status === 'failed' && !hasShownError) { 
                         hasShownError = true;
                         stopScanner();
-                        
                         showError(data.reason || 'Fingerprint not recognized'); 
                         if (window.showNotification) {
                             window.showNotification(data.reason || 'Fingerprint not recognized', 'error');
                         }
                     }
-                });
+                    else if (data.status === 'pending') {
+                        if (data.esp32_state === 'standby' && isScanning) {
+                            stopScanner(); // Hardware timed out
+                        }
+                    }
+                }).catch(() => {});
             }, 1000);
         }
 
-        function recordAttendance() {
-            clearInterval(pollingInterval);
-            clearTimeout(scanTimeout);
-            const mode = getAttendanceAction();
+        // Start passive hardware listener on page load
+        startPassivePolling();
+
+        function recordAttendance(hardwareMode) {
+            
+            // Priority: hardwareMode (if button was pressed), else automatic schedule
+            let mode = (hardwareMode && hardwareMode !== 'none' && hardwareMode !== 'attendance') ? hardwareMode : getAttendanceAction();
+            
+            // Override with software button mode if selected and no specific hardware button pressed
+            if (!hardwareMode || hardwareMode === 'attendance' || hardwareMode === 'none') {
+                if (urlMode === 'in' || urlMode === 'out') {
+                    mode = urlMode;
+                }
+            }
+            
+            const settingsObj = JSON.parse(localStorage.getItem('attendance_settings') || '{"late_time": "08:00"}');
+
             fetch('{% url "attendance:api_biometric_verify" %}', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ auto: true, action: mode })
+                body: JSON.stringify({ auto: true, action: mode, late_time: settingsObj.late_time })
             })
             .then(res => res.json())
             .then(data => {
@@ -726,7 +853,21 @@
             document.getElementById('result-name').textContent = data.name;
             document.getElementById('result-time').textContent = data.time;
             document.getElementById('result-action').textContent = data.action;
-            document.getElementById('result-action').className = 'badge px-3 py-2 ' + (data.action.includes('IN') ? 'badge-success' : 'badge-warning');
+            
+            let actionClass = 'badge px-3 py-2 ';
+            if (data.action.includes('IN')) {
+                actionClass += (data.attendance_status === 'late' ? 'badge-danger' : 'badge-success');
+                if (data.attendance_status === 'late') {
+                    document.getElementById('result-action').innerHTML = 'Clocked IN <span class="ml-1 text-[10px] opacity-75">(LATE)</span>';
+                } else {
+                    document.getElementById('result-action').innerHTML = 'Clocked IN <span class="ml-1 text-[10px] opacity-75">(ON TIME)</span>';
+                }
+            } else {
+                actionClass += 'badge-warning'; // Clocked OUT
+                document.getElementById('result-action').textContent = 'Clocked OUT';
+            }
+            document.getElementById('result-action').className = actionClass;
+            
             resultCard.style.display = 'block';
             btnStop.classList.add('d-none');
             btnStart.classList.remove('d-none'); // Show immediately for quick next scan
@@ -790,10 +931,18 @@
                 switchDay(0);
             }
         };
+
+        document.getElementById('bulkApplyToggle').onchange = (e) => {
+            if (e.target.checked && window.showNotification) {
+                window.showNotification('Note: These settings will apply to ALL days when saved.', 'info');
+            }
+        };
+
         $('#attendanceScheduleModal').on('shown.bs.modal', function () {
             initScheduleData();
             switchDay(0);
         });
+
     });
 </script>
 {% endblock %}

@@ -433,65 +433,80 @@ def biometric_status_check(request):
     return JsonResponse({'status': 'pending'})
 
 
-def _esp32_trigger_start_verification():
-    """POST /start-verification on the ESP32 with optional max_page for faster library search."""
+def _esp32_trigger_start_verification(mode=None):
+    """POST /start-verification on the ESP32. Returns True if ESP32 acknowledged, False otherwise."""
     esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
     max_slot = (
         Resident.objects.filter(is_active=True, fingerprint_id__isnull=False)
         .aggregate(m=Max('fingerprint_id'))
         .get('m')
     )
+    
+    payload = {}
+    if max_slot is not None:
+        payload['max_page'] = str(int(max_slot))
+    if mode:
+        payload['mode'] = mode
+
     try:
-        if max_slot is not None:
-            requests.post(
-                f"{esp32_base_url}/start-verification",
-                data={'max_page': str(int(max_slot))},
-                timeout=5,
-                proxies={'http': None, 'https': None},
-            )
-        else:
-            requests.post(
-                f"{esp32_base_url}/start-verification",
-                timeout=5,
-                proxies={'http': None, 'https': None},
-            )
+        resp = requests.post(
+            f"{esp32_base_url}/start-verification",
+            data=payload if payload else None,
+            timeout=5,
+            proxies={'http': None, 'https': None},
+        )
+        print(f"[Biometric] ESP32 /start-verification response: {resp.status_code} {resp.text[:100]}")
+        return resp.ok
     except Exception as e:
         print(f"[Biometric] Failed to trigger ESP32: {str(e)}")
+        return False
 
 
 @csrf_exempt
 @login_required
 def biometric_attendance_start(request):
     """
-    Start ESP32 verification for clock in/out. Any active barangay official with an enrolled
-    fingerprint may match (unlike biometric_login_start, which is login-only for 3 roles).
+    Start ESP32 verification for clock in/out.
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+    
+    mode = 'attendance'
+    try:
+        data = json.loads(request.body)
+        if 'mode' in data and data['mode']:
+            mode = data['mode']
+    except Exception:
+        pass
+
     request_id = secrets.token_urlsafe(16)
     request.session['biometric_attendance_request_id'] = request_id
-    _esp32_trigger_start_verification()
+    request.session.save()
+    esp32_ok = _esp32_trigger_start_verification(mode=mode)
     cache.set(f"biometric_attendance:{request_id}", {'status': 'pending'}, timeout=120)
+    print(f"[Biometric] attendance_start: request_id={request_id}, esp32_ok={esp32_ok}")
     return JsonResponse({
         'status': 'success',
         'message': 'Attendance fingerprint scan started.',
         'request_id': request_id,
+        'esp32_connected': esp32_ok,
     })
 
 
 @csrf_exempt
 @login_required
 def biometric_attendance_status_check(request):
-    """Poll ESP32 after biometric_attendance_start; accept any active official with a matching slot."""
+    """Poll ESP32 after biometric_attendance_start; accept any active official with a matching slot.
+       Also handles global hardware button polls without a request_id.
+    """
     request_id = request.session.get('biometric_attendance_request_id')
-    if not request_id:
-        return JsonResponse({'status': 'none'})
-
-    state = cache.get(f"biometric_attendance:{request_id}") or {'status': 'pending'}
-    if state.get('status') == 'failed':
-        return JsonResponse({'status': 'failed', 'reason': state.get('reason')})
-    if state.get('status') == 'authenticated':
-        return JsonResponse({'status': 'authenticated'})
+    
+    if request_id:
+        state = cache.get(f"biometric_attendance:{request_id}") or {'status': 'pending'}
+        if state.get('status') == 'failed':
+            return JsonResponse({'status': 'failed', 'reason': state.get('reason')})
+        if state.get('status') == 'authenticated':
+            return JsonResponse({'status': 'authenticated', 'attendance_mode': state.get('attendance_mode', 'none')})
 
     esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
     try:
@@ -549,15 +564,33 @@ def biometric_attendance_status_check(request):
                     )
                     return JsonResponse({'status': 'failed', 'reason': reason})
 
-                cache.set(
-                    f"biometric_attendance:{request_id}",
-                    {
-                        'status': 'authenticated',
-                        'official_id': official_rec.id,
-                        'user_id': official_rec.user_id,
-                    },
-                    timeout=60,
-                )
+                attendance_mode = data.get('attendance_mode') or 'none'
+
+                if request_id:
+                    cache.set(
+                        f"biometric_attendance:{request_id}",
+                        {
+                            'status': 'authenticated',
+                            'official_id': official_rec.id,
+                            'user_id': official_rec.user_id,
+                            'attendance_mode': attendance_mode,
+                        },
+                        timeout=60,
+                    )
+                else:
+                    # Global poll hit
+                    temp_request_id = 'global_hardware_scan'
+                    request.session['biometric_attendance_request_id'] = temp_request_id
+                    cache.set(
+                        f"biometric_attendance:{temp_request_id}",
+                        {
+                            'status': 'authenticated',
+                            'official_id': official_rec.id,
+                            'user_id': official_rec.user_id,
+                            'attendance_mode': attendance_mode,
+                        },
+                        timeout=60,
+                    )
                 try:
                     requests.post(
                         f"{esp32_base_url}/stop-enrollment",
@@ -566,7 +599,10 @@ def biometric_attendance_status_check(request):
                     )
                 except Exception:
                     pass
-                return JsonResponse({'status': 'authenticated'})
+                return JsonResponse({
+                    'status': 'authenticated',
+                    'attendance_mode': data.get('attendance_mode') or 'none'
+                })
 
             esp_st = (data.get('state') or '').strip()
             last_err = (data.get('last_error') or '').strip()
@@ -576,8 +612,11 @@ def biometric_attendance_status_check(request):
             ):
                 return JsonResponse({
                     'status': 'pending',
+                    'esp32_state': esp_st,
                     'hint': 'Fingerprint not recognized. Remove your finger from the sensor, then try again.',
                 })
+            
+            return JsonResponse({'status': 'pending', 'esp32_state': esp_st})
     except Exception as e:
         print(f"[Biometric] Attendance status poll failed: {str(e)}")
 

@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load attendance_tags %}
+
+{% block title %}Attendance History - Calendar View{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background-color: #e2e8f0;
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        overflow: hidden;
+    }
+    .calendar-day {
+        min-height: 120px;
+        background-color: white;
+        padding: 0.75rem;
+        transition: all 0.2s;
+    }
+    .calendar-day:hover:not(.empty) {
+        background-color: #cbd5e1; /* Increased opacity/darkness for hover */
+        cursor: pointer;
+    }
+    .calendar-day.today {
+        background-color: #dcfce7; /* Increased opacity green (bg-green-100) */
+        border: 2px solid #22c55e; /* Add a green border for more visibility */
+    }
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<span>Brgy. Sico Sico Management System / <a href="{% url 'attendance:dashboard' %}" class="hover:text-emerald-600">Attendance</a> / History</span>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto p-4">
+    <!-- Calendar Header -->
+    {% url 'attendance:dashboard' as dashboard_url %}
+    {% include 'components/back_button.html' with back_url=dashboard_url back_label='Back' %}
+
+    <!-- Calendar Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 mt-4 gap-4">
+        <div>
+            <h1 class="text-2xl font-black text-slate-900 tracking-tight">{{ month_name }} {{ year }}</h1>
+            <p class="text-slate-500 font-medium">Browse historical attendance logs</p>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-3">
+            <!-- Month/Year Jump -->
+            <form action="" method="GET" class="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm">
+                <select name="month" onchange="this.form.submit()" class="bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 outline-none">
+                    {% for m in 1|range_to:13 %}
+                    <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m|month_name_short }}</option>
+                    {% endfor %}
+                </select>
+                <div class="w-px h-4 bg-slate-200"></div>
+                <select name="year" onchange="this.form.submit()" class="bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-700 outline-none">
+                    {% for y in year_range %}
+                    <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+
+            <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                <a href="?month={{ prev_month.month }}&year={{ prev_month.year }}" class="p-1.5 hover:bg-slate-100 rounded-lg transition text-slate-600" title="Previous Month">
+                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                </a>
+                <a href="{% url 'attendance:daily_report' today|date:'Y-m-d' %}" class="px-3 py-1.5 text-xs font-black text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg uppercase tracking-widest transition">
+                    View Today
+                </a>
+                <a href="?month={{ next_month.month }}&year={{ next_month.year }}" class="p-1.5 hover:bg-slate-100 rounded-lg transition text-slate-600" title="Next Month">
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar Grid -->
+    <div class="calendar-grid shadow-xl">
+        <div class="bg-emerald-600 py-3 text-center text-[10px] font-black text-white uppercase tracking-widest">Sun</div>
+        <div class="bg-emerald-600 py-3 text-center text-[10px] font-black text-white uppercase tracking-widest">Mon</div>
+        <div class="bg-emerald-600 py-3 text-center text-[10px] font-black text-white uppercase tracking-widest">Tue</div>
+        <div class="bg-emerald-600 py-3 text-center text-[10px] font-black text-white uppercase tracking-widest">Wed</div>
+        <div class="bg-emerald-600 py-3 text-center text-[10px] font-black text-white uppercase tracking-widest">Thu</div>
+        <div class="bg-emerald-600 py-3 text-center text-[10px] font-black text-white uppercase tracking-widest">Fri</div>
+        <div class="bg-emerald-600 py-3 text-center text-[10px] font-black text-white uppercase tracking-widest">Sat</div>
+
+        <!-- Days -->
+        {% for week in month_days %}
+            {% for day in week %}
+                {% if day == 0 %}
+                <div class="calendar-day empty bg-slate-50/50"></div>
+                {% else %}
+                {% with day_data=month_data|get_item:day %}
+                <a href="{% url 'attendance:daily_report' year|add_str:'-'|add_str:month|add_str:'-'|add_str:day %}" 
+                   class="calendar-day block no-underline {% if today.day == day and today.month == month and today.year == year %}today{% endif %}"
+                   {% if day_data.is_day_off %}onclick="event.preventDefault(); showNotification('Scheduled Day Off. No attendance records available.', 'info');"{% endif %}>
+                    <div class="flex justify-between items-start mb-4">
+                        <span class="text-2xl font-black {% if today.day == day and today.month == month and today.year == year %}text-emerald-600{% else %}text-slate-700{% endif %}">
+                            {{ day }}
+                        </span>
+                        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); toggleDayOff('{{ year }}-{{ month|stringformat:'02d' }}-{{ day|stringformat:'02d' }}')" class="text-slate-300 hover:text-blue-600 transition p-1 rounded-full hover:bg-slate-100" title="Toggle Day Off">
+                            <i data-lucide="{% if day_data.is_day_off %}sun{% else %}calendar-off{% endif %}" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                    
+                    {% if day_data.is_day_off %}
+                    <div class="h-full flex items-center justify-center">
+                        <span class="px-2 py-0.5 text-[9px] font-black bg-slate-100 text-slate-400 rounded-full uppercase tracking-widest">Day Off</span>
+                    </div>
+                    {% elif day_data.is_future %}
+                    <div class="h-full flex items-center justify-center">
+                        <!-- Empty for future dates -->
+                    </div>
+                    {% elif day_data %}
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2">
+                            <div class="status-dot bg-emerald-500"></div>
+                            <span class="text-[10px] font-bold text-slate-500">{{ day_data.present }} Present</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="status-dot bg-amber-500"></div>
+                            <span class="text-[10px] font-bold text-slate-500">{{ day_data.late }} Late</span>
+                        </div>
+                        {% if day_data.absent > 0 %}
+                        <div class="flex items-center gap-2">
+                            <div class="status-dot bg-red-500"></div>
+                            <span class="text-[10px] font-bold text-slate-500">{{ day_data.absent }} Absent</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <div class="h-full flex items-center justify-center">
+                        <span class="text-[9px] font-bold text-slate-300 uppercase">No Data</span>
+                    </div>
+                    {% endif %}
+                </a>
+                {% endwith %}
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+    </div>
+
+    <!-- Legend -->
+    <div class="mt-8 flex items-center gap-6 justify-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+        <div class="flex items-center gap-2">
+            <div class="status-dot bg-emerald-500"></div>
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Present</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="status-dot bg-amber-500"></div>
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Late</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <div class="status-dot bg-red-500"></div>
+            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Absent</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        lucide.createIcons();
+    });
+
+    function toggleDayOff(dateStr) {
+        if (!confirm('Are you sure you want to change the work status for this date?')) return;
+        
+        const formData = new FormData();
+        formData.append('date', dateStr);
+        formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+
+        fetch("{% url 'attendance:api_toggle_special_date' %}", {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
+    }
+</script>
+{% endblock %}

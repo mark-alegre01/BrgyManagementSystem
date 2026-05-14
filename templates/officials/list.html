@@ -2,58 +2,231 @@
 
 {% block title %}Officials - Barangay Management System{% endblock %}
 
+{% block extra_head %}
+<style>
+  /* Page Header */
+  .officials-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .officials-header h1 {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0f172a;
+    margin: 0 0 2px 0;
+  }
+  .officials-header p {
+    font-size: 11px;
+    color: #64748b;
+    margin: 0;
+  }
+  .header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .header-actions .btn {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary-sm { background: #306844; color: white; }
+  .btn-primary-sm:hover { background: #255235; color: white; }
+  .btn-secondary-sm { background: #f1f5f9; color: #475569; }
+  .btn-secondary-sm:hover { background: #e2e8f0; color: #1e293b; }
+
+  /* Filter Bar */
+  .filter-bar {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filter-bar select {
+    font-size: 11px;
+    font-weight: 700;
+    color: #334155;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    padding: 5px 10px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  /* Main Card */
+  .officials-card {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  /* Category */
+  .category-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 8px 16px;
+    font-size: 10px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #475569;
+  }
+  .category-header i { font-size: 12px; color: #94a3b8; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; margin: 0; }
+  thead th {
+    background: #f8fafc;
+    color: #94a3b8;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 7px 14px;
+    text-align: left;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  tbody tr { border-bottom: 1px solid #f8fafc; transition: background 0.15s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #f8fafc; }
+  td {
+    padding: 8px 14px;
+    font-size: 12px;
+    color: #334155;
+    vertical-align: middle;
+  }
+
+  /* Profile cell */
+  .official-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .official-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 1.5px solid #e2e8f0;
+    flex-shrink: 0;
+    background: #f1f5f9;
+  }
+  .official-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .official-info strong {
+    display: block;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+  }
+  .official-info span {
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+
+  /* Status Badges */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 9px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge-active { background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+  .badge-inactive { background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; }
+
+  /* Action Button */
+  .btn-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    color: #64748b;
+    background: #f1f5f9;
+    text-decoration: none;
+    transition: all 0.15s;
+    font-size: 11px;
+  }
+  .btn-action:hover { background: #e2e8f0; color: #0f172a; }
+
+  /* Empty state */
+  .empty-state { padding: 24px; text-align: center; color: #94a3b8; font-size: 12px; font-weight: 600; }
+
+  /* Category section divider */
+  .category-section:not(:last-child) { border-bottom: 1px solid #e2e8f0; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-  <div class="page-title">
+
+<div class="officials-header">
+  <div>
     <h1>Barangay Officials & Staff</h1>
-    <span>Manage positions and terms of service</span>
+    <p>Manage positions and terms of service</p>
   </div>
   <div class="header-actions">
-    <a href="{% url 'officials:org_chart' %}" class="btn btn-outline-primary">
-      <i class="fas fa-sitemap"></i> Organizational Chart
+    <a href="{% url 'officials:org_chart' %}" class="btn btn-secondary-sm">
+      <i class="fas fa-sitemap"></i> Org Chart
     </a>
-    <a href="{% url 'officials:add' %}?type=staff" class="btn btn-secondary" style="background-color: #4b5563; border-color: #4b5563; color: white;">
+    <a href="{% url 'officials:add' %}?type=staff" class="btn btn-secondary-sm">
       <i class="fas fa-user-plus"></i> Add Staff
     </a>
-    <a href="{% url 'officials:add' %}" class="btn btn-primary">
+    <a href="{% url 'officials:add' %}" class="btn btn-primary-sm">
       <i class="fas fa-plus"></i> Add Official
     </a>
   </div>
 </div>
 
-<div class="card">
-  <div class="card-header filter-card-header">
-    <form method="get" class="filter-form" id="filterForm">
-      <div class="filter-inputs-group">
-        <div class="filter-select-wrapper">
-          <i class="fas fa-toggle-on filter-icon"></i>
-          <select name="status" class="form-control filter-select" onchange="this.form.submit();">
-            <option value="active" {% if selected_status ==  'active' %}selected{% endif %}>Active Officials</option>
-            <option value="inactive" {% if selected_status ==  'inactive' %}selected{% endif %}>Inactive/Past Officials
-            </option>
-          </select>
-        </div>
+<div class="filter-bar">
+  <form method="get" id="filterForm" style="display:flex; gap:10px; flex-wrap:wrap;">
+    <select name="status" onchange="this.form.submit();">
+      <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active Officials</option>
+      <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive / Past</option>
+    </select>
+    <select name="pos" onchange="this.form.submit();">
+      <option value="all" {% if selected_pos == 'all' %}selected{% endif %}>All Positions</option>
+      {% for pos_code, pos_label in all_positions %}
+      <option value="{{ pos_code }}" {% if selected_pos == pos_code %}selected{% endif %}>{{ pos_label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
 
-        <div class="filter-select-wrapper">
-          <i class="fas fa-briefcase filter-icon"></i>
-          <select name="pos" class="form-control filter-select" onchange="this.form.submit();">
-            <option value="all" {% if selected_pos ==  'all' %}selected{% endif %}>All Positions</option>
-            {% for pos_code, pos_label in all_positions %}
-            <option value="{{ pos_code }}" {% if selected_pos ==  pos_code %}selected{% endif %}>{{ pos_label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-    </form>
-  </div>
-
+<div class="officials-card">
   {% for key, category in categories.items %}
   <div class="category-section">
     <div class="category-header">
-      <i class="fas {% if key ==  'council' %}fa-user-tie{% elif key ==  'sk' %}fa-users{% elif key ==  'tanod' %}fa-shield-alt{% elif key ==  'health' %}fa-file-medical{% else %}fa-user-cog{% endif %} mr-2"></i>
+      <i class="fas {% if key == 'council' %}fa-user-tie{% elif key == 'sk' %}fa-users{% elif key == 'tanod' %}fa-shield-alt{% elif key == 'health' %}fa-file-medical{% else %}fa-user-cog{% endif %}"></i>
       {{ category.title }}
     </div>
-    <div class="table-responsive">
+    <div class="table-responsive" style="overflow-x:auto;">
       <table>
         <thead>
           <tr>
@@ -62,31 +235,37 @@
             <th>Term Start</th>
             <th>Term End</th>
             <th>Status</th>
-            <th>Actions</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
           {% for official in category.officials %}
           <tr>
             <td>
-              <div class="resident-item">
-                <strong>{{ official.resident.full_name }}</strong>
-                <span>{{ official.employee_id|default:"No ID" }}</span>
+              <div class="official-profile">
+                <div class="official-avatar">
+                  {% if official.resident.photo %}
+                  <img src="{{ official.resident.photo.url }}" alt="{{ official.resident.full_name }}">
+                  {% else %}
+                  <img src="https://api.dicebear.com/7.x/identicon/svg?seed=resident_{{ official.resident.pk }}&backgroundColor=ffffff" alt="{{ official.resident.full_name }}">
+                  {% endif %}
+                </div>
+                <div class="official-info">
+                  <strong>{{ official.resident.full_name }}</strong>
+                  <span>{{ official.employee_id|default:"No ID" }}</span>
+                </div>
               </div>
             </td>
-            <td>{{ official.get_position_display }}</td>
-            <td>{{ official.term_start|date:"M d, Y" }}</td>
-            <td>{{ official.term_end|date:"M d, Y"|default:"Present" }}</td>
+            <td style="font-weight:600; color:#475569;">{{ official.get_position_display }}</td>
+            <td style="color:#64748b;">{{ official.term_start|date:"M d, Y" }}</td>
+            <td style="color:#64748b;">{{ official.term_end|date:"M d, Y"|default:"Present" }}</td>
             <td>
-              <span class="status-badge {% if official.status ==  'active' %}badge-active{% else %}badge-inactive{% endif %}">
+              <span class="status-badge {% if official.status == 'active' %}badge-active{% else %}badge-inactive{% endif %}">
                 {{ official.get_status_display }}
               </span>
             </td>
             <td>
-              <div class="btn-group">
-                <a href="{% url 'officials:edit' official.pk %}" class="btn-icon btn-edit" title="Edit"><i class="fas fa-edit"></i></a>
-                <a href="{% url 'attendance:dtr_detail' official.pk %}" class="btn-icon btn-view" title="DTR"><i class="fas fa-calendar-alt"></i></a>
-              </div>
+              <a href="{% url 'officials:edit' official.pk %}" class="btn-action" title="Edit"><i class="fas fa-edit"></i></a>
             </td>
           </tr>
           {% endfor %}
@@ -95,7 +274,7 @@
     </div>
   </div>
   {% empty %}
-  <div class="p-4 text-center text-muted">No officials found for this status.</div>
+  <div class="empty-state">No officials found for this filter.</div>
   {% endfor %}
 </div>
 

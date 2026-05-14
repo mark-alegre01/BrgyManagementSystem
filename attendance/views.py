@@ -1,12 +1,13 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.core.cache import cache
-from datetime import date, datetime, time
-from .models import AttendanceLog, FaceEncoding
+from datetime import date, datetime, time, timedelta
+from .models import AttendanceLog, FaceEncoding, ShiftConfiguration, SpecialDate
 from officials.models import Official
 import json
 from biometrics.utils import get_biometric_provider
@@ -25,16 +26,50 @@ def attendance_dashboard(request):
     today_logs = AttendanceLog.objects.filter(date=today).select_related('official__resident')
     officials = Official.objects.filter(status='active')
 
-    present_ids = set(today_logs.values_list('official_id', flat=True))
-    absent_officials = officials.exclude(id__in=present_ids)
+    # Get shift config for threshold
+    day_names = {0:'mon', 1:'tue', 2:'wed', 3:'thu', 4:'fri', 5:'sat', 6:'sun'}
+    day_code = day_names[today.weekday()]
+    shift_config = ShiftConfiguration.objects.filter(day=day_code).first()
+
+    log_dict = {log.official_id: log for log in today_logs}
+    combined_logs = []
+    
+    for official in officials:
+        log = log_dict.get(official.id)
+        if log:
+            combined_logs.append({
+                'official': official,
+                'date': log.date,
+                'am_in': log.am_in,
+                'am_out': log.am_out,
+                'pm_in': log.pm_in,
+                'pm_out': log.pm_out,
+                'status': log.status,
+                'has_log': True
+            })
+        else:
+            combined_logs.append({
+                'official': official,
+                'date': today,
+                'am_in': None,
+                'am_out': None,
+                'pm_in': None,
+                'pm_out': None,
+                'status': 'absent',
+                'has_log': False
+            })
+
+    # Sort combined logs: Present first, then Late, then Absent
+    status_order = {'present': 0, 'late': 1, 'absent': 2}
+    combined_logs.sort(key=lambda x: (status_order.get(x['status'], 3), x['official'].resident.last_name))
 
     context = {
-        'today_logs': today_logs,
+        'today_logs': combined_logs,
         'total_officials': officials.count(),
         'present_count': today_logs.filter(status__in=['present', 'late']).count(),
         'late_count': today_logs.filter(status='late').count(),
-        'absent_count': absent_officials.count(),
-        'absent_officials': absent_officials,
+        'absent_count': officials.count() - today_logs.filter(status__in=['present', 'late']).count(),
+        'shift_config': shift_config
     }
     return render(request, 'attendance/dashboard.html', context)
 
@@ -56,19 +91,47 @@ def clock_in_out(request):
         )
 
         now = datetime.now().time()
+        
+        # Get shift config for threshold
+        day_names = {0:'mon', 1:'tue', 2:'wed', 3:'thu', 4:'fri', 5:'sat', 6:'sun'}
+        day_code = day_names[today.weekday()]
+        shift = ShiftConfiguration.objects.filter(day=day_code).first()
+
         if action == 'in':
-            log.time_in = now
-            # Check if late (after 8:00 AM)
-            if now > time(8, 0):
-                log.status = 'late'
+            if not log.am_in:
+                log.am_in = now
+                action_label = "Morning Clock IN"
+                # Check lateness
+                threshold = shift.am_in if shift else time(8, 0)
+                grace = shift.grace_period if shift else 15
+                threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
+                if datetime.now() > threshold_dt:
+                    log.status = 'late'
+                else:
+                    log.status = 'present'
+            elif not log.pm_in:
+                log.pm_in = now
+                action_label = "Afternoon Clock IN"
             else:
-                log.status = 'present'
+                messages.warning(request, f'{official.resident.full_name} has already clocked IN for both shifts.')
+                return redirect('attendance:clock')
+            
             log.save()
-            messages.success(request, f'{official.resident.full_name} clocked IN at {now.strftime("%I:%M %p")}')
+            messages.success(request, f'{official.resident.full_name} {action_label} at {now.strftime("%I:%M %p")}')
         elif action == 'out':
-            log.time_out = now
+            if not log.am_out:
+                log.am_out = now
+                action_label = "Morning Clock OUT"
+            elif not log.pm_out:
+                log.pm_out = now
+                action_label = "Afternoon Clock OUT"
+            else:
+                # Allow updating PM OUT
+                log.pm_out = now
+                action_label = "Afternoon Clock OUT (Updated)"
+                
             log.save()
-            messages.success(request, f'{official.resident.full_name} clocked OUT at {now.strftime("%I:%M %p")}')
+            messages.success(request, f'{official.resident.full_name} {action_label} at {now.strftime("%I:%M %p")}')
 
         return redirect('attendance:clock')
 
@@ -156,14 +219,29 @@ def dtr_detail(request, official_id):
         official=official,
         date__month=month,
         date__year=year,
-    ).order_by('date')
+    ).order_by('-date')
 
     total_hours = sum(log.hours_worked for log in logs)
 
+    # Get all shift configs for lookup
+    shifts = ShiftConfiguration.objects.all()
+    shift_map = {s.day: s for s in shifts}
+    day_names = {0:'mon', 1:'tue', 2:'wed', 3:'thu', 4:'fri', 5:'sat', 6:'sun'}
+    
+    # Enrich logs with their specific shift times for the template
+    for log in logs:
+        d_code = day_names[log.date.weekday()]
+        s_cfg = shift_map.get(d_code)
+        if s_cfg:
+            log.shift_am_in = s_cfg.am_in
+            log.shift_pm_in = s_cfg.pm_in
+
+    import calendar
     context = {
         'official': official,
         'logs': logs,
         'month': int(month),
+        'month_name': calendar.month_name[int(month)],
         'year': int(year),
         'total_hours': round(total_hours, 2),
     }
@@ -185,10 +263,12 @@ def dtr_print(request, official_id):
 
     total_hours = sum(log.hours_worked for log in logs)
 
+    import calendar
     context = {
         'official': official,
         'logs': logs,
         'month': int(month),
+        'month_name': calendar.month_name[int(month)],
         'year': int(year),
         'total_hours': round(total_hours, 2),
     }
@@ -210,13 +290,10 @@ def match_1_to_n(target_template, target_type='official'):
         return None
 
     provider = get_biometric_provider()
-    # Note: In this architecture, we pass the template to the provider's verify method.
-    # The provider decides how to match it against candidates.
     
     if target_type == 'official':
         candidates = Official.objects.exclude(fingerprint_template__isnull=True).exclude(fingerprint_template='')
         for cand in candidates:
-            # We use the provider to verify the scan data against each candidate's stored template
             result = provider.verify(user_id=cand.id, scan_data={'template': target_template, 'stored_template': cand.fingerprint_template})
             if result.get('status') == 'success':
                 return cand
@@ -226,7 +303,6 @@ def match_1_to_n(target_template, target_type='official'):
 def api_biometric_verify(request):
     """
     API endpoint for biometric verification (Clock In/Out).
-    Used by the 32-bit service or a public DTR kiosk.
     """
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
@@ -239,7 +315,6 @@ def api_biometric_verify(request):
         
         official = None
         if is_auto:
-            # Clock in/out after ESP32 attendance scan (any active functionary)
             att_rid = request.session.get('biometric_attendance_request_id')
             if att_rid:
                 att_state = cache.get(f"biometric_attendance:{att_rid}")
@@ -248,7 +323,6 @@ def api_biometric_verify(request):
                     if oid:
                         official = Official.objects.filter(pk=oid, status='active').first()
 
-            # Biometric login session (Captain / Secretary / Treasurer only)
             if not official:
                 request_id = request.session.get('biometric_request_id')
                 if request_id:
@@ -264,7 +338,6 @@ def api_biometric_verify(request):
                             except User.DoesNotExist:
                                 pass
 
-            # Fallback to current user ONLY if no biometric match was cached
             if not official and request.user.is_authenticated:
                 official = getattr(request.user, 'official_profile', None)
         elif official_id:
@@ -275,52 +348,86 @@ def api_biometric_verify(request):
         if not official:
             return JsonResponse({'status': 'failed', 'message': 'Fingerprint not recognized or session expired'})
 
-        # Record attendance
         today = date.today()
         now = datetime.now().time()
         
-        # Determine if Clock In or Clock Out
-        requested_action = data.get('action') # 'in' or 'out'
-        
-        # Simple logic: if already clocked in today without clock out, then clock out.
+        requested_action = data.get('action')
+        if requested_action == 'attendance' or not requested_action:
+            requested_action = None
+
         log = AttendanceLog.objects.filter(official=official, date=today).first()
         
-        if requested_action == 'in' or (not requested_action and not log):
-            # Clock In
-            status = 'present'
-            if now > time(8, 0): # Assuming 8 AM start
-                status = 'late'
-            
-            if not log:
-                log = AttendanceLog.objects.create(
-                    official=official,
-                    date=today,
-                    time_in=now,
-                    method='biometric',
-                    status=status
-                )
-            else:
-                log.time_in = now
-                log.status = status
-                log.save()
-            action = 'Clocked IN'
-        elif requested_action == 'out' or (not requested_action and log and not log.time_out):
-            # Clock Out
-            if not log:
-                log = AttendanceLog.objects.create(
-                    official=official,
-                    date=today,
-                    time_out=now,
-                    method='biometric',
-                    status='absent' # Should not happen usually
-                )
-            else:
-                log.time_out = now
-                log.save()
-            action = 'Clocked OUT'
-        else:
-            return JsonResponse({'status': 'info', 'message': f'{official.resident.full_name} already completed DTR for today.'})
+        # Get shift configuration for today
+        day_names = {0:'mon', 1:'tue', 2:'wed', 3:'thu', 4:'fri', 5:'sat', 6:'sun'}
+        day_code = day_names[today.weekday()]
+        shift = ShiftConfiguration.objects.filter(day=day_code).first()
+        
+        if shift and shift.is_day_off:
+            return JsonResponse({'status': 'info', 'message': f'Today is a Day Off for {official.resident.full_name}.'})
 
+        # Determine slot based on time and requested action
+        midpoint = time(12, 30) # Default midpoint
+        if shift:
+            # mid-point between AM OUT and PM IN
+            h1, m1 = shift.am_out.hour, shift.am_out.minute
+            h2, m2 = shift.pm_in.hour, shift.pm_in.minute
+            mid_total_mins = ((h1 * 60 + m1) + (h2 * 60 + m2)) // 2
+            midpoint = time(mid_total_mins // 60, mid_total_mins % 60)
+
+        is_morning = now < midpoint
+        action_label = ""
+        
+        if not log:
+            log = AttendanceLog.objects.create(official=official, date=today, method='biometric')
+
+        if requested_action == 'in' or (requested_action is None and (is_morning or not log.am_in)):
+            # Handle IN (either AM or PM)
+            if is_morning:
+                if not log.am_in:
+                    log.am_in = now
+                    action_label = "Morning Clock IN"
+                    # Check lateness
+                    threshold = shift.am_in if shift else time(8, 0)
+                    grace = shift.grace_period if shift else 15
+                    threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
+                    log.status = 'late' if datetime.now() > threshold_dt else 'present'
+                else:
+                    # Clear state before returning info
+                    if data.get('auto'):
+                        att_rid = request.session.get('biometric_attendance_request_id')
+                        if att_rid: cache.delete(f"biometric_attendance:{att_rid}")
+                    return JsonResponse({'status': 'info', 'message': 'Morning IN already recorded.'})
+            else:
+                if not log.pm_in:
+                    log.pm_in = now
+                    action_label = "Afternoon Clock IN"
+                    # Optional: Check PM lateness?
+                    threshold = shift.pm_in if shift else time(13, 0)
+                    grace = shift.grace_period if shift else 15
+                    threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
+                    # We keep the worst status (if already late in morning, stay late)
+                    if datetime.now() > threshold_dt and log.status != 'late':
+                        log.status = 'late'
+                else:
+                    # Clear state before returning info
+                    if data.get('auto'):
+                        att_rid = request.session.get('biometric_attendance_request_id')
+                        if att_rid: cache.delete(f"biometric_attendance:{att_rid}")
+                    return JsonResponse({'status': 'info', 'message': 'Afternoon IN already recorded.'})
+        
+        elif requested_action == 'out' or (requested_action is None):
+            # Handle OUT
+            if is_morning:
+                log.am_out = now
+                action_label = "Morning Clock OUT"
+            else:
+                log.pm_out = now
+                action_label = "Afternoon Clock OUT"
+        
+        log.save()
+
+        # Clear active scan state
+        is_auto = data.get('auto', False)
         if is_auto:
             att_rid = request.session.get('biometric_attendance_request_id')
             if att_rid:
@@ -328,10 +435,11 @@ def api_biometric_verify(request):
 
         return JsonResponse({
             'status': 'success',
-            'message': f'{action} successful',
+            'message': f'{action_label} successful',
             'name': official.resident.full_name,
             'time': now.strftime("%I:%M %p"),
-            'action': action
+            'action': action_label,
+            'attendance_status': log.status if 'IN' in action_label else None
         })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -339,122 +447,294 @@ def api_biometric_verify(request):
 
 @csrf_exempt
 def api_face_recognize(request):
-    """API endpoint for Orange Pi face recognition.
-    Accepts a photo via POST, returns recognized official or error.
-    """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
-
-    photo = request.FILES.get('photo')
-    if not photo:
-        return JsonResponse({'error': 'No photo provided'}, status=400)
-
-    # In production, this would:
-    # 1. Load the uploaded photo
-    # 2. Extract face encoding
-    # 3. Compare against stored encodings
-    # 4. Return matched official info
-    # For now, return a placeholder response
-
-    return JsonResponse({
-        'status': 'success',
-        'message': 'Face recognition API endpoint ready. Connect face_recognition library for production use.',
-        'recognized': False,
-    })
+    return JsonResponse({'status': 'success', 'message': 'Face recognition placeholder', 'recognized': False})
 
 
 @login_required
 def biometric_attendance(request):
-    """Page for officials to record attendance via biometric."""
     return render(request, 'attendance/biometric_attendance.html')
 
 
 @login_required
 def api_event_attendance_list(request):
-    """Return JSON list of present officials for a specific date."""
     date_str = request.GET.get('date')
     if not date_str:
         return JsonResponse({'status': 'error', 'message': 'Date required'}, status=400)
-    
     try:
         query_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
         return JsonResponse({'status': 'error', 'message': 'Invalid date format'}, status=400)
-    
     logs = AttendanceLog.objects.filter(date=query_date).select_related('official__resident')
-    
-    data = []
-    for log in logs:
-        data.append({
-            'name': log.official.resident.full_name,
-            'position': log.official.get_position_display(),
-            'time_in': log.time_in.strftime('%I:%M %p') if log.time_in else '-',
-            'status': log.get_status_display(),
-        })
-    
+    data = [{'name': l.official.resident.full_name, 'position': l.official.get_position_display(), 'time_in': l.time_in.strftime('%I:%M %p') if l.time_in else '-', 'status': l.get_status_display()} for l in logs]
     return JsonResponse({'status': 'success', 'data': data})
 
 
 @login_required
 def event_attendance_pdf(request):
-    """Generate PDF report for attendance on a specific date."""
     date_str = request.GET.get('date')
     event_name = request.GET.get('event_name', 'Event Attendance')
-    
-    if not date_str:
-        return HttpResponse('Date required', status=400)
-    
-    try:
-        query_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return HttpResponse('Invalid date format', status=400)
-    
+    if not date_str: return HttpResponse('Date required', status=400)
+    try: query_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError: return HttpResponse('Invalid date format', status=400)
     logs = AttendanceLog.objects.filter(date=query_date).select_related('official__resident').order_by('time_in')
-    
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="attendance_{date_str}.pdf"'
-    
     doc = SimpleDocTemplate(response, pagesize=letter)
     elements = []
     styles = getSampleStyleSheet()
-    
-    # Header
     elements.append(Paragraph(f"<b>BARANGAY SICO-SICO MANAGEMENT SYSTEM</b>", styles['Title']))
     elements.append(Paragraph(f"Attendance Report: {event_name}", styles['Heading2']))
     elements.append(Paragraph(f"Date: {query_date.strftime('%B %d, %Y')}", styles['Normal']))
     elements.append(Spacer(1, 12))
-    
-    # Table Data
     data = [['Official Name', 'Position', 'Time In', 'Status']]
-    for log in logs:
-        data.append([
-            log.official.resident.full_name,
-            log.official.get_position_display(),
-            log.time_in.strftime('%I:%M %p') if log.time_in else '-',
-            log.get_status_display()
-        ])
-    
-    if len(data) == 1:
-        data.append(['No records found', '', '', ''])
-    
-    # Table Styling
+    for log in logs: data.append([log.official.resident.full_name, log.official.get_position_display(), log.time_in.strftime('%I:%M %p') if log.time_in else '-', log.get_status_display()])
+    if len(data) == 1: data.append(['No records found', '', '', ''])
     t = Table(data, colWidths=[200, 150, 80, 80])
-    t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10b981')),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
-        ('GRID', (0, 0), (-1, -1), 1, colors.grey),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-    ]))
+    t.setStyle(TableStyle([('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#10b981')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke), ('ALIGN', (0, 0), (-1, -1), 'CENTER'), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'), ('FONTSIZE', (0, 0), (-1, 0), 12), ('BOTTOMPADDING', (0, 0), (-1, 0), 12), ('BACKGROUND', (0, 1), (-1, -1), colors.white), ('GRID', (0, 0), (-1, -1), 1, colors.grey)]))
     elements.append(t)
-    
-    # Footer
     elements.append(Spacer(1, 24))
     elements.append(Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Italic']))
-    
     doc.build(elements)
     return response
+
+
+@login_required
+def attendance_history_calendar(request):
+    import calendar
+    from datetime import date, timedelta
+    today = date.today()
+    year = int(request.GET.get('year', today.year))
+    month = int(request.GET.get('month', today.month))
+    logs = AttendanceLog.objects.filter(date__year=year, date__month=month).values('date', 'status')
+    month_data = {}
+    for d in range(1, 32):
+        try:
+            curr_date = date(year, month, d)
+            month_data[d] = {'present': 0, 'late': 0, 'absent': 0, 'date_str': curr_date.strftime('%Y-%m-%d')}
+        except ValueError: break
+    active_officials_count = Official.objects.filter(status='active').count()
+    for log in logs:
+        d = log['date'].day
+        status = log['status']
+        if d in month_data:
+            if status == 'late': month_data[d]['late'] += 1
+            elif status == 'present': month_data[d]['present'] += 1
+    
+    # Get day off settings
+    day_offs = ShiftConfiguration.objects.filter(is_day_off=True).values_list('day', flat=True)
+    day_names_inv = {'mon':0, 'tue':1, 'wed':2, 'thu':3, 'fri':4, 'sat':5, 'sun':6}
+    day_off_weekdays = [day_names_inv[d] for d in day_offs if d in day_names_inv]
+
+    # Get date-specific overrides (SpecialDate)
+    special_dates = {s.date: s.is_day_off for s in SpecialDate.objects.filter(date__year=year, date__month=month)}
+
+    # Calculate absent for each day that has passed or is today
+    for d, data in month_data.items():
+        curr_date = date(year, month, d)
+        data['is_future'] = curr_date > today
+        
+        # Only SpecialDate overrides mark a day off
+        data['is_day_off'] = special_dates.get(curr_date, False)
+        
+        if not data['is_future']:
+            if data['is_day_off']:
+                data['absent'] = 0
+            else:
+                data['absent'] = max(0, active_officials_count - (data['present'] + data['late']))
+
+    cal = calendar.Calendar(firstweekday=6)
+    month_days = cal.monthdayscalendar(year, month)
+    prev_month_date = date(year, month, 1) - timedelta(days=1)
+    next_month_date = date(year, month, 28) + timedelta(days=5)
+    next_month_date = next_month_date.replace(day=1)
+    
+    # Dynamic year range: 5 years back and 5 years forward
+    year_range = range(today.year - 5, today.year + 6)
+    
+    context = {
+        'month_days': month_days, 
+        'month_name': calendar.month_name[month], 
+        'year': year, 
+        'month': month, 
+        'month_data': month_data, 
+        'prev_month': prev_month_date, 
+        'next_month': next_month_date, 
+        'today': today,
+        'year_range': year_range
+    }
+    return render(request, 'attendance/history_calendar.html', context)
+
+
+def get_current_week_dates():
+    today = date.today()
+    start_of_week = today - timedelta(days=today.weekday())
+    return {
+        'mon': start_of_week,
+        'tue': start_of_week + timedelta(days=1),
+        'wed': start_of_week + timedelta(days=2),
+        'thu': start_of_week + timedelta(days=3),
+        'fri': start_of_week + timedelta(days=4),
+        'sat': start_of_week + timedelta(days=5),
+        'sun': start_of_week + timedelta(days=6),
+    }
+
+@login_required
+def api_get_shift_settings(request):
+    """Fetch all shift configurations from the database."""
+    configs = ShiftConfiguration.objects.all()
+    week_dates = get_current_week_dates()
+    data = {}
+    for cfg in configs:
+        target_date = week_dates[cfg.day]
+        special = SpecialDate.objects.filter(date=target_date).first()
+        is_day_off = special.is_day_off if special else cfg.is_day_off
+        
+        data[cfg.day] = {
+            'time_in': cfg.am_in.strftime('%H:%M'),
+            'am_out': cfg.am_out.strftime('%H:%M'),
+            'pm_in': cfg.pm_in.strftime('%H:%M'),
+            'time_out': cfg.pm_out.strftime('%H:%M'),
+            'is_day_off': is_day_off,
+            'grace_period': cfg.grace_period
+        }
+    return JsonResponse({'status': 'success', 'settings': data})
+
+
+@login_required
+@csrf_exempt
+def api_save_shift_settings(request):
+    """Save shift configurations to the database."""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        settings = data.get('settings', {})
+        bulk_apply = data.get('bulk_apply', False)
+        week_dates = get_current_week_dates()
+        
+        if bulk_apply:
+            # Apply one day's settings to all
+            source_day = data.get('source_day', 'mon')
+            source_cfg = settings.get(source_day)
+            if source_cfg:
+                days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+                for d in days:
+                    is_off = source_cfg.get('is_day_off', False) if d == source_day else False
+                    
+                    ShiftConfiguration.objects.update_or_create(
+                        day=d,
+                        defaults={
+                            'am_in': source_cfg.get('time_in', '08:00'),
+                            'am_out': source_cfg.get('am_out', '12:00'),
+                            'pm_in': source_cfg.get('pm_in', '13:00'),
+                            'pm_out': source_cfg.get('time_out', '17:00'),
+                            'grace_period': source_cfg.get('grace_period', 15)
+                        }
+                    )
+                    # Apply day off ONLY to current week
+                    SpecialDate.objects.update_or_create(
+                        date=week_dates[d],
+                        defaults={'is_day_off': is_off, 'description': 'Modal Override'}
+                    )
+        else:
+            # Save individual day settings
+            for day, cfg in settings.items():
+                ShiftConfiguration.objects.update_or_create(
+                    day=day,
+                    defaults={
+                        'am_in': cfg.get('time_in', '08:00'),
+                        'am_out': cfg.get('am_out', '12:00'),
+                        'pm_in': cfg.get('pm_in', '13:00'),
+                        'pm_out': cfg.get('time_out', '17:00'),
+                        'grace_period': cfg.get('grace_period', 15)
+                    }
+                )
+                # Apply day off ONLY to current week
+                SpecialDate.objects.update_or_create(
+                    date=week_dates[day],
+                    defaults={'is_day_off': cfg.get('is_day_off', False), 'description': 'Modal Override'}
+                )
+        
+        return JsonResponse({'status': 'success', 'message': 'Shift settings saved successfully for the current week'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+def daily_attendance_report(request, date_str):
+    try: query_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError: return redirect('attendance:history_calendar')
+    logs = AttendanceLog.objects.filter(date=query_date).select_related('official__resident').order_by('official__resident__last_name')
+    officials = Official.objects.filter(status='active')
+    log_dict = {log.official_id: log for log in logs}
+    today = datetime.now().date()
+    is_future = query_date > today
+    
+    # Get shift config for threshold
+    day_names = {0:'mon', 1:'tue', 2:'wed', 3:'thu', 4:'fri', 5:'sat', 6:'sun'}
+    day_code = day_names[query_date.weekday()]
+    shift_config = ShiftConfiguration.objects.filter(day=day_code).first()
+    
+    # Check for date-specific override (SpecialDate)
+    special_date = SpecialDate.objects.filter(date=query_date).first()
+    if special_date:
+        is_day_off = special_date.is_day_off
+    else:
+        is_day_off = shift_config.is_day_off if shift_config else False
+    
+    full_report = []
+    stats = {'present': 0, 'late': 0, 'absent': 0}
+
+    if not is_future:
+        for official in officials:
+            log = log_dict.get(official.id)
+            if log: full_report.append({'official': official, 'log': log, 'status': log.status})
+            else: full_report.append({'official': official, 'log': None, 'status': 'absent'})
+        status_order = {'present': 0, 'late': 1, 'absent': 2}
+        full_report.sort(key=lambda x: status_order.get(x['status'], 3))
+        stats = {
+            'present': logs.filter(status='present').count(),
+            'late': logs.filter(status='late').count(),
+            'absent': len(full_report) - logs.count()
+        }
+    
+    context = {
+        'date': query_date, 
+        'report': full_report, 
+        'stats': stats,
+        'today': today,
+        'is_future': is_future,
+        'shift_config': shift_config,
+        'is_day_off': is_day_off
+    }
+    return render(request, 'attendance/daily_report.html', context)
+
+
+@login_required
+@require_POST
+def api_toggle_special_date(request):
+    """API to toggle a date as a special day off."""
+    date_str = request.POST.get('date')
+    if not date_str:
+        return JsonResponse({'status': 'error', 'message': 'Date required'}, status=400)
+    
+    try:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        special_date, created = SpecialDate.objects.get_or_create(date=target_date)
+        
+        # If it was already there, toggle it. If new, default is Day Off (True)
+        if not created:
+            special_date.is_day_off = not special_date.is_day_off
+            special_date.save()
+        
+        return JsonResponse({
+            'status': 'success', 
+            'is_day_off': special_date.is_day_off,
+            'message': f"Date marked as {'Day Off' if special_date.is_day_off else 'Working Day'}"
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+

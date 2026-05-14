@@ -2,6 +2,10 @@
 
 {% block title %}Daily Time Record - Attendance System{% endblock %}
 
+{% block extra_head %}
+<script src="https://cdn.tailwindcss.com"></script>
+{% endblock %}
+
 {% block breadcrumb %}
 <span>Brgy. Sico Sico Management System / <a href="{% url 'attendance:dashboard' %}">Attendance</a> / DTR Summary</span>
 {% endblock %}
@@ -41,8 +45,7 @@
     <table>
       <thead>
         <tr>
-          <th>Official</th>
-          <th>Position</th>
+          <th style="width: 35%;">Official Profile</th>
           <th>Days Present</th>
           <th>Late</th>
           <th>Absent</th>
@@ -53,11 +56,15 @@
       <tbody>
         {% for item in dtr_summary %}
         <tr>
-          <td><strong>{{ item.official.resident.full_name }}</strong></td>
-          <td>{{ item.official.get_position_display }}</td>
-          <td><span class="badge badge-success">{{ item.present }}</span></td>
-          <td><span class="badge badge-warning">{{ item.late }}</span></td>
-          <td><span class="badge badge-danger">{{ item.absent }}</span></td>
+          <td>
+            <div style="display: flex; flex-direction: column;">
+              <strong>{{ item.official.resident.full_name }}</strong>
+              <span style="font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">{{ item.official.get_position_display }}</span>
+            </div>
+          </td>
+          <td><span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">{{ item.present }}</span></td>
+          <td><span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">{{ item.late }}</span></td>
+          <td><span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">{{ item.absent }}</span></td>
           <td><strong>{{ item.total_hours }} hrs</strong></td>
           <td>
             <div class="btn-group">

@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load attendance_tags %}
 
 {% block title %}Attendance Dashboard - Barangay Management System{% endblock %}
 
@@ -34,128 +35,294 @@
             <div>
                 <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Attendance & DTR</h1>
                 <p class="text-slate-500 font-medium">Real-time monitoring and Daily Time Records</p>
-            </div>
-            <div class="flex flex-wrap gap-3">
-                <a href="{% url 'attendance:clock' %}" class="flex items-center gap-2 px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold transition shadow-md no-underline">
-                    <i data-lucide="clock" class="w-4 h-4"></i> Manual Clock In/Out
-                </a>
-                <a href="{% url 'attendance:biometric_attendance' %}" class="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg font-bold transition shadow-sm no-underline">
-                    <i data-lucide="fingerprint" class="w-4 h-4"></i> Biometric Attendance
-                </a>
+            </div>            <div class="flex flex-wrap items-center gap-2">
+                <!-- Action Series -->
+                <div class="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm">
+                    <!-- Events Button & Popover -->
+                    <div class="relative" id="eventDropdownWrapper">
+                        <button id="toggleEventDropdown" class="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition shadow-sm text-xs">
+                            <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i> Events
+                        </button>
+                        <div id="eventPopover" class="absolute right-0 md:right-auto md:left-0 top-full mt-3 w-[280px] sm:w-[360px] bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-slate-200 hidden z-[100] animate-in">
+                            <div class="absolute -top-2 right-10 md:right-auto md:left-10 w-4 h-4 bg-white border-t border-l border-slate-200 transform rotate-45"></div>
+                            <div class="relative bg-white rounded-2xl z-10 overflow-hidden">
+                                <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                                    <h3 class="text-sm font-black text-slate-900 flex items-center gap-2">
+                                        <i data-lucide="calendar-plus" class="w-4 h-4 text-emerald-600"></i>
+                                        Schedule Custom Event
+                                    </h3>
+                                    <a href="#" id="goToEventBtn" class="hidden text-[10px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-100/50 hover:bg-emerald-100 px-2 py-1.5 rounded-lg transition items-center gap-1">
+                                        Go to Event <i data-lucide="arrow-right" class="w-3 h-3"></i>
+                                    </a>
+                                </div>
+                                <form id="eventForm" class="p-4 space-y-4">
+                                    <div>
+                                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Event Title</label>
+                                        <input type="text" id="eventTitle" required placeholder="e.g. Community General Assembly" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 text-xs shadow-sm" />
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Date</label>
+                                            <input type="date" id="eventDate" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 text-xs shadow-sm" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Start Time</label>
+                                            <input type="time" id="eventTime" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 text-xs shadow-sm" />
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="w-full mt-2 py-3.5 bg-emerald-600 text-white font-black rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-100 text-xs flex items-center justify-center gap-2">
+                                        <i data-lucide="check-circle" class="w-4 h-4"></i> Create Event Record
+                                    </button>
+                                </form>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Work Schedule Button & Popover -->
+                    <div class="relative" id="scanWrapper">
+                        <button id="toggleScanDropdown" class="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition shadow-sm text-xs">
+                            <i data-lucide="clock" class="w-3.5 h-3.5"></i> Work Schedule
+                        </button>
+                        <div id="scanPopover" class="absolute right-0 top-full mt-2 w-[340px] bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-slate-200 hidden z-[100] animate-in">
+                            <div class="absolute -top-2 right-10 w-4 h-4 bg-white border-t border-l border-slate-200 transform rotate-45"></div>
+                            <div class="relative bg-white rounded-2xl z-10 overflow-hidden">
+                                <div class="p-3 border-b border-slate-100 bg-slate-50/50">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <h3 class="text-sm font-black text-slate-900 flex items-center gap-2 whitespace-nowrap">
+                                            <i data-lucide="settings-2" class="w-4 h-4 text-indigo-600"></i> Shift Setup
+                                        </h3>
+                                        <div class="flex items-center gap-3">
+                                            <label class="flex items-center gap-2 cursor-pointer group">
+                                                <input type="checkbox" id="bulkApplyToggle" class="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                                                <span class="text-[10px] font-black text-slate-400 uppercase group-hover:text-indigo-600 transition-colors">Apply to all</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="p-3 space-y-3">
+                                    <div class="flex items-center gap-2 p-1.5 bg-slate-50 border border-slate-200 rounded-xl">
+                                        <div class="flex-grow">
+                                            <select id="scheduleDay" class="w-full px-2 py-1 bg-transparent border-none focus:ring-0 outline-none font-black text-slate-800 text-xs">
+                                                <option value="mon">Monday Schedule</option>
+                                                <option value="tue">Tuesday Schedule</option>
+                                                <option value="wed">Wednesday Schedule</option>
+                                                <option value="thu">Thursday Schedule</option>
+                                                <option value="fri">Friday Schedule</option>
+                                                <option value="sat">Saturday Schedule</option>
+                                                <option value="sun">Sunday Schedule</option>
+                                            </select>
+                                        </div>
+                                        <div class="h-6 w-px bg-slate-200"></div>
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" id="dayOffToggleBtn" class="h-8 px-3 rounded-lg border font-black text-[10px] uppercase transition-all flex items-center justify-center gap-1.5 bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100 min-w-[90px]">
+                                                <i data-lucide="calendar-off" class="w-3 h-3 flex-shrink-0"></i>
+                                                <span class="whitespace-nowrap">Day Off</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="bg-amber-50/30 p-3 rounded-xl border border-amber-100/50">
+                                            <div class="flex items-center gap-1.5 mb-2 px-1">
+                                                <i data-lucide="sun" class="w-3 h-3 text-amber-500"></i>
+                                                <span class="text-[10px] font-black text-amber-600 uppercase tracking-widest">Morning</span>
+                                            </div>
+                                            <div class="space-y-3">
+                                                <div>
+                                                    <label class="block text-[9px] font-black text-slate-400 uppercase mb-1">Time In</label>
+                                                    <input type="time" id="targetTimeIn" value="08:00" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-bold text-slate-800 text-xs shadow-sm" />
+                                                </div>
+                                                <div>
+                                                    <label class="block text-[9px] font-black text-slate-400 uppercase mb-1">Time Out</label>
+                                                    <input type="time" id="amTimeOut" value="12:00" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none font-bold text-slate-800 text-xs shadow-sm" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="bg-indigo-50/30 p-3 rounded-xl border border-indigo-100/50">
+                                            <div class="flex items-center gap-1.5 mb-2 px-1">
+                                                <i data-lucide="moon" class="w-3 h-3 text-indigo-500"></i>
+                                                <span class="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Afternoon</span>
+                                            </div>
+                                            <div class="space-y-3">
+                                                <div>
+                                                    <label class="block text-[9px] font-black text-slate-400 uppercase mb-1">Time In</label>
+                                                    <input type="time" id="pmTimeIn" value="13:00" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-800 text-xs shadow-sm" />
+                                                </div>
+                                                <div>
+                                                    <label class="block text-[9px] font-black text-slate-400 uppercase mb-1">Time Out</label>
+                                                    <input type="time" id="targetTimeOut" value="17:00" class="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-800 text-xs shadow-sm" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400 shadow-sm">
+                                                <i data-lucide="timer" class="w-4 h-4"></i>
+                                            </div>
+                                            <div>
+                                                <p class="text-xs font-black text-slate-800 uppercase leading-none mb-0.5">Late Period</p>
+                                                <p class="text-[9px] font-medium text-slate-400 uppercase tracking-tighter">Arrival threshold</p>
+                                            </div>
+                                        </div>
+                                        <select id="lateGracePeriod" class="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-black text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm">
+                                            <option value="0">0 Min</option>
+                                            <option value="5">5 Min</option>
+                                            <option value="10">10 Min</option>
+                                            <option value="15" selected>15 Min</option>
+                                            <option value="30">30 Min</option>
+                                            <option value="custom">Custom...</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div id="customGraceContainer" class="hidden animate-in p-2 bg-indigo-50/50 border border-indigo-100 rounded-xl">
+                                        <div class="flex items-center gap-2">
+                                            <input type="number" id="customGraceValue" value="15" class="w-20 px-3 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-black text-slate-900 text-xs shadow-sm" placeholder="Value" />
+                                            <select id="customGraceUnit" class="flex-grow px-2 py-1.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-black text-slate-900 text-[10px] shadow-sm">
+                                                <option value="seconds">Seconds</option>
+                                                <option value="minutes" selected>Minutes</option>
+                                                <option value="hours">Hours</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <button type="button" id="saveSettingsBtn" class="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-black text-xs uppercase transition shadow-lg flex items-center justify-center gap-2 active:scale-[0.98]">
+                                        <i data-lucide="save" class="w-3.5 h-3.5"></i> Save
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="h-6 w-px bg-slate-200 mx-1"></div>
+
+                    <!-- History Button -->
+                    <a href="{% url 'attendance:history_calendar' %}" class="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-sm text-xs no-underline">
+                        <i data-lucide="history" class="w-3.5 h-3.5"></i> Attendance History
+                    </a>
+                </div>
             </div>
         </header>
 
-        <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-5">
-                <div class="bg-green-50 text-green-600 p-4 rounded-2xl">
-                    <i data-lucide="users" class="w-7 h-7"></i>
-                </div>
-                <div>
-                    <p class="text-3xl font-black text-slate-900">{{ present_count }}</p>
-                    <p class="text-slate-500 font-semibold text-sm">Present Today</p>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-5">
-                <div class="bg-amber-50 text-amber-600 p-4 rounded-2xl">
-                    <i data-lucide="clock" class="w-7 h-7"></i>
-                </div>
-                <div>
-                    <p class="text-3xl font-black text-slate-900">{{ late_count }}</p>
-                    <p class="text-slate-500 font-semibold text-sm">Late Arrivals</p>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-5">
-                <div class="bg-red-50 text-red-600 p-4 rounded-2xl">
-                    <i data-lucide="user-minus" class="w-7 h-7"></i>
-                </div>
-                <div>
-                    <p class="text-3xl font-black text-slate-900">{{ absent_count }}</p>
-                    <p class="text-slate-500 font-semibold text-sm">Absent</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Event Attendance Setup Section -->
-        <section class="mb-8">
-            <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-6">
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div class="flex items-start gap-4">
-                        <div class="bg-emerald-600 p-3 rounded-xl text-white shadow-lg shadow-emerald-200">
-                            <i data-lucide="calendar-plus" class="w-6 h-6"></i>
-                        </div>
-                        <div>
-                            <h3 class="text-lg font-bold text-emerald-900">Event Attendance Control</h3>
-                            <p class="text-emerald-700 text-sm">Customize specific dates for special event fingerprint attendance.</p>
-                        </div>
-                    </div>
-                    <button 
-                        id="openEventModalBtn"
-                        class="bg-white text-emerald-700 hover:bg-emerald-600 hover:text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all border border-emerald-200 shadow-sm flex items-center justify-center gap-2"
-                    >
-                        <i data-lucide="plus" class="w-4 h-4"></i> Schedule Custom Event
-                    </button>
-                </div>
-
-                <div id="eventListContainer" class="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <!-- Events will be injected here -->
-                </div>
-            </div>
-        </section>
+        <!-- Stats Cards Removed as requested -->
 
         <!-- Today's Attendance Log Table -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden mb-8">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
-                <h3 class="text-lg font-extrabold text-slate-800 tracking-tight">Today's Attendance Log</h3>
-                <span class="text-sm text-slate-500 font-bold bg-slate-50 px-3 py-1 rounded-full border border-slate-100">
-                    {{ today_logs|length }} entries recorded
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+            <div class="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-white">
+                <h3 class="text-base font-extrabold text-slate-800 tracking-tight">Today's Attendance Log</h3>
+                <span class="text-xs text-slate-500 font-bold bg-slate-50 px-2.5 py-1 rounded-full border border-slate-100">
+                    {{ today_logs|length }} records
                 </span>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead class="bg-slate-50 text-slate-400 uppercase text-[10px] font-black tracking-widest">
+            <div class="overflow-x-hidden max-h-[380px] overflow-y-auto custom-scrollbar">
+                <table class="w-full text-left border-collapse table-fixed relative">
+                    <thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-black tracking-widest border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                         <tr>
-                            <th class="px-6 py-5">Official/Staff</th>
-                            <th className="px-6 py-5">Position</th>
-                            <th className="px-6 py-5">Time In</th>
-                            <th className="px-6 py-5">Time Out</th>
-                            <th className="px-6 py-5">Method</th>
-                            <th className="px-6 py-5">Status</th>
-                            <th className="px-6 py-5"></th>
+                            <th class="px-4 py-3 w-[35%]">Official Profile</th>
+                            <th class="px-3 py-3 w-[15%] text-center">AM IN</th>
+                            <th class="px-3 py-3 w-[15%] text-center">AM OUT</th>
+                            <th class="px-3 py-3 w-[15%] text-center">PM IN</th>
+                            <th class="px-3 py-3 w-[15%] text-center">PM OUT</th>
+                            <th class="px-2 py-3 w-[5%]"></th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody class="divide-y divide-slate-100 text-xs">
                         {% for log in today_logs %}
-                        <tr class="hover:bg-slate-50/50 transition-colors group">
-                            <td class="px-6 py-4 font-bold text-slate-800">{{ log.official.resident.full_name }}</td>
-                            <td class="px-6 py-4 text-slate-500 text-sm font-medium">{{ log.official.get_position_display }}</td>
-                            <td class="px-6 py-4 text-slate-700 font-bold text-sm">{{ log.time_in|time:"h:i A"|default:"-" }}</td>
-                            <td class="px-6 py-4 text-slate-400 text-sm">{{ log.time_out|time:"h:i A"|default:"-" }}</td>
-                            <td class="px-6 py-4">
-                                <span class="px-3 py-1 border border-slate-200 rounded-lg text-[10px] text-slate-500 font-black bg-white uppercase shadow-sm">
-                                    {{ log.get_method_display }}
-                                </span>
+                        <tr class="hover:bg-slate-50 transition-colors group {% if log.status == 'absent' %}opacity-75 bg-slate-50/50{% endif %}">
+                            <td class="px-6 py-2.5">
+                                <div class="flex items-center gap-3">
+                                    {% if log.official.resident.photo %}
+                                    <img src="{{ log.official.resident.photo.url }}" class="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-sm flex-shrink-0" alt="Avatar">
+                                    {% elif log.official.user.avatar %}
+                                    <img src="{{ log.official.user.avatar.url }}" class="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-sm flex-shrink-0" alt="Avatar">
+                                    {% else %}
+                                    <img src="https://api.dicebear.com/7.x/identicon/svg?seed=resident_{{ log.official.resident.pk|default:log.official.user.username }}&backgroundColor=ffffff" class="w-8 h-8 rounded-full object-cover border border-slate-200 shadow-sm flex-shrink-0" alt="Avatar">
+                                    {% endif %}
+                                    <div class="flex flex-col min-w-0">
+                                        <span class="font-bold text-slate-800 whitespace-normal break-words leading-tight">{{ log.official.resident.full_name }}</span>
+                                        <div class="mt-0.5 pt-0.5 border-t border-slate-100 w-fit">
+                                            <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">{{ log.official.get_position_display }}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </td>
-                            <td class="px-6 py-4">
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 {% if log.status == 'present' %}bg-emerald-100 text-emerald-700{% elif log.status == 'late' %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %} rounded-lg text-xs font-black">
-                                    <i data-lucide="check-circle-2" class="w-3 h-3"></i>
-                                    {{ log.get_status_display }}
-                                </span>
+                            <td class="px-3 py-2.5 text-center">
+                                <div class="flex flex-col items-center">
+                                    {% if log.am_in %}
+                                        <div class="flex flex-col items-center gap-1">
+                                            <span class="font-bold text-slate-700 text-sm">{{ log.am_in|time:"h:i A" }}</span>
+                                            {% if log.status == 'late' %}
+                                                <span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">Late ({{ log.am_in|late_duration:shift_config.am_in }})</span>
+                                            {% else %}
+                                                <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">Present</span>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+                                    {% endif %}
+                                </div>
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <div class="flex items-center justify-end gap-1">
-                                    <a href="{% url 'attendance:dtr_detail' log.official.pk %}" class="text-slate-300 hover:text-emerald-600 transition p-2 hover:bg-emerald-50 rounded-lg inline-block" title="View DTR">
-                                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                            <td class="px-3 py-2.5 text-center">
+                                <div class="flex flex-col items-center">
+                                    {% if log.am_out %}
+                                        <div class="flex flex-col items-center gap-1">
+                                            <span class="font-bold text-slate-700 text-sm">{{ log.am_out|time:"h:i A" }}</span>
+                                            <span class="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-black tracking-widest border border-blue-100 uppercase">Done</span>
+                                        </div>
+                                    {% elif log.am_in %}
+                                        <span class="text-slate-300 italic text-[10px]">---</span>
+                                    {% else %}
+                                        <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-3 py-2.5 text-center">
+                                <div class="flex flex-col items-center">
+                                    {% if log.pm_in %}
+                                        <div class="flex flex-col items-center gap-1">
+                                            <span class="font-bold text-slate-700 text-sm">{{ log.pm_in|time:"h:i A" }}</span>
+                                            {% if log.status == 'late' %}
+                                                <span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">Late</span>
+                                            {% else %}
+                                                <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">Present</span>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-3 py-2.5 text-center">
+                                <div class="flex flex-col items-center">
+                                    {% if log.pm_out %}
+                                        <div class="flex flex-col items-center gap-1">
+                                            <span class="font-bold text-slate-700 text-sm">{{ log.pm_out|time:"h:i A" }}</span>
+                                            <span class="text-[9px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-black tracking-widest border border-blue-100 uppercase">Done</span>
+                                        </div>
+                                    {% elif log.pm_in %}
+                                        <span class="text-slate-300 italic text-[10px]">---</span>
+                                    {% else %}
+                                        <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-4 py-2.5 text-right">
+                                <div class="flex items-center justify-end gap-2 transition-opacity">
+                                    <a href="{% url 'attendance:dtr_detail' log.official.pk %}" class="text-blue-600 hover:text-blue-800 transition bg-blue-50 hover:bg-blue-100 p-1.5 rounded" title="View DTR">
+                                        <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
                                     </a>
-                                    <a href="{% url 'attendance:dtr_print' log.official.pk %}" target="_blank" class="text-slate-300 hover:text-emerald-600 transition p-2 hover:bg-emerald-50 rounded-lg inline-block" title="Print DTR">
-                                        <i data-lucide="printer" class="w-5 h-5"></i>
+                                    <a href="{% url 'attendance:dtr_print' log.official.pk %}?month={% now 'm' %}&year={% now 'Y' %}" class="text-indigo-600 hover:text-indigo-800 transition bg-indigo-50 hover:bg-indigo-100 p-1.5 rounded" title="Print DTR" target="_blank">
+                                        <i data-lucide="printer" class="w-3.5 h-3.5"></i>
                                     </a>
                                 </div>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="7" class="px-6 py-10 text-center text-slate-400 font-medium">
+                            <td colspan="7" class="px-5 py-6 text-center text-slate-400 font-medium text-xs">
                                 No attendance records for today yet.
                             </td>
                         </tr>
@@ -165,123 +332,10 @@
             </div>
         </div>
 
-        <!-- Absent Officials Today Section -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div class="p-6 border-b border-slate-100 bg-white">
-                <h3 class="text-lg font-extrabold text-red-600 tracking-tight">Absent Officials Today</h3>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <tbody class="divide-y divide-slate-100">
-                        {% for official in absent_officials %}
-                        <tr class="hover:bg-slate-50/50 transition-colors group">
-                            <td class="px-6 py-4 font-bold text-slate-800">{{ official.resident.full_name }}</td>
-                            <td class="px-6 py-4 text-slate-500 text-sm font-medium">{{ official.get_position_display }}</td>
-                            <td class="px-6 py-4">
-                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs font-black">
-                                    Absent
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <div class="flex items-center justify-end gap-1">
-                                    <a href="{% url 'attendance:dtr_detail' official.pk %}" class="text-slate-300 hover:text-emerald-600 transition p-2 hover:bg-emerald-50 rounded-lg inline-block" title="View DTR">
-                                        <i data-lucide="calendar" class="w-5 h-5"></i>
-                                    </a>
-                                    <a href="{% url 'attendance:dtr_print' official.pk %}" target="_blank" class="text-slate-300 hover:text-emerald-600 transition p-2 hover:bg-emerald-50 rounded-lg inline-block" title="Print DTR">
-                                        <i data-lucide="printer" class="w-5 h-5"></i>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="4" class="px-6 py-10 text-center text-emerald-600 font-medium">
-                                All officials are present or accounted for.
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+
+
         </div>
     </div>
-</div>
-
-<!-- Event Customization Modal -->
-<div id="eventModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 hidden">
-    <div class="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in">
-
-        <div class="px-6 py-4 flex justify-between items-center border-b border-slate-50">
-            <h3 class="text-lg font-black text-slate-900">Customize Event Date</h3>
-            <button id="closeEventModalBtn" class="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 transition">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
-        </div>
-
-        
-        <form id="eventForm" class="p-6 space-y-4">
-
-            <div>
-                <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Event Title</label>
-                <input 
-                    type="text" 
-                    id="eventTitle"
-                    required
-                    placeholder="e.g. Health Seminar" 
-                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 text-sm" 
-                />
-
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Select Date</label>
-                    <input 
-                        type="date" 
-                        id="eventDate"
-                        required
-                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 text-sm" 
-                    />
-                </div>
-                <div>
-                    <label class="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Time</label>
-                    <input 
-                        type="time" 
-                        id="eventTime"
-                        required
-                        class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none font-bold text-slate-800 text-sm" 
-                    />
-                </div>
-            </div>
-
-            <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-start gap-3">
-                <i data-lucide="info" class="text-emerald-600 mt-0.5 flex-shrink-0 w-4 h-4"></i>
-                <p class="text-[11px] text-emerald-800 leading-tight font-medium">
-                    Scheduling this event will automatically enable the <strong class="font-black">Fingerprint Scanner</strong>. Only registered fingerprints will be accepted.
-                </p>
-            </div>
-
-
-            <div class="flex items-center gap-3 py-1">
-                <div class="relative inline-block w-10 h-5 rounded-full bg-emerald-500 cursor-pointer" id="biometricToggle">
-                    <div class="absolute left-1 top-0.5 w-4 h-4 bg-white rounded-full transition-transform translate-x-4" id="biometricToggleCircle"></div>
-                </div>
-                <span class="text-xs font-bold text-slate-700">Enforce Biometric Only</span>
-            </div>
-
-        </form>
-
-        <div class="p-5 bg-slate-50 flex gap-3">
-            <button id="cancelEventBtn" class="flex-1 py-3 text-slate-500 font-bold hover:text-slate-700 transition text-sm">
-                Cancel
-            </button>
-            <button id="confirmEventBtn" form="eventForm" class="flex-1 py-3 bg-emerald-700 text-white font-black rounded-2xl hover:bg-emerald-800 transition shadow-lg shadow-emerald-200 text-sm">
-                Confirm
-            </button>
-        </div>
-
-    </div>
-</div>
 
 {% endblock %}
 
@@ -291,17 +345,45 @@
         // Initialize Lucide Icons
         lucide.createIcons();
 
-        const eventModal = document.getElementById('eventModal');
-        const openEventModalBtn = document.getElementById('openEventModalBtn');
-        const closeEventModalBtn = document.getElementById('closeEventModalBtn');
-        const cancelEventBtn = document.getElementById('cancelEventBtn');
+        const eventPopover = document.getElementById('eventPopover');
+        const toggleEventDropdown = document.getElementById('toggleEventDropdown');
+        const scanPopover = document.getElementById('scanPopover');
+        const toggleScanDropdown = document.getElementById('toggleScanDropdown');
         const eventForm = document.getElementById('eventForm');
         const eventListContainer = document.getElementById('eventListContainer');
-        const biometricToggle = document.getElementById('biometricToggle');
-        const biometricToggleCircle = document.getElementById('biometricToggleCircle');
 
-        let biometricEnforced = true;
         let events = JSON.parse(localStorage.getItem('custom_attendance_events') || '[]');
+
+        // Toggle event popover — closes scan if open
+        toggleEventDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!scanPopover.classList.contains('hidden')) scanPopover.classList.add('hidden');
+            eventPopover.classList.toggle('hidden');
+        });
+
+        // Toggle scan popover — closes event if open
+        toggleScanDropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!eventPopover.classList.contains('hidden')) eventPopover.classList.add('hidden');
+            
+            const isOpening = scanPopover.classList.contains('hidden');
+            scanPopover.classList.toggle('hidden');
+            
+            if (isOpening) {
+                // Load from database for this session
+                loadShiftSettings();
+            }
+        });
+
+        // Close both popovers when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!eventPopover.contains(e.target) && !toggleEventDropdown.contains(e.target)) {
+                eventPopover.classList.add('hidden');
+            }
+            if (!scanPopover.contains(e.target) && !toggleScanDropdown.contains(e.target)) {
+                scanPopover.classList.add('hidden');
+            }
+        });
 
         // Default events if none exist
         if (events.length === 0) {
@@ -319,64 +401,21 @@
         }
 
         function renderEvents() {
-            eventListContainer.innerHTML = '';
-            events.forEach(event => {
-                const eventCard = document.createElement('div');
-                eventCard.className = 'bg-white/60 border border-emerald-200/50 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:bg-white/90 transition-all';
-                eventCard.onclick = (e) => {
-                    // Prevent navigation if the delete button is clicked
-                    if (e.target.closest('button')) return;
-                    window.location.href = `{% url 'attendance:biometric_attendance' %}?event_id=${event.id}`;
-                };
-                eventCard.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <div class="text-emerald-600"><i data-lucide="calendar" class="w-5 h-5"></i></div>
-                        <div>
-                            <p class="font-bold text-slate-800 text-sm leading-none mb-1">${event.name}</p>
-                            <p class="text-xs text-slate-500">${event.date} • ${event.time}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="fingerprint" class="w-4 h-4 text-emerald-500" title="Biometric Enabled"></i>
-                        <button onclick="deleteEvent(${event.id})" class="p-1 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded transition">
-                            <i data-lucide="x" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                `;
-                eventListContainer.appendChild(eventCard);
-            });
-            lucide.createIcons();
+            const btn = document.getElementById('goToEventBtn');
+            if (btn) {
+                if (events.length > 0) {
+                    const latest = events[events.length - 1];
+                    btn.href = `{% url 'attendance:biometric_attendance' %}?event_id=${latest.id}`;
+                    btn.classList.remove('hidden');
+                    btn.classList.add('flex');
+                } else {
+                    btn.classList.add('hidden');
+                    btn.classList.remove('flex');
+                }
+            }
         }
 
-        window.deleteEvent = function(id) {
-            if (confirm('Are you sure you want to remove this scheduled event?')) {
-                events = events.filter(e => e.id !== id);
-                localStorage.setItem('custom_attendance_events', JSON.stringify(events));
-                renderEvents();
-            }
-        };
 
-        openEventModalBtn.onclick = () => eventModal.classList.remove('hidden');
-        
-        const closeModal = () => {
-            eventModal.classList.add('hidden');
-            eventForm.reset();
-        };
-
-        closeEventModalBtn.onclick = closeModal;
-        cancelEventBtn.onclick = closeModal;
-
-        biometricToggle.onclick = () => {
-            biometricEnforced = !biometricEnforced;
-            if (biometricEnforced) {
-                biometricToggle.classList.replace('bg-slate-200', 'bg-emerald-500');
-                biometricToggleCircle.classList.replace('translate-x-0', 'translate-x-4');
-            } else {
-                biometricToggle.classList.replace('bg-emerald-500', 'bg-slate-200');
-                biometricToggleCircle.classList.replace('translate-x-4', 'translate-x-0');
-            }
-
-        };
 
         eventForm.onsubmit = (e) => {
             e.preventDefault();
@@ -385,13 +424,13 @@
                 name: document.getElementById('eventTitle').value,
                 date: document.getElementById('eventDate').value,
                 time: document.getElementById('eventTime').value,
-                method: biometricEnforced ? "Biometric/Fingerprint" : "Manual",
+                method: "Biometric/Fingerprint",
                 status: "Scheduled"
             };
             events.push(newEvent);
             localStorage.setItem('custom_attendance_events', JSON.stringify(events));
             renderEvents();
-            closeModal();
+            eventForm.reset();
             
             if (window.showNotification) {
                 window.showNotification('Event scheduled successfully!', 'success');
@@ -399,7 +438,397 @@
         };
 
         renderEvents();
+
+        // Settings Logic (Availability & Late Time)
+        const scannerStatusToggle = document.getElementById('scannerStatusToggle');
+        const lateGracePeriod = document.getElementById('lateGracePeriod');
+        const scheduleDay = document.getElementById('scheduleDay');
+        const targetTimeIn = document.getElementById('targetTimeIn');
+        const targetTimeOut = document.getElementById('targetTimeOut');
+        const amTimeOut = document.getElementById('amTimeOut');
+        const pmTimeIn = document.getElementById('pmTimeIn');
+        const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        const bulkApplyToggle = document.getElementById('bulkApplyToggle');
+        const dayOffBtn = document.getElementById('dayOffBtn');
+        let isDayOff = false;
+
+        // Custom Grace Period Logic
+        const customGraceContainer = document.getElementById('customGraceContainer');
+        const customGraceValue = document.getElementById('customGraceValue');
+        const customGraceUnit = document.getElementById('customGraceUnit');
+
+        if (lateGracePeriod && customGraceContainer) {
+            lateGracePeriod.addEventListener('change', () => {
+                if (lateGracePeriod.value === 'custom') {
+                    customGraceContainer.classList.remove('hidden');
+                    customGraceContainer.style.display = 'block';
+                } else {
+                    customGraceContainer.classList.add('hidden');
+                    customGraceContainer.style.display = 'none';
+                }
+            });
+        }
+
+        // Per-Day Memory (now backed by DB)
+        let daySettings = {};
+        let currentDay = scheduleDay ? scheduleDay.value : 'mon';
+
+        // Load settings from database on open
+        async function loadShiftSettings() {
+            try {
+                const res = await fetch('{% url "attendance:api_get_shift_settings" %}');
+                const data = await res.json();
+                if (data.status === 'success') {
+                    daySettings = data.settings;
+                    updateUIForDay(currentDay);
+                }
+            } catch (err) { console.error('Failed to load shift settings:', err); }
+        }
+
+        function updateUIForDay(day) {
+            const settings = daySettings[day] || { 
+                time_in: '08:00', 
+                time_out: '17:00', 
+                am_out: '12:00', 
+                pm_in: '13:00', 
+                is_day_off: false, 
+                grace_period: 15
+            };
+
+            if (targetTimeIn) targetTimeIn.value = settings.time_in;
+            if (targetTimeOut) targetTimeOut.value = settings.time_out;
+            if (amTimeOut) amTimeOut.value = settings.am_out;
+            if (pmTimeIn) pmTimeIn.value = settings.pm_in;
+            
+            if (lateGracePeriod) {
+                const standardPeriods = [0, 5, 10, 15, 20, 30, 45, 60];
+                const graceVal = parseInt(settings.grace_period) || 0;
+                
+                if (standardPeriods.includes(graceVal)) {
+                    lateGracePeriod.value = graceVal;
+                    if (customGraceContainer) {
+                        customGraceContainer.classList.add('hidden');
+                        customGraceContainer.style.display = 'none';
+                    }
+                } else {
+                    lateGracePeriod.value = 'custom';
+                    if (customGraceContainer) {
+                        customGraceContainer.classList.remove('hidden');
+                        customGraceContainer.style.display = 'block';
+                        customGraceValue.value = graceVal;
+                    }
+                }
+            }
+            isDayOff = settings.is_day_off;
+            const dayOffToggleBtn = document.getElementById('dayOffToggleBtn');
+            
+            if (dayOffToggleBtn) {
+                if (isDayOff) {
+                    dayOffToggleBtn.classList.remove('bg-slate-50', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-100');
+                    dayOffToggleBtn.classList.add('bg-red-500', 'text-white', 'border-red-500', 'hover:bg-red-600');
+                } else {
+                    dayOffToggleBtn.classList.add('bg-slate-50', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-100');
+                    dayOffToggleBtn.classList.remove('bg-red-500', 'text-white', 'border-red-500', 'hover:bg-red-600');
+                }
+            }
+
+            const inputs = [targetTimeIn, targetTimeOut, amTimeOut, pmTimeIn, lateGracePeriod, customGraceValue, customGraceUnit];
+            inputs.forEach(input => { 
+                if(input) { 
+                    input.disabled = isDayOff; 
+                    if(isDayOff) input.classList.add('opacity-50', 'cursor-not-allowed');
+                    else input.classList.remove('opacity-50', 'cursor-not-allowed');
+                } 
+            });
+        }
+
+        function syncGraceToAll() {
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+            let grace = 15;
+            if (lateGracePeriod.value === 'custom') {
+                grace = parseFloat(customGraceValue.value) || 0;
+                if (customGraceUnit.value === 'hours') grace *= 60;
+                else if (customGraceUnit.value === 'seconds') grace /= 60;
+            } else {
+                grace = parseInt(lateGracePeriod.value) || 0;
+            }
+            
+            days.forEach(d => {
+                if (!daySettings[d]) daySettings[d] = { is_day_off: false };
+                daySettings[d].grace_period = grace;
+            });
+        }
+
+        function syncCurrentToAll() {
+            if (!bulkApplyToggle.checked) return;
+            const days = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+            
+            days.forEach(d => {
+                const existing = daySettings[d] || { is_day_off: false, grace_period: 15 };
+                daySettings[d] = { 
+                    ...existing,
+                    time_in: targetTimeIn.value,
+                    time_out: targetTimeOut.value,
+                    am_out: amTimeOut.value,
+                    pm_in: pmTimeIn.value
+                };
+            });
+        }
+
+        function handleTimeChange() {
+            // Update current day memory
+            if (currentDay !== 'all') {
+                const existing = daySettings[currentDay] || { is_day_off: false, grace_period: 15 };
+                daySettings[currentDay] = {
+                    ...existing,
+                    time_in: targetTimeIn.value,
+                    time_out: targetTimeOut.value,
+                    am_out: amTimeOut.value,
+                    pm_in: pmTimeIn.value
+                };
+            }
+
+            if (bulkApplyToggle.checked) {
+                syncCurrentToAll();
+            } else {
+                // If we adjusted a specific day and bulk apply is NOT checked, we are good
+            }
+        }
+
+        function uncheckBulkOnSpecificChange() {
+            if (bulkApplyToggle && bulkApplyToggle.checked) {
+                // If user is manually changing an input, they might want to break the sync
+                // but only if they are not intentionally syncing.
+                // However, user said: "once the user adjust the specific day then the check will be uncheck"
+                bulkApplyToggle.checked = false;
+                if (window.showNotification) {
+                    window.showNotification('Apply to all disabled for manual override.', 'info');
+                }
+            }
+        }
+
+        // Real-time listeners for shift times
+        [targetTimeIn, targetTimeOut, amTimeOut, pmTimeIn].forEach(input => {
+            if(input) {
+                input.addEventListener('input', () => {
+                    handleTimeChange();
+                });
+                // When focusing/clicking to change, we should uncheck bulk apply to allow individual day override
+                input.addEventListener('mousedown', uncheckBulkOnSpecificChange);
+                input.addEventListener('keydown', (e) => {
+                    // Ignore navigation keys
+                    if (![9, 13, 16, 17, 18, 20, 27, 37, 38, 39, 40].includes(e.keyCode)) {
+                        uncheckBulkOnSpecificChange();
+                    }
+                });
+            }
+        });
+
+        // Real-time listeners for late period (always global)
+        [lateGracePeriod, customGraceValue, customGraceUnit].forEach(input => {
+            if(input) {
+                input.addEventListener('input', syncGraceToAll);
+                input.addEventListener('change', syncGraceToAll);
+            }
+        });
+
+        if (scheduleDay) {
+            scheduleDay.addEventListener('change', () => {
+                // Update memory for the current day we are leaving before switching
+                if (currentDay !== 'all') {
+                    let grace = 15;
+                    if (lateGracePeriod.value === 'custom') {
+                        grace = parseFloat(customGraceValue.value) || 0;
+                        if (customGraceUnit.value === 'hours') grace *= 60;
+                        else if (customGraceUnit.value === 'seconds') grace /= 60;
+                    } else {
+                        grace = parseInt(lateGracePeriod.value) || 0;
+                    }
+
+                    daySettings[currentDay] = {
+                        time_in: targetTimeIn.value,
+                        time_out: targetTimeOut.value,
+                        am_out: amTimeOut.value,
+                        pm_in: pmTimeIn.value,
+                        is_day_off: isDayOff,
+                        grace_period: grace
+                    };
+                }
+
+                currentDay = scheduleDay.value;
+                updateUIForDay(currentDay);
+            });
+        }
+
+        const dayOffToggleBtn = document.getElementById('dayOffToggleBtn');
+        if (dayOffToggleBtn) {
+            dayOffToggleBtn.addEventListener('click', () => {
+                isDayOff = !isDayOff;
+                
+                if (isDayOff) {
+                    dayOffToggleBtn.classList.remove('bg-slate-50', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-100');
+                    dayOffToggleBtn.classList.add('bg-red-500', 'text-white', 'border-red-500', 'hover:bg-red-600');
+                } else {
+                    dayOffToggleBtn.classList.add('bg-slate-50', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-100');
+                    dayOffToggleBtn.classList.remove('bg-red-500', 'text-white', 'border-red-500', 'hover:bg-red-600');
+                }
+
+                const inputs = [targetTimeIn, targetTimeOut, amTimeOut, pmTimeIn, lateGracePeriod, customGraceValue, customGraceUnit];
+                inputs.forEach(input => { 
+                    if(input) { 
+                        input.disabled = isDayOff; 
+                        if(isDayOff) input.classList.add('opacity-50', 'cursor-not-allowed');
+                        else input.classList.remove('opacity-50', 'cursor-not-allowed');
+                    } 
+                });
+                
+                // Update memory for current day but DO NOT SAVE to localStorage yet
+                if (currentDay !== 'all') {
+                    let grace = 15;
+                    if (lateGracePeriod.value === 'custom') {
+                        grace = parseFloat(customGraceValue.value) || 0;
+                    } else {
+                        grace = parseInt(lateGracePeriod.value) || 0;
+                    }
+
+                    daySettings[currentDay] = {
+                        time_in: targetTimeIn.value,
+                        time_out: targetTimeOut.value,
+                        am_out: amTimeOut.value,
+                        pm_in: pmTimeIn.value,
+                        is_day_off: isDayOff,
+                        grace_period: grace
+                    };
+                }
+            });
+        }
+
+        if (bulkApplyToggle) {
+            bulkApplyToggle.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    syncCurrentToAll();
+                    if (window.showNotification) {
+                        window.showNotification('Settings applied to all days in this session.', 'info');
+                    }
+                }
+            });
+        }
+
+        // Load saved settings initial
+        const savedSettings = JSON.parse(localStorage.getItem('attendance_settings') || '{"active": true, "late_time": "08:15", "day": "all", "time_in": "08:00", "time_out": "17:00"}');
+        
+        // Removed scannerStatusToggle check since it was removed from UI
+        if (lateGracePeriod) {
+            updateUIForDay(currentDay);
+        }
+        
+        if (saveSettingsBtn) {
+            saveSettingsBtn.addEventListener('click', (e) => {
+                if (e) e.preventDefault();
+                const finalDay = (bulkApplyToggle && bulkApplyToggle.checked) ? 'all' : (scheduleDay ? scheduleDay.value : 'all');
+                
+                let grace = 15;
+                if (lateGracePeriod) {
+                    if (lateGracePeriod.value === 'custom') {
+                        grace = parseFloat(customGraceValue.value) || 0;
+                        if (customGraceUnit && customGraceUnit.value === 'hours') grace *= 60;
+                        else if (customGraceUnit && customGraceUnit.value === 'seconds') grace /= 60;
+                    } else {
+                        grace = parseInt(lateGracePeriod.value) || 0;
+                    }
+                }
+
+                const settings = {
+                    active: true,
+                    grace_period: grace,
+                    day: finalDay,
+                    time_in: targetTimeIn ? targetTimeIn.value : '08:00',
+                    time_out: targetTimeOut ? targetTimeOut.value : '17:00',
+                    am_out: amTimeOut ? amTimeOut.value : '12:00',
+                    pm_in: pmTimeIn ? pmTimeIn.value : '13:00',
+                    is_day_off: isDayOff
+                };
+                    
+                if (settings.time_in) {
+                    const [h, m] = settings.time_in.split(':').map(Number);
+                    const date = new Date();
+                    date.setHours(h, m + settings.grace_period, 0);
+                    settings.late_time = date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+                } else {
+                    settings.late_time = '08:15';
+                }
+
+                // Save to database
+                fetch('{% url "attendance:api_save_shift_settings" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        settings: daySettings,
+                        bulk_apply: bulkApplyToggle && bulkApplyToggle.checked,
+                        source_day: currentDay
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        saveSettingsBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Saved!';
+                        if (window.lucide) lucide.createIcons();
+                        
+                        saveSettingsBtn.classList.remove('bg-slate-800', 'hover:bg-slate-900', 'border-slate-700');
+                        saveSettingsBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-700', 'border-emerald-600', 'text-white');
+                        
+                        setTimeout(() => {
+                            window.location.assign(window.location.href);
+                        }, 800);
+                    } else {
+                        alert('Error saving settings: ' + data.message);
+                    }
+                })
+                .catch(err => {
+                    console.error('Save error:', err);
+                    alert('Failed to connect to server.');
+                });
+            });
+        }
+
+        // Global background listener for hardware-initiated attendance scans
+        setInterval(() => {
+            fetch('{% url "core:biometric_attendance_status_check" %}', {
+                credentials: 'include'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'authenticated') {
+                    // Process hardware scan immediately
+                    const settingsObj = JSON.parse(localStorage.getItem('attendance_settings') || '{"late_time": "08:00"}');
+                    
+                    fetch('{% url "attendance:api_biometric_verify" %}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': '{{ csrf_token }}'
+                        },
+                        body: JSON.stringify({ 
+                            auto: true,
+                            action: data.attendance_mode === 'none' ? null : data.attendance_mode,
+                            late_time: settingsObj.late_time
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(resData => {
+                        if(resData.status === 'success') {
+                            if (window.showNotification) window.showNotification(resData.message, 'success');
+                            setTimeout(() => window.location.reload(), 1500);
+                        } else if(resData.status === 'info') {
+                            if (window.showNotification) window.showNotification(resData.message, 'info');
+                        }
+                    });
+                }
+            }).catch(() => {});
+        }, 3000);
     });
 </script>
 {% endblock %}
-

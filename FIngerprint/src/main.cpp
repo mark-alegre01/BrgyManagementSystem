@@ -2,6 +2,9 @@
 #include <HardwareSerial.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <time.h>
 
 // ============= WiFi CREDENTIALS =============
 const char* SSID = "LadyJune";
@@ -22,8 +25,12 @@ WebServer server(80);
 #define GREEN_LED_PIN 27        // MOVED FROM 19 TO 27 TO AVOID CONFLICTS
 #define BLUE_LED_PIN 5          // Label D5
 #define BUZZER_PIN 4            // MOVED BACK TO PIN 4 AS REQUESTED
-#define FINGERPRINT_RX_PIN 22   // GPIO22 (D22) <- Sensor TX (Green)
-#define FINGERPRINT_TX_PIN 23   // GPIO23 (D23) -> Sensor RX (White)
+#define FINGERPRINT_RX_PIN 22   // GPIO22 (RX2) <- Sensor TX (Green)
+#define FINGERPRINT_TX_PIN 23   // GPIO23 (TX2) -> Sensor RX (White)
+#define LCD_SDA_PIN 21
+#define LCD_SCL_PIN 19          // MOVED TO 19 TO AVOID CONFLICT WITH FINGERPRINT ON 22
+#define BUTTON_IN_PIN 32        // Hardware button for TIME IN
+#define BUTTON_OUT_PIN 33       // Hardware button for TIME OUT
 
 // ============= SYSTEM STATES =============
 enum SystemState {
@@ -34,6 +41,20 @@ enum SystemState {
   FINGERPRINT_DETECTED,  // Fingerprint detected, green LED + buzzer sync
   AUTH_FAILED          // Error feedback (Red LED + 3 beeps)
 };
+
+// ============= LCD CONFIG =============
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+String lcdLine1 = "System Online";
+String lcdLine2 = "Ready...";
+unsigned long lastLcdUpdate = 0;
+const char* ntpServer = "pool.ntp.org";
+const long gmtOffset_sec = 28800; // PHT (UTC+8)
+const int daylightOffset_sec = 0;
+
+// ============= ATTENDANCE CONFIG =============
+String attendanceMode = "none"; // "in", "out", or "none"
+unsigned long lastButtonPress = 0;
+const int debounceDelay = 300;
 
 // ============= TIMING CONSTANTS =============
 #define STANDBY_BLINK_INTERVAL 1000      // 1 second for standby (total cycle)
@@ -94,6 +115,9 @@ bool buzzerPulseActive = false;
 unsigned long buzzerPulseStartTime = 0;
 bool fingerprintInitialized = false;
 String lastErrorMessage = "Ready";
+unsigned long lastLCDUpdateTime = 0;
+String lastLCDLine1 = "";
+String lastLCDLine2 = "";
 bool authFailedResetPending = false; // Flag to reset the error beeper
 bool isBeeping = false; // Hardware-level lockout to prevent beep restarts
 
@@ -127,16 +151,18 @@ void handleStartEnrollment();
 void handleStartVerification();
 void handleDeleteFingerprint();
 void handleEmptyLibrary();
-void handleErrorFeedback();
-void handleStopEnrollment();
 void handleGetStatus();
-void addCorsHeaders();
+void handleStopEnrollment();
+void handleErrorFeedback();
+void updateLCD();
 void updateSystemState();
 void handleStandbyMode();
 void handleEnrollingMode();
 void handleDetectionMode();
-void detectFingerprint();
 void handleFailMode();
+void detectFingerprint();
+void clearR307Buffer();
+void addCorsHeaders();
 void clearR307Buffer();
 void triggerFingerprintDetection();
 bool r307Handshake();
@@ -163,6 +189,15 @@ void setup() {
   digitalWrite(BLUE_LED_PIN, HIGH);
   fingerprintInitialized = initializeFingerprintModule();
   initializeWebServer();
+
+  // Configure NTP
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("System Online");
+  lcd.setCursor(0, 1);
+  lcd.print("Ready...");
 }
 
 // ============= MAIN LOOP =============
@@ -191,6 +226,7 @@ void loop() {
       break;
   }
   
+  updateLCD();
   detectFingerprint();
 
   // Serve HTTP again after sensor work so /status polls do not time out while scanning
@@ -220,10 +256,23 @@ void initializeHardware() {
   pinMode(BLUE_LED_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
 
-  // Initialize buzzer with PWM
-  ledcSetup(BUZZER_LEDC_CHANNEL, BUZZER_TONE_HZ, 8);
+  // Setup Buzzer (ESP32 LEDC)
+  ledcSetup(BUZZER_LEDC_CHANNEL, 4000, 8); // 4kHz, 8-bit resolution
   ledcAttachPin(BUZZER_PIN, BUZZER_LEDC_CHANNEL);
-  
+
+  // Initialize Hardware Buttons
+  pinMode(BUTTON_IN_PIN, INPUT_PULLUP);
+  pinMode(BUTTON_OUT_PIN, INPUT_PULLUP);
+
+  // Initialize I2C and LCD
+  Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("System Booting");
+  lcd.setCursor(0, 1);
+  lcd.print("Please wait...");
+
   // Set all to LOW/OFF state
   setLeds(false, false, false);
   
@@ -493,14 +542,34 @@ void handleStartVerification() {
     verifySearchPageCount = r307FingerprintCapacity;
   }
 
-  clearR307Buffer(); // CLEAR SERIAL BUFFER
-  currentState = VERIFYING;
-  currentScan = 0;
-  enrollmentActive = true;
-  matchedFingerprintID = -1;
-  resumeStateAfterWaitRemove = ENROLLING;
-  lastErrorMessage = "Ready";
-  for (int i = 0; i < 3; i++) scanCompleted[i] = false;
+  String requestMode = "none";
+  if (server.hasArg("mode")) {
+    requestMode = server.arg("mode");
+  }
+
+  if (currentState == VERIFYING) {
+    // Already in verifying mode (triggered by hardware button or active session)
+    // Don't reset if we already have a match waiting
+    if (matchedFingerprintID != -1) {
+      server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Already verified\",\"state\":\"verifying\"}");
+      return;
+    }
+    // Just refresh the message and proceed
+    lastErrorMessage = "Ready";
+  } else {
+    clearR307Buffer(); // CLEAR SERIAL BUFFER
+    currentState = VERIFYING;
+    currentScan = 0;
+    enrollmentActive = true;
+    matchedFingerprintID = -1;
+    
+    // Only update attendanceMode if it was provided, otherwise default to "none" (login)
+    attendanceMode = requestMode;
+    
+    resumeStateAfterWaitRemove = ENROLLING;
+    lastErrorMessage = "Ready";
+    for (int i = 0; i < 3; i++) scanCompleted[i] = false;
+  }
   
   String response = "{\"status\":\"success\",\"message\":\"Biometric verification started\",\"state\":\"verifying\"}";
   if (verifySearchPageCount > 0) {
@@ -643,10 +712,14 @@ void handleGetStatus() {
   response += "\"enrollment_active\":" + String(enrollmentActive ? "true" : "false") + ",";
   response += "\"current_scan\":" + String(currentScan) + ",";
   response += "\"total_scans\":" + String(MAX_SCANS) + ",";
+  
   if (matchedFingerprintID >= 0) {
     response += "\"fingerprint_id\":" + String(matchedFingerprintID) + ",";
+    response += "\"attendance_mode\":\"" + attendanceMode + "\",";
     matchedFingerprintID = -1; // CONSUME IT
+    attendanceMode = "none";   // CONSUME IT
   }
+  
   response += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
   response += "\"uptime\":" + String(millis()) + ",";
   response += "\"wifi_signal\":" + String(WiFi.RSSI());
@@ -699,8 +772,8 @@ void handleDetectionMode() {
   // Hold Green LED steady during the 1-second pulse
   setLeds(false, true, false);
   
-  // After 1 second: turn off LED, stop buzzer, transition state
-  if (elapsedTime >= 1000) {
+  // After 5 seconds: turn off LED, stop buzzer, transition state
+  if (elapsedTime >= 5000) {
     setLeds(false, false, false);
     ledcWriteTone(BUZZER_LEDC_CHANNEL, 0); // Ensure buzzer is off
     ledcWrite(BUZZER_LEDC_CHANNEL, 0);
@@ -765,6 +838,38 @@ void handleFailMode() {
 
 // ============= UPDATE SYSTEM STATE =============
 void updateSystemState() {
+  // Check Hardware Buttons (TIME IN / TIME OUT)
+  if (millis() - lastButtonPress > debounceDelay) {
+    if (digitalRead(BUTTON_IN_PIN) == LOW) {
+      lastButtonPress = millis();
+      attendanceMode = "in";
+      currentState = VERIFYING;
+      enrollmentActive = true;
+      currentScan = 0;
+      lastErrorMessage = "TIME IN selected";
+      Serial.println("[BUTTON] TIME IN pressed");
+    } else if (digitalRead(BUTTON_OUT_PIN) == LOW) {
+      lastButtonPress = millis();
+      attendanceMode = "out";
+      currentState = VERIFYING;
+      enrollmentActive = true;
+      currentScan = 0;
+      lastErrorMessage = "TIME OUT selected";
+      Serial.println("[BUTTON] TIME OUT pressed");
+    }
+  }
+
+  // 10-second expiration for hardware buttons if no fingerprint is placed
+  if (currentState == VERIFYING && attendanceMode != "none") {
+    if (millis() - lastButtonPress > 10000) {
+      currentState = STANDBY;
+      attendanceMode = "none";
+      enrollmentActive = false;
+      lastErrorMessage = "Ready";
+      Serial.println("[BUTTON] Timeout. Reverting to STANDBY.");
+    }
+  }
+
   // Check for external input (serial command for testing)
   if(Serial.available() > 0) {
     char command = Serial.read();
@@ -1277,6 +1382,94 @@ uint8_t r307Search(uint8_t bufferId, uint16_t* fingerID, uint16_t* score, uint16
     return response[9];
   }
   return 0xFF;
+}
+
+// ============= LCD UPDATE LOGIC =============
+void updateLCD() {
+  unsigned long now = millis();
+  // Update LCD every 500ms to avoid flicker but keep time snappy
+  if (now - lastLCDUpdateTime < 500) return;
+  lastLCDUpdateTime = now;
+
+  const char* dayNames[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+  String line1 = "";
+  String line2 = "";
+
+  switch(currentState) {
+    case STANDBY:
+      {
+        struct tm timeinfo;
+        if(getLocalTime(&timeinfo)){
+          char timeStr[15];
+          strftime(timeStr, sizeof(timeStr), "%I:%M:%S %p", &timeinfo);
+          line1 = "Barangay System";
+          line2 = String(dayNames[timeinfo.tm_wday]) + " " + String(timeStr);
+        } else {
+          line1 = "Barangay System";
+          line2 = "Ready - " + WiFi.localIP().toString();
+        }
+      }
+      break;
+    
+    case ENROLLING:
+      line1 = "ENROLLING...";
+      line2 = "Scan " + String(currentScan + 1) + " of " + String(MAX_SCANS);
+      break;
+
+    case VERIFYING:
+      if (attendanceMode == "in" || attendanceMode == "out") {
+        String modeUpper = attendanceMode;
+        modeUpper.toUpperCase();
+        line1 = "TIME " + modeUpper + " Mode";
+        line2 = "Place Finger...";
+      } else if (attendanceMode == "attendance") {
+        line1 = "ATTENDANCE MODE";
+        line2 = "Place Finger...";
+      } else {
+        line1 = "LOGIN MODE";
+        line2 = "Place finger to login";
+      }
+      break;
+
+    case FINGERPRINT_DETECTED:
+      {
+        String modeLabel = "";
+        if (attendanceMode == "in") modeLabel = "TIME IN";
+        else if (attendanceMode == "out") modeLabel = "TIME OUT";
+        else modeLabel = "SCAN SUCCESS";
+        line1 = modeLabel;
+        struct tm timeinfo;
+        if (getLocalTime(&timeinfo)) {
+          char timeStr[12];
+          strftime(timeStr, sizeof(timeStr), "%I:%M %p", &timeinfo);
+          line2 = String(timeStr);
+        } else {
+          line2 = "Processing...";
+        }
+      }
+      break;
+
+    case WAIT_REMOVE:
+      line1 = "PLEASE LIFT";
+      line2 = "YOUR FINGER";
+      break;
+
+    case AUTH_FAILED:
+      line1 = "SCAN FAILED";
+      line2 = "Try Again...";
+      break;
+  }
+
+  // Only update if text changed
+  if (line1 != lastLCDLine1 || line2 != lastLCDLine2) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print(line1);
+    lcd.setCursor(0, 1);
+    lcd.print(line2);
+    lastLCDLine1 = line1;
+    lastLCDLine2 = line2;
+  }
 }
 
 // ============= SYSTEM STATUS PRINT =============

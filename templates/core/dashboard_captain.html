@@ -11,13 +11,7 @@
         Admin</strong></span>
   </div>
   <div class="header-actions">
-    <button id="btn-biometric-attendance" class="btn btn-secondary mr-2">
-      <i class="fas fa-fingerprint"></i> Attendance Scan
-    </button>
-    <div id="attendance-status" class="d-inline-block mr-3"></div>
-    <a href="{% url 'certifications:issue' %}" class="btn btn-primary">
-      <i class="fas fa-plus"></i> Issue Certificate
-    </a>
+
   </div>
 </div>
 
@@ -74,13 +68,7 @@
 </div>
 
 <!-- Quick Actions -->
-<div class="role-banner role-captain">
-  <div class="role-banner-icon"><i class="fas fa-star"></i></div>
-  <div>
-    <strong>Full Administrative Access</strong>
-    <p>You have complete control over all barangay modules and records.</p>
-  </div>
-</div>
+
 
 <div class="charts-grid">
   <!-- Recent Certifications -->
@@ -201,84 +189,5 @@
   </div>
 </div>
 
-<script>
-  // Biometric Attendance Logic
-  const btnAttendance = document.getElementById('btn-biometric-attendance');
-  const attendanceStatus = document.getElementById('attendance-status');
 
-  function stopESP32HardwareScanning() {
-    const esp32BaseUrl = 'http://192.168.1.55';
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 1000);
-    
-    try {
-      fetch(`${esp32BaseUrl}/stop-enrollment`, {
-        method: 'POST',
-        signal: controller.signal,
-      })
-      .then(() => clearTimeout(timeoutId))
-      .catch(err => clearTimeout(timeoutId));
-    } catch (e) {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  if (btnAttendance) {
-    btnAttendance.addEventListener('click', function () {
-      btnAttendance.disabled = true;
-      btnAttendance.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Scanner...';
-
-      fetch("{% url 'core:biometric_verify_login_start' %}", {
-        credentials: 'include'
-      })
-        .then(async response => {
-          const data = await response.json();
-          if (response.ok) {
-            attendanceStatus.innerHTML = '<span class="badge badge-primary">Scanner Active - Place Finger</span>';
-            checkAttendanceStatus();
-          } else {
-            throw new Error(data.message);
-          }
-        })
-        .catch(error => {
-          stopESP32HardwareScanning();
-          btnAttendance.disabled = false;
-          btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
-          alert('Error: ' + error.message);
-        });
-    });
-  }
-
-  function checkAttendanceStatus() {
-    const pollInterval = setInterval(() => {
-      fetch("{% url 'core:biometric_status_check' %}", {
-        credentials: 'include'
-      })
-        .then(response => response.json())
-        .then(data => {
-          if (data.status === 'authenticated') {
-        clearInterval(pollInterval);
-        attendanceStatus.innerHTML = '<span class="badge badge-success">Attendance Recorded!</span>';
-        setTimeout(() => location.reload(), 2000);
-      } else if (data.status === 'failed') {
-        clearInterval(pollInterval);
-        stopESP32HardwareScanning();
-    btnAttendance.disabled = false;
-    btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
-    attendanceStatus.innerHTML = '<span class="badge badge-danger">Not Recognized</span>';
-  }
-        });
-    }, 2000);
-
-  setTimeout(() => {
-    clearInterval(pollInterval);
-    if (btnAttendance.disabled) {
-      stopESP32HardwareScanning();
-      btnAttendance.disabled = false;
-      btnAttendance.innerHTML = '<i class="fas fa-fingerprint mr-2"></i> Attendance Scan';
-      attendanceStatus.innerHTML = '';
-    }
-  }, 30000);
-  }
-</script>
 {% endblock %}
