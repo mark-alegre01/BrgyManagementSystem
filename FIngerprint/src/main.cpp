@@ -60,7 +60,7 @@ const int debounceDelay = 300;
 #define STANDBY_BLINK_INTERVAL 1000      // 1 second for standby (total cycle)
 #define ENROLLING_BLINK_INTERVAL 250     // 250ms for fast blinking (total cycle)
 #define DETECTION_PULSE_INTERVAL 300     // 300ms for green LED + buzzer sync
-#define DETECTION_PULSE_DURATION 3000    // Total time for detection pulse (3 seconds)
+#define DETECTION_PULSE_DURATION 1500    // Total time for detection pulse (1.5 seconds)
 #define FINGERPRINT_BAUD_RATE 57600      // R307 default baud rate
 
 #define BUZZER_LEDC_CHANNEL 3
@@ -772,8 +772,8 @@ void handleDetectionMode() {
   // Hold Green LED steady during the 1-second pulse
   setLeds(false, true, false);
   
-  // After 5 seconds: turn off LED, stop buzzer, transition state
-  if (elapsedTime >= 5000) {
+  // After 1.5 seconds: turn off LED, stop buzzer, transition state
+  if (elapsedTime >= 1500) {
     setLeds(false, false, false);
     ledcWriteTone(BUZZER_LEDC_CHANNEL, 0); // Ensure buzzer is off
     ledcWrite(BUZZER_LEDC_CHANNEL, 0);
@@ -848,6 +848,14 @@ void updateSystemState() {
       currentScan = 0;
       lastErrorMessage = "TIME IN selected";
       Serial.println("[BUTTON] TIME IN pressed");
+      // --- Buzzer: two short beeps (same as TIME OUT) ---
+      for (int i = 0; i < 2; i++) {
+        ledcWriteTone(BUZZER_LEDC_CHANNEL, 3000);
+        ledcWrite(BUZZER_LEDC_CHANNEL, 160);
+        delay(80);
+        ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+        if (i < 1) delay(80); // gap between beeps
+      }
     } else if (digitalRead(BUTTON_OUT_PIN) == LOW) {
       lastButtonPress = millis();
       attendanceMode = "out";
@@ -856,6 +864,14 @@ void updateSystemState() {
       currentScan = 0;
       lastErrorMessage = "TIME OUT selected";
       Serial.println("[BUTTON] TIME OUT pressed");
+      // --- Buzzer: two short beeps for TIME OUT ---
+      for (int i = 0; i < 2; i++) {
+        ledcWriteTone(BUZZER_LEDC_CHANNEL, 3000);
+        ledcWrite(BUZZER_LEDC_CHANNEL, 160);
+        delay(80);
+        ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+        if (i < 1) delay(80); // gap between beeps
+      }
     }
   }
 
@@ -953,8 +969,8 @@ void detectFingerprint() {
   }
   
   unsigned long currentTime = millis();
-  // Poll every 200ms - fast but stable
-  if (currentTime - lastImageGenTime < 200) {
+  // Poll every 150ms - balanced speed and stability
+  if (currentTime - lastImageGenTime < 150) {
     return;
   }
   lastImageGenTime = currentTime;
@@ -990,6 +1006,10 @@ void detectFingerprint() {
       } else {
         bufferId = (currentScan % 2 == 0) ? 1 : 2;
       }
+      // Small settling gap: sensor needs ~20-30ms after GenerateImage before
+      // accepting the next Img2Tz command, otherwise returns 0xFF (packet error).
+      delay(30);
+      while (fingerprintSerial.available()) fingerprintSerial.read();
       uint8_t res = r307Img2Tz(bufferId);
       if (res == 0x00) {
         if (currentScan + 1 >= MAX_SCANS) {
@@ -997,7 +1017,7 @@ void detectFingerprint() {
           Serial.println("[ENROLL] Final scan - running RegModel...");
           uint8_t regRes = r307RegModel();
           if (regRes == 0x00) {
-            delay(100); // Give sensor time to settle after Flash operation
+            delay(50); // Give sensor time to settle after RegModel
             
             // Remove stale templates: web "remove" may not erase the module, so search can
             // match an old page (e.g. ID 3) while enrolling page 0. Delete non-target matches
@@ -1015,7 +1035,7 @@ void detectFingerprint() {
               Serial.printf("[ENROLL] Dropping stale/conflicting page %u (enrolling %d)\n",
                             (unsigned)finalDupID, enrollmentSlotID);
               r307DeletePage(finalDupID);
-              delay(150);
+              delay(80);
             }
             uint8_t searchRes = r307Search(1, &finalDupID, &finalScore);
             if (searchRes == 0x00 && (int)finalDupID != enrollmentSlotID) {
@@ -1032,7 +1052,7 @@ void detectFingerprint() {
               triggerAuthFailed("Page index out of range (0-" + String((unsigned)(r307FingerprintCapacity - 1)) + ")");
               return;
             }
-            delay(300); // Let RegModel settle — helps avoid AS608 0x18 FLASHERR on Store
+            delay(100); // Let RegModel settle before Store
             uint8_t storeRes = r307StoreModel(enrollmentSlotID);
             if (storeRes == 0x00) {
               lastErrorMessage = "Enrolled successfully";
@@ -1074,6 +1094,9 @@ void detectFingerprint() {
       }
     } else if (currentState == VERIFYING) {
       server.handleClient();
+      // Settle before Img2Tz to avoid 0xFF packet receive error
+      delay(30);
+      while (fingerprintSerial.available()) fingerprintSerial.read();
       uint8_t i2 = r307Img2Tz(1);
       server.handleClient();
       if (i2 != 0x00) {
