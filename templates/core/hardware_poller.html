@@ -1,0 +1,107 @@
+  <script>
+  /* ============================================================
+     GLOBAL HARDWARE BUTTON ATTENDANCE POLLER
+     Runs on all pages — records time-in/out via push button
+     without requiring the user to be on the Attendance tab.
+  ============================================================ */
+  (function() {
+    'use strict';
+
+    /* ---- Standalone Toast (works even without app.js) ---- */
+    function hwToast(msg, type) {
+      let container = document.getElementById('_hw-toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = '_hw-toast-container';
+        container.style.cssText = [
+          'position:fixed', 'top:20px', 'right:20px', 'z-index:99999',
+          'display:flex', 'flex-direction:column', 'gap:10px', 'pointer-events:none'
+        ].join(';');
+        document.body.appendChild(container);
+      }
+
+      const colors = type === 'success'
+        ? { bg: '#ecfdf5', border: '#6ee7b7', icon: '✅', text: '#065f46' }
+        : { bg: '#fef2f2', border: '#fca5a5', icon: '❌', text: '#991b1b' };
+
+      const toast = document.createElement('div');
+      toast.style.cssText = [
+        `background:${colors.bg}`, `border:1.5px solid ${colors.border}`,
+        `color:${colors.text}`,
+        'border-radius:12px', 'padding:14px 18px',
+        'font-size:13px', 'font-weight:700',
+        'box-shadow:0 8px 24px rgba(0,0,0,0.12)',
+        'display:flex', 'align-items:center', 'gap:10px',
+        'pointer-events:auto', 'min-width:280px', 'max-width:360px',
+        'opacity:0', 'transform:translateX(20px)',
+        'transition:all 0.3s ease'
+      ].join(';');
+      toast.innerHTML = `<span style="font-size:18px">${colors.icon}</span><span>${msg}</span>`;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(0)';
+      });
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(20px)';
+        setTimeout(() => toast.remove(), 350);
+      }, 4000);
+    }
+
+    const STATUS_URL = '{% url "core:biometric_attendance_status_check" %}';
+    const VERIFY_URL = '{% url "attendance:api_biometric_verify" %}';
+    const CSRF_TOKEN = '{{ csrf_token }}';
+    let _lastProcessed = null;
+
+    function processAttendance(mode) {
+      const action = (mode && mode !== 'none' && mode !== 'attendance') ? mode : 'attendance';
+      fetch(VERIFY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        credentials: 'include',
+        body: JSON.stringify({ auto: true, action: action })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success') {
+          if (window.showNotification) {
+            window.showNotification(`✅ ${data.name} — ${data.action} recorded at ${data.time || ''}`, 'success');
+          } else {
+            hwToast(`${data.name} — ${data.action} recorded at ${data.time || ''}`, 'success');
+          }
+        } else {
+          if (window.showNotification) {
+            window.showNotification(data.message || 'Attendance could not be recorded.', 'error');
+          } else {
+            hwToast(data.message || 'Attendance could not be recorded.', 'error');
+          }
+        }
+      })
+      .catch(() => {});
+    }
+
+    function poll() {
+      fetch(STATUS_URL, { credentials: 'include' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.status === 'authenticated') {
+            const key = (data.fingerprint_id || '') + ':' + (data.attendance_mode || '');
+            if (key !== _lastProcessed) {
+              _lastProcessed = key;
+              processAttendance(data.attendance_mode);
+              setTimeout(() => { _lastProcessed = null; }, 5000);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
+    // Don't poll twice on the dedicated biometric page
+    if (!window.location.pathname.includes('/attendance/biometric-attendance/')) {
+      setInterval(poll, 2000);
+    }
+  })();
+  </script>
