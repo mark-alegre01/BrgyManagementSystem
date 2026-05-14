@@ -381,6 +381,72 @@
     });
   </script>
   {% block extra_js %}{% endblock %}
+
+  {% if user.is_authenticated %}
+  {# ============================================================== #}
+  {# GLOBAL HARDWARE BUTTON ATTENDANCE POLLER                        #}
+  {# Runs on every page so time-in/out is recorded regardless of     #}
+  {# which sidebar tab is active. Silently polls every 2s.           #}
+  {# ============================================================== #}
+  <script>
+  (function() {
+    'use strict';
+    const STATUS_URL  = '{% url "core:biometric_attendance_status_check" %}';
+    const VERIFY_URL  = '{% url "attendance:api_biometric_verify" %}';
+    const CSRF_TOKEN  = '{{ csrf_token }}';
+
+    let _lastProcessed = null; // deduplicate same fingerprint event
+
+    function processAttendance(attendanceMode) {
+      const mode = (attendanceMode && attendanceMode !== 'none' && attendanceMode !== 'attendance')
+                   ? attendanceMode : 'attendance';
+
+      fetch(VERIFY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+        credentials: 'include',
+        body: JSON.stringify({ auto: true, action: mode })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success' && window.showNotification) {
+          window.showNotification(
+            `\u2705 ${data.name} — ${data.action} recorded at ${data.time || ''}`,
+            'success'
+          );
+        } else if (data.status !== 'success' && window.showNotification) {
+          window.showNotification(data.message || 'Attendance could not be recorded.', 'error');
+        }
+      })
+      .catch(() => {});
+    }
+
+    function pollHardwareStatus() {
+      fetch(STATUS_URL, { credentials: 'include' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.status === 'authenticated') {
+            // Use a timestamp key to avoid processing the same scan twice
+            const key = (data.fingerprint_id || '') + ':' + (data.attendance_mode || '');
+            if (key !== _lastProcessed) {
+              _lastProcessed = key;
+              processAttendance(data.attendance_mode);
+              // Reset dedup key after 5s so next scan of same person works
+              setTimeout(() => { _lastProcessed = null; }, 5000);
+            }
+          }
+        })
+        .catch(() => {}); // Silent — don't log on every poll
+    }
+
+    // Only run on pages that are NOT the biometric attendance page itself
+    // (that page has its own, more detailed poller)
+    if (!window.location.pathname.includes('/attendance/biometric-attendance/')) {
+      setInterval(pollHardwareStatus, 2000);
+    }
+  })();
+  </script>
+  {% endif %}
 </body>
 
 </html>
