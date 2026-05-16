@@ -7,208 +7,228 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-header">
+<style>
+    /* Compact Table Styles */
+    .compact-table {
+        font-size: 0.85rem;
+    }
+    .compact-table th {
+        padding: 10px 12px;
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .compact-table td {
+        padding: 8px 12px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .compact-table tr:hover {
+        background-color: #f8fafc;
+    }
+
+    /* Refined Filter Bar */
+    .filter-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        background: #fff;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+    }
+    .filter-group {
+        display: flex;
+        gap: 8px;
+        flex: 1;
+    }
+    .search-wrapper {
+        position: relative;
+        flex: 1;
+        max-width: 400px;
+    }
+    .search-wrapper i {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #94a3b8;
+        font-size: 0.85rem;
+    }
+    .search-input-compact {
+        width: 100%;
+        padding: 8px 12px 8px 32px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+    .search-input-compact:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(45, 122, 80, 0.1);
+        outline: none;
+    }
+    .filter-select-compact {
+        padding: 8px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        min-width: 160px;
+        cursor: pointer;
+    }
+
+    .btn-icon-sm {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: all 0.2s;
+        border: none;
+        cursor: pointer;
+        font-size: 0.85rem;
+    }
+    .btn-icon-view { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+    .btn-icon-view:hover, .btn-icon-view:focus, .btn-icon-view:active { background: #3b82f6; color: #fff; outline: none; }
+    .btn-icon-print { background: rgba(100, 116, 139, 0.1); color: #64748b; }
+    .btn-icon-print:hover, .btn-icon-print:focus, .btn-icon-print:active { background: #64748b; color: #fff; outline: none; }
+    .btn-icon-cert { background: rgba(45, 122, 80, 0.1); color: #2d7a50; }
+    .btn-icon-cert:hover, .btn-icon-cert:focus, .btn-icon-cert:active { background: #2d7a50; color: #fff; outline: none; }
+    .btn-icon-delete { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    .btn-icon-delete:hover, .btn-icon-delete:focus, .btn-icon-delete:active { background: #ef4444; color: #fff; outline: none; }
+
+    {% if is_resident_view %}
+    /* Resident Card Layout - already quite clean, but let's tighten it slightly */
+    .certificates-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+        margin-top: 16px;
+    }
+    .cert-card {
+        background: #fff;
+        border-radius: 12px;
+        padding: 18px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.3s ease;
+    }
+    {% endif %}
+</style>
+
+<div class="page-header" style="margin-bottom: 16px;">
     <div class="page-title">
-        <h1><i class="fas fa-certificate"></i> Document Certifications</h1>
-        <span>Manage and issue barangay clearances and certificates</span>
+        <h1 style="font-size: 1.25rem;"><i class="fas fa-certificate" style="margin-right: 8px;"></i> Document Certifications</h1>
+        <span style="font-size: 0.85rem;">Manage and issue barangay clearances and certificates</span>
     </div>
     <div class="header-actions">
         {% if user_role != 'resident' %}
-        <a href="{% url 'certifications:issue' %}" class="btn btn-primary">
-            <i class="fas fa-file-signature"></i> Issue New Certificate
+        <a href="{% url 'certifications:issue' %}" class="btn btn-primary btn-sm">
+            <i class="fas fa-file-signature"></i> Issue New
         </a>
         {% endif %}
     </div>
 </div>
 
 {% if is_resident_view %}
-<style>
-    .certificates-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 24px;
-        margin-top: 24px;
-    }
-
-    .cert-card {
-        background: #fff;
-        border-radius: 16px;
-        padding: 24px;
-        border: 1px solid #e2e8f0;
-        transition: all 0.3s ease;
-        display: flex;
-        flex-direction: column;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .cert-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
-        border-color: #2d7a50;
-    }
-
-    .cert-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 4px;
-        background: #2d7a50;
-    }
-
-    .cert-type-icon {
-        width: 48px;
-        height: 48px;
-        background: rgba(45, 122, 80, 0.1);
-        color: #2d7a50;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 20px;
-        margin-bottom: 16px;
-    }
-
-    .cert-card h3 {
-        font-size: 18px;
-        font-weight: 700;
-        margin-bottom: 8px;
-        color: #1e293b;
-    }
-
-    .cert-control {
-        font-family: monospace;
-        font-size: 13px;
-        color: #64748b;
-        margin-bottom: 16px;
-    }
-
-    .cert-footer {
-        margin-top: auto;
-        padding-top: 16px;
-        border-top: 1px solid #f1f5f9;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .cert-date {
-        font-size: 12px;
-        color: #94a3b8;
-    }
-</style>
-
 <div class="certificates-grid">
     {% for cert in certificates %}
     <div class="cert-card">
-        <div class="cert-type-icon">
-            <i class="fas fa-certificate"></i>
-        </div>
-        <h3>{{ cert.get_cert_type_display }}</h3>
-        <div class="cert-control">Control No: {{ cert.control_number }}</div>
-
-        <div style="margin-bottom: 20px;">
-            <div style="font-size: 13px; color: #475569; margin-bottom: 4px;">Purpose:</div>
-            <div style="font-size: 14px; color: #1e293b; line-height: 1.4;">{{ cert.purpose|truncatechars:60 }}</div>
-        </div>
-
-        <div class="cert-footer">
-            <span class="cert-date">{{ cert.date_issued|date:"M d, Y" }}</span>
-            <div class="btn-group">
-                <a href="{% url 'certifications:virtual_certificate' cert.pk %}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-eye"></i> View Virtual
-                </a>
-                <a href="{% url 'certifications:pdf' cert.pk %}" class="btn btn-outline btn-sm" target="_blank">
-                    <i class="fas fa-download"></i> PDF
-                </a>
+        <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:12px;">
+            <div style="width:36px; height:36px; background:rgba(45,122,80,0.1); color:#2d7a50; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px;">
+                <i class="fas fa-certificate"></i>
             </div>
+            <span style="font-size:11px; color:#94a3b8; font-weight:600;">{{ cert.date_issued|date:"M d, Y" }}</span>
+        </div>
+        <h3 style="font-size:16px; font-weight:700; margin-bottom:4px; color:#1e293b;">{{ cert.get_cert_type_display }}</h3>
+        <div style="font-family:monospace; font-size:12px; color:#64748b; margin-bottom:12px;">{{ cert.control_number }}</div>
+        
+        <div style="font-size: 13px; color: #64748b; margin-bottom: 16px; line-height: 1.4;">
+            {{ cert.purpose|truncatechars:100 }}
+        </div>
+
+        <div style="display:flex; gap:8px; padding-top:12px; border-top:1px solid #f1f5f9;">
+            <a href="{% url 'certifications:virtual_certificate' cert.pk %}" class="btn btn-primary btn-sm" style="flex:1; justify-content:center;">
+                <i class="fas fa-eye"></i> View
+            </a>
+            <a href="{% url 'certifications:pdf' cert.pk %}" class="btn btn-outline btn-sm" target="_blank" style="padding:6px 10px;">
+                <i class="fas fa-download"></i>
+            </a>
         </div>
     </div>
     {% empty %}
-    <div class="col-span-full" style="padding: 60px; text-align: center; background: #fff; border-radius: 16px;">
-        <i class="fas fa-folder-open" style="font-size: 48px; color: #cbd5e1; margin-bottom: 16px;"></i>
-        <h3>No certificates found</h3>
-        <p style="color: #64748b;">You haven't been issued any certificates yet.</p>
+    <div style="grid-column:1/-1; padding:40px; text-align:center; background:#fff; border-radius:12px; border:1px dashed #cbd5e1;">
+        <i class="fas fa-folder-open" style="font-size:32px; color:#cbd5e1; margin-bottom:12px;"></i>
+        <h3 style="font-size:16px;">No certificates found</h3>
+        <p style="color:#64748b; font-size:14px;">You haven't been issued any certificates yet.</p>
     </div>
     {% endfor %}
 </div>
 
 {% else %}
 
-<div class="card">
-    <div class="card-header filter-card-header">
-        <form method="GET" class="filter-form">
-            <div class="filter-inputs-group">
-                <div class="search-input-wrapper">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text" name="q" value="{{ query }}" placeholder="Search control no. or name..."
-                        class="form-control search-input">
-                    {% if query %}
-                    <a href="{% url 'certifications:list' %}" class="search-clear" title="Clear search">
-                        <i class="fas fa-times-circle"></i>
-                    </a>
-                    {% endif %}
-                </div>
+<div class="filter-bar">
+    <form method="GET" class="filter-group">
+        <div class="search-wrapper">
+            <i class="fas fa-search"></i>
+            <input type="text" name="q" value="{{ query }}" placeholder="Search by name or control no..." class="search-input-compact">
+        </div>
+        <select name="type" class="filter-select-compact" onchange="this.form.submit()">
+            <option value="">All Document Types</option>
+            {% for code, label in cert_types %}
+            <option value="{{ code }}" {% if code == selected_type %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary btn-sm" style="padding: 0 16px;">Search</button>
+        {% if query or selected_type %}
+        <a href="{% url 'certifications:list' %}" class="btn btn-outline btn-sm" title="Clear filters">Clear</a>
+        {% endif %}
+    </form>
+</div>
 
-                <div class="filter-select-wrapper">
-                    <i class="fas fa-filter filter-icon"></i>
-                    <select name="type" class="form-control filter-select">
-                        <option value="">All Types</option>
-                        {% for code, label in cert_types %}
-                        <option value="{{ code }}" {% if code == selected_type %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary search-btn">
-                <i class="fas fa-search"></i> <span>Search</span>
-            </button>
-        </form>
-    </div>
+<div class="card" style="padding:0; border-radius:12px; overflow:hidden;">
     <div class="table-responsive">
-        <table>
+        <table class="compact-table">
             <thead>
                 <tr>
-                    <th>Control Number</th>
+                    <th>Control No.</th>
                     <th>Resident</th>
-                    <th>Type</th>
+                    <th>Document Type</th>
                     <th>Date Issued</th>
                     <th>OR Number</th>
-                    <th>Amount</th>
-                    <th>Actions</th>
+                    <th class="text-end">Amount</th>
+                    <th class="text-center" style="width: 150px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for cert in certificates %}
                 <tr>
-                    <td><strong>{{ cert.control_number }}</strong></td>
+                    <td><span style="font-weight:700; color:#1e293b;">{{ cert.control_number }}</span></td>
                     <td>{{ cert.resident.full_name }}</td>
                     <td>{{ cert.get_cert_type_display }}</td>
                     <td>{{ cert.date_issued|date:"M d, Y" }}</td>
-                    <td>{{ cert.or_number|default:"-" }}</td>
-                    <td>Php{{ cert.amount_paid }}</td>
+                    <td><code style="font-size:0.8rem;">{{ cert.or_number|default:"--" }}</code></td>
+                    <td class="text-end">₱{{ cert.amount_paid|default:"0.00" }}</td>
                     <td>
-                        <div class="btn-group">
-                            <a href="{% url 'certifications:view' cert.pk %}" class="btn-icon btn-view" title="View">
+                        <div style="display:flex; gap:6px; justify-content:center;">
+                            <a href="{% url 'certifications:view' cert.pk %}" class="btn-icon-sm btn-icon-view" title="View Details">
                                 <i class="fas fa-eye"></i>
                             </a>
-                            <a href="{% url 'certifications:pdf' cert.pk %}" target="_blank" class="btn-icon btn-print"
-                                title="Print/PDF">
-                                <i class="fas fa-print"></i>
+                            <a href="{% url 'certifications:pdf' cert.pk %}" target="_blank" class="btn-icon-sm btn-icon-print" title="Download PDF">
+                                <i class="fas fa-file-pdf"></i>
                             </a>
-                            <a href="{% url 'certifications:virtual_certificate' cert.pk %}" class="btn-icon"
-                                title="Virtual View"
-                                style="color:var(--primary); background:rgba(45,122,80,0.1); border-radius:4px; padding:4px;">
+                            <a href="{% url 'certifications:virtual_certificate' cert.pk %}" class="btn-icon-sm btn-icon-cert" title="Virtual View">
                                 <i class="fas fa-certificate"></i>
                             </a>
                             {% if user_role != 'resident' %}
-                            <form method="POST" action="{% url 'certifications:delete' cert.pk %}"
-                                onsubmit="return confirm('Delete {{ cert.control_number }}? This cannot be undone.');">
+                            <form method="POST" action="{% url 'certifications:delete' cert.pk %}" onsubmit="return confirm('Delete {{ cert.control_number }}?');" style="display:inline;">
                                 {% csrf_token %}
-                                <button type="submit" class="btn-icon btn-delete" title="Delete">
+                                <button type="submit" class="btn-icon-sm btn-icon-delete" title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </form>
@@ -218,13 +238,88 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="7" class="text-center">No certificates found.</td>
+                    <td colspan="7" class="text-center" style="padding:30px; color:#64748b;">No documents found matching your criteria.</td>
                 </tr>
                 {% endfor %}
+                <!-- Dynamic No Results Row -->
+                <tr id="no-results-row" style="display: none;">
+                    <td colspan="7" class="text-center" style="padding: 40px; color: #94a3b8;">
+                        <i class="fas fa-search" style="font-size: 24px; display: block; margin-bottom: 10px; opacity: 0.5;"></i>
+                        <span>No matching documents found on this page.</span>
+                    </td>
+                </tr>
             </tbody>
         </table>
     </div>
 </div>
+
+<!-- Dynamic No Results Card -->
+<div id="no-results-card" style="display: none; padding: 40px; text-align: center; background: #fff; border-radius: 12px; border: 1px dashed #cbd5e1; margin-top: 16px;">
+    <i class="fas fa-search" style="font-size: 32px; color: #cbd5e1; margin-bottom: 12px;"></i>
+    <h3 style="font-size: 16px; color: #1e293b;">No matches found</h3>
+    <p style="color: #64748b; font-size: 14px;">Try a different keyword or control number.</p>
+</div>
+
+{% if certificates.has_other_pages %}
+<div style="display:flex; justify-content:center; gap:8px; margin-top:16px;">
+    {% if certificates.has_previous %}
+    <a href="?q={{ query }}&type={{ selected_type }}&page={{ certificates.previous_page_number }}" class="btn btn-outline btn-sm">Prev</a>
+    {% endif %}
+    <span style="padding:6px 12px; font-size:0.85rem; color:#64748b;">Page {{ certificates.number }} of {{ certificates.paginator.num_pages }}</span>
+    {% if certificates.has_next %}
+    <a href="?q={{ query }}&type={{ selected_type }}&page={{ certificates.next_page_number }}" class="btn btn-outline btn-sm">Next</a>
+    {% endif %}
+</div>
 {% endif %}
 
+{% endif %}
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.querySelector('.search-input-compact');
+        if (!searchInput) return;
+
+        searchInput.addEventListener('input', function() {
+            const filter = this.value.toUpperCase();
+            let visibleCount = 0;
+            
+            // 1. Filter Table Rows (Admin/Staff View)
+            const tableRows = document.querySelectorAll('.compact-table tbody tr:not(#no-results-row)');
+            if (tableRows.length > 0) {
+                tableRows.forEach(row => {
+                    // Skip the "No documents found" row (from Django empty tag)
+                    if (row.cells.length === 1 && row.cells[0].colSpan > 1) return;
+                    
+                    const text = row.innerText.toUpperCase();
+                    const isMatch = text.indexOf(filter) > -1;
+                    row.style.display = isMatch ? "" : "none";
+                    if (isMatch) visibleCount++;
+                });
+                
+                const noResultsRow = document.getElementById('no-results-row');
+                if (noResultsRow) {
+                    noResultsRow.style.display = (visibleCount === 0 && filter !== "") ? "" : "none";
+                }
+            }
+
+            // 2. Filter Cards (Resident View)
+            const cards = document.querySelectorAll('.cert-card');
+            if (cards.length > 0) {
+                visibleCount = 0;
+                cards.forEach(card => {
+                    const text = card.innerText.toUpperCase();
+                    const isMatch = text.indexOf(filter) > -1;
+                    card.style.display = isMatch ? "" : "none";
+                    if (isMatch) visibleCount++;
+                });
+
+                const noResultsCard = document.getElementById('no-results-card');
+                if (noResultsCard) {
+                    noResultsCard.style.display = (visibleCount === 0 && filter !== "") ? "" : "none";
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
 {% endblock %}

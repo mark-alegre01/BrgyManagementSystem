@@ -45,13 +45,7 @@
           </div>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group col-12">
-          <label>Full Address*</label>
-          <textarea name="address" class="form-control" rows="3" required
-            placeholder="Enter complete address">{{ household.address }}</textarea>
-        </div>
-      </div>
+      <input type="hidden" name="address" value="{{ household.address|default:'Barangay Sico-sico, Gigaquit, Surigao Del Norte' }}">
     </div>
 
     <div class="form-footer">

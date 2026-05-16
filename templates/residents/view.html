@@ -81,6 +81,28 @@
             <span class="text-primary" style="font-family: monospace; font-size: 1.1em;">{{ resident.user_profile.user.username }}</span>
           </div>
           <div class="detail-item">
+            <label>System Password</label>
+            <div style="display: flex; gap: 10px; align-items: center; margin-top: 2px;">
+              <div style="position: relative; display: flex; align-items: center;">
+                <span class="text-muted" id="passwordMask" style="font-family: monospace; font-size: 1.1em; letter-spacing: 2px;">••••••••</span>
+                <i class="fas fa-eye" style="margin-left: 8px; font-size: 12px; color: var(--text-muted); cursor: help;" title="Password is encrypted for security"></i>
+              </div>
+              
+              {% if request.user == resident.user_profile.user %}
+              <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#changePasswordModal" style="padding: 2px 8px; font-size: 12px; border-radius: 4px; border: 1px solid var(--primary); background: transparent; cursor: pointer;">
+                Change
+              </button>
+              {% elif request.user.is_superuser or request.user.profile.role != 'resident' %}
+              <form method="POST" action="{% url 'residents:reset_password' resident.pk %}" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-warning" onclick="return confirm('Are you sure you want to reset this resident\'s password to a temporary one?')" style="padding: 2px 8px; font-size: 12px; border-radius: 4px; border: 1px solid #ffc107; background: transparent; cursor: pointer; color: #856404; font-weight: 600;">
+                  Reset
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+          <div class="detail-item">
             <label>System Role</label>
             <span class="badge badge-info">{{ resident.user_profile.user.get_role_display }}</span>
           </div>
@@ -191,6 +213,54 @@
     </div>
   </div>
 </div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 1.5rem;">
+      <div class="modal-header border-0 pt-4 px-4">
+        <h5 class="modal-title font-weight-bold">Change System Password</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form method="POST" action="{% url 'residents:change_password' resident.pk %}">
+        {% csrf_token %}
+        <div class="modal-body px-4 pb-4">
+          <div class="form-group mb-4">
+            <label class="text-muted small font-weight-bold text-uppercase">New Password</label>
+            <div style="position: relative;">
+              <input type="password" name="new_password" id="newPasswordInput" class="form-control py-3" placeholder="Enter new password" style="border-radius: 0.75rem; padding-right: 45px;" required minlength="8">
+              <button type="button" onclick="togglePasswordVisibility()" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted); cursor: pointer;">
+                <i class="fas fa-eye" id="toggleIcon"></i>
+              </button>
+            </div>
+            <small class="form-text text-muted mt-2">Password must be at least 8 characters long.</small>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block py-3 font-weight-bold" style="border-radius: 1rem;">
+            Update Password
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function togglePasswordVisibility() {
+    const input = document.getElementById('newPasswordInput');
+    const icon = document.getElementById('toggleIcon');
+    if (input.type === 'password') {
+      input.type = 'text';
+      icon.classList.remove('fa-eye');
+      icon.classList.add('fa-eye-slash');
+    } else {
+      input.type = 'password';
+      icon.classList.remove('fa-eye-slash');
+      icon.classList.add('fa-eye');
+    }
+  }
+</script>
 
 <style>
   .profile-grid {

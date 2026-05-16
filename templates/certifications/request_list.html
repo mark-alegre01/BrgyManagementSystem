@@ -3,7 +3,7 @@
 {% block title %}Certificate Requests{% endblock %}
 
 {% block breadcrumb %}
-<span><i class="fas fa-home"></i> / <a href="{% url 'certifications:list' %}">Certifications</a> / Requests</span>
+<span>Brgy. Sico Sico Management System / Certifications / Requests</span>
 {% endblock %}
 
 {% block content %}
@@ -21,89 +21,127 @@
 {% endif %}
 
 <!-- Status Tabs -->
-<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
     <a href="?status=pending"
-        class="btn {% if status_filter == 'pending' %}btn-primary{% else %}btn-outline{% endif %}">
+        class="btn btn-sm {% if status_filter == 'pending' %}btn-primary{% else %}btn-outline{% endif %}">
         ⏳ Pending
         {% if pending_count > 0 %}<span
-            style="background:#ef4444;color:#fff;border-radius:20px;padding:1px 8px;font-size:.75rem;margin-left:4px;">{{
-            pending_count }}</span>{% endif %}
+            style="background:#ef4444;color:#fff;border-radius:20px;padding:0 6px;font-size:.7rem;margin-left:4px;font-weight:700;">{{ pending_count }}</span>{% endif %}
     </a>
 
-    <a href="?status=issued" class="btn {% if status_filter == 'issued' %}btn-primary{% else %}btn-outline{% endif %}">✅
+    <a href="?status=issued" class="btn btn-sm {% if status_filter == 'issued' %}btn-primary{% else %}btn-outline{% endif %}">✅
         Issued</a>
     <a href="?status=rejected"
-        class="btn {% if status_filter == 'rejected' %}btn-primary{% else %}btn-outline{% endif %}">❌ Rejected</a>
-    <a href="?status=" class="btn {% if not status_filter %}btn-primary{% else %}btn-outline{% endif %}">All</a>
+        class="btn btn-sm {% if status_filter == 'rejected' %}btn-primary{% else %}btn-outline{% endif %}">❌ Rejected</a>
+    <a href="?status=" class="btn btn-sm {% if not status_filter %}btn-primary{% else %}btn-outline{% endif %}">All</a>
 </div>
 
-<div class="card">
+<style>
+    .compact-table {
+        font-size: 0.85rem;
+    }
+    .compact-table th {
+        padding: 10px 12px;
+        background: #f8fafc;
+        color: #475569;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .compact-table td {
+        padding: 8px 12px;
+        vertical-align: middle;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .btn-icon-sm {
+        width: 32px;
+        height: 32px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        transition: all 0.2s;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+    }
+    .btn-icon-view { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+    .btn-icon-view:hover, .btn-icon-view:focus, .btn-icon-view:active { background: #3b82f6; color: #fff; outline: none; }
+    
+    .btn-icon-approve { background: rgba(45, 122, 80, 0.1); color: #2d7a50; }
+    .btn-icon-approve:hover, .btn-icon-approve:focus, .btn-icon-approve:active { background: #2d7a50; color: #fff; outline: none; }
+    
+    .btn-icon-reject { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    .btn-icon-reject:hover, .btn-icon-reject:focus, .btn-icon-reject:active { background: #ef4444; color: #fff; outline: none; }
+
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        display: inline-block;
+    }
+    .badge-pending { background: #fef9c3; color: #854d0e; }
+    .badge-issued { background: #dcfce7; color: #166534; }
+    .badge-cancelled { background: #fee2e2; color: #991b1b; }
+</style>
+
+<div class="card" style="padding:0; border-radius:12px; overflow:hidden;">
     <div class="table-responsive">
-        <table>
+        <table class="compact-table">
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Resident</th>
+                    <th>Resident Name</th>
                     <th>Certificate Type</th>
                     <th>Purpose</th>
-                    <th>Requested</th>
+                    <th>Date Requested</th>
                     <th>Status</th>
-                    <th>Processed By</th>
-                    <th>Actions</th>
+                    <th class="text-center">Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for req in requests %}
                 <tr>
-                    <td style="font-weight:600;color:var(--text-muted,#64748b);">{{ req.pk }}</td>
-                    <td>
-                        <div style="font-weight:600;">{{ req.resident.full_name }}</div>
-                        <div style="font-size:.8rem;color:var(--text-muted,#64748b);">Purok {{
-                            req.resident.purok|default:"—" }}</div>
-                    </td>
+                    <td>{{ forloop.counter }}</td>
+                    <td><span style="font-weight:600;">{{ req.resident.full_name }}</span></td>
                     <td>{{ req.get_cert_type_display }}</td>
-                    <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
-                        title="{{ req.purpose }}">{{ req.purpose }}</td>
-                    <td>{{ req.requested_at|date:"M d, Y g:i A" }}</td>
+                    <td>{{ req.purpose|truncatechars:50 }}</td>
+                    <td>{{ req.created_at|date:"M d, Y" }}</td>
                     <td>
                         {% if req.status == 'pending' %}
-                        <span class="badge badge-warning">Pending</span>
+                        <span class="status-badge badge-pending">Pending</span>
                         {% elif req.status == 'issued' %}
-                        <span class="badge badge-success">Issued</span>
-                        {% else %}
-                        <span class="badge badge-danger">Rejected</span>
-                        {% endif %}
-                    </td>
-                    <td style="font-size:.85rem;">
-                        {% if req.processed_by %}
-                        {{ req.processed_by.get_full_name|default:req.processed_by.username }}<br>
-                        <span style="color:var(--text-muted,#64748b);">{{ req.processed_at|date:"M d, Y" }}</span>
+                        <span class="status-badge badge-issued">Issued</span>
+                        {% elif req.status == 'rejected' %}
+                        <span class="status-badge badge-cancelled">Rejected</span>
                         {% else %}—{% endif %}
                     </td>
                     <td>
-                        {% if req.status == 'pending' %}
-                        <div class="btn-group">
-                            <a href="{% url 'certifications:fulfill_request' req.pk %}" class="btn btn-sm btn-primary"
-                                title="Issue Certificate">
-                                <i class="fas fa-check-circle"></i> Issue
+                        <div style="display:flex; gap:6px; justify-content:center;">
+                            {% if req.status == 'pending' %}
+                            <a href="{% url 'certifications:fulfill_request' req.pk %}" class="btn-icon-sm btn-icon-view" title="View & Process">
+                                <i class="fas fa-eye"></i>
                             </a>
-                            <!-- Reject modal trigger -->
-                            <button type="button" class="btn btn-sm btn-outline"
-                                style="color:#dc2626;border-color:#dc2626;" onclick="openRejectModal({{ req.pk }})"
-                                title="Reject Request">
-                                <i class="fas fa-times-circle"></i> Reject
+                            <a href="{% url 'certifications:fulfill_request' req.pk %}" class="btn-icon-sm btn-icon-approve" title="Issue Now">
+                                <i class="fas fa-check-circle"></i>
+                            </a>
+                            <button type="button" class="btn-icon-sm btn-icon-reject" onclick="openRejectModal({{ req.pk }})" title="Reject">
+                                <i class="fas fa-times-circle"></i>
                             </button>
+                            {% elif req.status == 'issued' and req.certificate %}
+                            <a href="{% url 'certifications:view' req.certificate.pk %}" class="btn-icon-sm btn-icon-view" title="View Certificate">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            {% else %}—{% endif %}
                         </div>
-                        {% elif req.status == 'issued' and req.certificate %}
-                        <a href="{% url 'certifications:view' req.certificate.pk %}" class="btn btn-sm btn-outline">
-                            <i class="fas fa-eye"></i> View Cert
-                        </a>
-                        {% else %}—{% endif %}
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="8" class="text-center" style="padding:36px 0;color:var(--text-muted,#64748b);">
+                    <td colspan="7" class="text-center" style="padding:36px 0;color:var(--text-muted,#64748b);">
                         <i class="fas fa-inbox"
                             style="font-size:2rem;display:block;margin-bottom:10px;opacity:.35;"></i>
                         No {{ status_filter|default:"" }} requests found.

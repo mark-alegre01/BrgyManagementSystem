@@ -72,6 +72,10 @@
           } else {
             hwToast(`${data.name} — ${data.action} recorded at ${data.time || ''}`, 'success');
           }
+          // Auto-reload to show new data
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
         } else {
           if (window.showNotification) {
             window.showNotification(data.message || 'Attendance could not be recorded.', 'error');

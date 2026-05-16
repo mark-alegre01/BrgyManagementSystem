@@ -134,7 +134,7 @@ def certificate_list(request):
             Q(resident__last_name__icontains=query)
         )
     if cert_type:
-        certs = certs.filter(cert_type=cert_type)
+        certs = certs.filter(certificate_request__cert_type=cert_type)
     if date_from:
         certs = certs.filter(date_issued__gte=date_from)
     if date_to:
@@ -151,7 +151,7 @@ def certificate_list(request):
         try:
             own_resident = request.user.profile.resident
             if own_resident:
-                certs = Certificate.objects.filter(resident=own_resident).select_related('resident', 'issued_by')
+                certs = certs.filter(resident=own_resident)
             else:
                 certs = Certificate.objects.none()
         except Exception:
@@ -162,8 +162,8 @@ def certificate_list(request):
         certs = paginator.get_page(page)
         return render(request, 'certifications/list.html', {
             'certificates': certs,
-            'query': '',
-            'selected_type': '',
+            'query': query,
+            'selected_type': cert_type,
             'cert_types': Certificate.TYPE_CHOICES,
             'is_resident_view': True,
         })
@@ -247,6 +247,38 @@ def certificate_issue(request):
             cert.mother_name = request.POST.get('mother_name', '')
 
         cert.save()
+
+        # Capture OR Number and Amount Paid for manual issuance
+        or_number = request.POST.get('or_number')
+        amount_paid = to_decimal(request.POST.get('amount_paid', 0))
+
+        if or_number:
+            from payments.models import Payment, OfficialReceipt
+            
+            # Create a Payment record linked to the request (which is linked to the certificate)
+            payment = Payment.objects.create(
+                amount=amount_paid,
+                status='paid',
+                method='cash'
+            )
+            cert_req.payment = payment
+            cert_req.save()
+            
+            # Create the OfficialReceipt
+            existing_receipt = OfficialReceipt.objects.filter(or_number=or_number).first()
+            if existing_receipt:
+                payment.official_receipt = existing_receipt
+                payment.save()
+            else:
+                receipt = OfficialReceipt.objects.create(
+                    or_number=or_number,
+                    resident=resident,
+                    amount=amount_paid,
+                    particulars=f"{cert.get_cert_type_display()} - {cert_req.purpose}",
+                    issued_by=request.user
+                )
+                payment.official_receipt = receipt
+                payment.save()
 
         # Mark request as issued
         cert_req.status = 'issued'
@@ -530,15 +562,35 @@ def fulfill_request(request, pk):
 
         control_number = request.POST.get('control_number') or generate_control_number(cert_request.cert_type)
 
+        # Update cert_request with potentially modified details from sender
+        cert_request.purpose = request.POST.get('purpose', cert_request.purpose)
+        cert_request.business_name = request.POST.get('business_name', cert_request.business_name)
+        cert_request.business_address = request.POST.get('business_address', cert_request.business_address)
+        cert_request.business_type = request.POST.get('business_type', cert_request.business_type)
+        
+        if cert_request.cert_type == 'late_registration':
+            cert_request.child_name = request.POST.get('child_name', cert_request.child_name)
+            cert_request.child_birth_date = request.POST.get('child_birth_date') or cert_request.child_birth_date
+            cert_request.child_birth_place = request.POST.get('child_birth_place', cert_request.child_birth_place)
+            cert_request.father_name = request.POST.get('father_name', cert_request.father_name)
+            cert_request.mother_name = request.POST.get('mother_name', cert_request.mother_name)
+        
+        cert_request.save()
+
         cert = Certificate.objects.create(
             control_number=control_number,
             resident=cert_request.resident,
             certificate_request=cert_request,
             issued_by=request.user,
             status='issued',
-            business_name=request.POST.get('business_name', cert_request.business_name),
-            business_address=request.POST.get('business_address', cert_request.business_address),
-            business_type=request.POST.get('business_type', cert_request.business_type),
+            business_name=cert_request.business_name,
+            business_address=cert_request.business_address,
+            business_type=cert_request.business_type,
+            child_name=cert_request.child_name,
+            child_birth_date=cert_request.child_birth_date,
+            child_birth_place=cert_request.child_birth_place,
+            father_name=cert_request.father_name,
+            mother_name=cert_request.mother_name,
         )
 
         if cert.cert_type == 'cedula':
@@ -556,17 +608,61 @@ def fulfill_request(request, pk):
                 raw_taxable_income=to_decimal(request.POST.get('raw_taxable_income', 0)),
             )
 
+        # Capture OR Number and Amount Paid
+        or_number = request.POST.get('or_number')
+        amount_paid = to_decimal(request.POST.get('amount_paid', 0))
+        is_exempt = request.POST.get('is_exempt') == 'on'
+        
+        # Determine status and method based on exemption
+        payment_status = 'waived' if is_exempt else 'paid'
+        payment_method = 'waived' if is_exempt else 'cash'
+
+        if or_number:
+            from payments.models import Payment, OfficialReceipt
+            
+            # 1. Ensure Payment exists
+            if not hasattr(cert_request, 'payment') or not cert_request.payment:
+                payment = Payment.objects.create(
+                    amount=amount_paid,
+                    status=payment_status,
+                    method=payment_method
+                )
+                cert_request.payment = payment
+                cert_request.save()
+            else:
+                payment = cert_request.payment
+                payment.amount = amount_paid
+                payment.status = payment_status
+                payment.method = payment_method
+                payment.save()
+            
+            # 2. Ensure OfficialReceipt exists
+            if not payment.official_receipt:
+                # Check if OR number already exists to avoid unique constraint error
+                existing_receipt = OfficialReceipt.objects.filter(or_number=or_number).first()
+                if existing_receipt:
+                    payment.official_receipt = existing_receipt
+                    payment.save()
+                else:
+                    receipt = OfficialReceipt.objects.create(
+                        or_number=or_number,
+                        resident=cert_request.resident,
+                        amount=amount_paid,
+                        particulars=f"{cert_request.get_cert_type_display()} - {cert_request.purpose}{' (WAIVED RA11261)' if is_exempt else ''}",
+                        issued_by=request.user
+                    )
+                    payment.official_receipt = receipt
+                    payment.save()
+            else:
+                receipt = payment.official_receipt
+                receipt.or_number = or_number
+                receipt.amount = amount_paid
+                receipt.save()
+
         cert_request.status = 'issued'
-        # cert_request.issued_certificate is already linked via Certificate.certificate_request FK
         cert_request.processed_by = request.user
         cert_request.processed_at = timezone.now()
         cert_request.save()
-
-        # Mark payment as paid upon issuance if it was unpaid/pending
-        if hasattr(cert_request, 'payment') and cert_request.payment:
-            if cert_request.payment.status not in ['paid', 'waived']:
-                cert_request.payment.status = 'paid'
-                cert_request.payment.save()
 
         # Notify resident
         try:

@@ -268,8 +268,10 @@
 
             <!-- Cedula Fields -->
             <div class="cedula-fields" style="display: none;">
-                <div class="info-box" style="margin-bottom: 16px;"><i class="fas fa-id-card"></i><span>Cedula details
-                        required.</span></div>
+                <div class="info-box" style="margin-bottom: 16px;">
+                    <i class="fas fa-id-card"></i>
+                    <span>Community Tax Certificate (Cedula) details required.</span>
+                </div>
                 <div class="form-group">
                     <label class="form-label">Taxpayer Type</label>
                     <select name="taxpayer_type" id="taxpayer_type" class="form-control-modern">
@@ -277,15 +279,44 @@
                         <option value="corporation">Corporation</option>
                     </select>
                 </div>
-                <div class="individual-only" style="display:flex; gap:16px; margin-bottom:24px;">
-                    <div style="flex:1;"><label class="form-label">Height (cm)</label><input type="text" name="height"
-                            class="form-control-modern"></div>
-                    <div style="flex:1;"><label class="form-label">Weight (kg)</label><input type="text" name="weight"
-                            class="form-control-modern"></div>
+                
+                <div class="form-group">
+                    <label class="form-label">Place of Issue</label>
+                    <input type="text" name="place_of_issue" class="form-control-modern" value="Sico-Sico, Gigaquit, SDN">
                 </div>
-                <!-- Financial fields omitted for brevity but should be here if needed -->
-                <div class="form-group"><label class="form-label">Income/Property Value</label><input type="number"
-                        step="0.01" name="raw_taxable_income" class="form-control-modern" value="0.00"></div>
+
+                <div class="individual-only" style="display:flex; gap:16px; margin-bottom:24px;">
+                    <div style="flex:1;">
+                        <label class="form-label">Height (cm)</label>
+                        <input type="text" name="height" class="form-control-modern" placeholder="e.g. 170">
+                    </div>
+                    <div style="flex:1;">
+                        <label class="form-label">Weight (kg)</label>
+                        <input type="text" name="weight" class="form-control-modern" placeholder="e.g. 65">
+                    </div>
+                </div>
+
+                <div style="border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 10px;">
+                    <p style="font-size: 13px; font-weight: 700; color: var(--primary); margin-bottom: 15px; text-transform: uppercase;">Taxable Amounts (Cat A, B, C)</p>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Real Property Value (Cat A)</label>
+                        <input type="number" step="0.01" name="raw_taxable_property" class="form-control-modern" value="0.00">
+                        <small style="color: #64748b;">Assessed value of real property owned.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Gross Business Receipts (Cat B)</label>
+                        <input type="number" step="0.01" name="raw_taxable_business" class="form-control-modern" value="0.00">
+                        <small style="color: #64748b;">Gross receipts or earnings from business during the preceding year.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Annual Income (Cat C)</label>
+                        <input type="number" step="0.01" name="raw_taxable_income" class="form-control-modern" value="0.00">
+                        <small style="color: #64748b;">Gross annual salary or earnings from exercise of profession.</small>
+                    </div>
+                </div>
             </div>
 
             <!-- Late Registration Fields -->
@@ -316,12 +347,25 @@
                     const cFields = document.querySelector('.cedula-fields');
                     const lFields = document.querySelector('.late-registration-fields');
 
+                    const taxpayerType = document.getElementById('taxpayer_type');
+                    const individualOnly = document.querySelector('.individual-only');
+
                     certTypeSelect.addEventListener('change', function () {
                         [bFields, cFields, lFields].forEach(el => el.style.display = 'none');
                         if (this.value === 'business_permit') bFields.style.display = 'block';
-                        else if (this.value === 'cedula') cFields.style.display = 'block';
+                        else if (this.value === 'cedula') {
+                            cFields.style.display = 'block';
+                            if (taxpayerType.value === 'individual') individualOnly.style.display = 'flex';
+                            else individualOnly.style.display = 'none';
+                        }
                         else if (this.value === 'late_registration') lFields.style.display = 'block';
                     });
+
+                    taxpayerType.addEventListener('change', function() {
+                        if (this.value === 'individual') individualOnly.style.display = 'flex';
+                        else individualOnly.style.display = 'none';
+                    });
+
                     if (certTypeSelect.value) certTypeSelect.dispatchEvent(new Event('change'));
                 });
             </script>

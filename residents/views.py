@@ -387,19 +387,59 @@ def resident_delete(request, pk):
     resident = get_object_or_404(Resident, pk=pk)
     if request.method == 'POST':
         full_name = resident.full_name
-        # NOTE: Do NOT manually delete the user here.
-        # The pre_delete signal (cleanup_user_on_resident_delete) in residents/models.py
-        # already handles cascading User deletion. Doing it twice inside an atomic block
-        # causes a TransactionManagementError.
         try:
             resident.delete()
             messages.success(request, f'Resident {full_name} and associated accounts have been permanently deleted.')
         except Exception as e:
             messages.error(request, f'Could not delete resident: {e}')
         return redirect('residents:list')
-
-    # If not POST, just redirect back to list
     return redirect('residents:list')
+
+
+@login_required
+def resident_change_password(request, pk):
+    """Change a resident's system password (Account Owner Only)."""
+    resident = get_object_or_404(Resident, pk=pk)
+    
+    # Check if the logged-in user is the resident who owns the account
+    if not (hasattr(resident, 'user_profile') and resident.user_profile.user == request.user):
+        messages.error(request, "Permission denied. Only the account owner can change their password.")
+        return redirect('residents:view', pk=pk)
+    
+    if request.method == 'POST':
+        new_password = request.POST.get('new_password')
+        if new_password:
+            user = resident.user_profile.user
+            user.set_password(new_password)
+            user.save()
+            messages.success(request, "Your password has been successfully updated.")
+        else:
+            messages.error(request, "New password is required.")
+            
+    return redirect('residents:view', pk=pk)
+
+
+@login_required
+def resident_reset_password(request, pk):
+    """Reset a resident's password to a generated temporary one (Admin/Official only)."""
+    if is_resident_role(request):
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('core:dashboard')
+        
+    resident = get_object_or_404(Resident, pk=pk)
+    
+    if request.method == 'POST':
+        if hasattr(resident, 'user_profile') and resident.user_profile.user:
+            user = resident.user_profile.user
+            temp_password = generate_temp_password(resident.last_name, resident.birthdate)
+            user.set_password(temp_password)
+            user.save()
+            messages.success(request, f"Password for {resident.full_name} has been reset.")
+            messages.info(request, f"New Temporary Password: {temp_password}")
+        else:
+            messages.error(request, "Failed to reset password. Ensure the resident has an active system account.")
+            
+    return redirect('residents:view', pk=pk)
 
 
 @login_required

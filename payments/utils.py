@@ -28,7 +28,9 @@ def calculate_certificate_fee(resident, cert_type):
     }
     
     fee = rates.get(cert_type, Decimal('50.00'))
-    return fee, fee == Decimal('0.00')
+    # Only auto-waive if fee is 0 AND it's not a Cedula (which has a dynamic price)
+    is_waived = (fee == Decimal('0.00') and cert_type != 'cedula')
+    return fee, is_waived
 
 def generate_receipt_pdf(payment):
     """

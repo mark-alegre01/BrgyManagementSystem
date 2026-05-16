@@ -13,8 +13,12 @@
 {% endblock %}
 
 {% block content %}
-{% url 'attendance:dashboard' as attendance_dashboard_url %}
-{% include 'components/back_button.html' with back_url=attendance_dashboard_url back_label='Back' %}
+{% if request.GET.from == 'report' %}
+  {% url 'attendance:daily_report' request.GET.report_date as back_url %}
+{% else %}
+  {% url 'attendance:dashboard' as back_url %}
+{% endif %}
+{% include 'components/back_button.html' with back_url=back_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title" style="display: flex; align-items: center; gap: 15px;">
     {% if official.resident.photo %}
@@ -76,13 +80,14 @@
             {% if log.am_in %}
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
                   <span class="font-bold text-slate-700">{{ log.am_in|time:"h:i A" }}</span>
-                  {% if log.status == 'late' %}
-                  <span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">Late ({{ log.am_in|late_duration:log.shift_am_in }})</span>
+                  {% get_lateness log.am_in log.shift_am_in log.grace_period as am_late %}
+                  {% if am_late %}
+                  <span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">Late ({{ am_late }})</span>
                   {% else %}
                   <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">Present</span>
                   {% endif %}
                 </div>
-            {% else %}
+            {% elif log.date|is_absent_visible:log.shift_am_out %}
                 <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
             {% endif %}
           </td>
@@ -94,7 +99,7 @@
                 </div>
             {% elif log.am_in %}
                 <span class="text-muted italic text-[10px]">---</span>
-            {% else %}
+            {% elif log.date|is_absent_visible:log.shift_am_out %}
                 <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
             {% endif %}
           </td>
@@ -102,13 +107,14 @@
             {% if log.pm_in %}
                 <div style="display: flex; flex-direction: column; gap: 4px; align-items: center;">
                   <span class="font-bold text-slate-700">{{ log.pm_in|time:"h:i A" }}</span>
-                  {% if log.status == 'late' %}
-                  <span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">Late</span>
-                  {% else %}
-                  <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">Present</span>
-                  {% endif %}
+                   {% get_lateness log.pm_in log.shift_pm_in log.grace_period as pm_late %}
+                   {% if pm_late %}
+                   <span class="text-[9px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded font-black tracking-widest border border-amber-100 uppercase">Late ({{ pm_late }})</span>
+                   {% else %}
+                   <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">Present</span>
+                   {% endif %}
                 </div>
-            {% else %}
+            {% elif log.date|is_absent_visible:log.shift_pm_out %}
                 <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
             {% endif %}
           </td>
@@ -120,7 +126,7 @@
                 </div>
             {% elif log.pm_in %}
                 <span class="text-muted italic text-[10px]">---</span>
-            {% else %}
+            {% elif log.date|is_absent_visible:log.shift_pm_out %}
                 <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
             {% endif %}
           </td>

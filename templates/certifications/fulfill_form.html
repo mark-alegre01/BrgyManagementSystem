@@ -3,11 +3,12 @@
 {% block title %}Fulfill Request - {{ cert_request.child_name|default:cert_request.resident.full_name }}{% endblock %}
 
 {% block breadcrumb %}
-<span><i class="fas fa-home"></i> / <a href="{% url 'core:dashboard' %}">Dashboard</a> / <a
-        href="{% url 'certifications:list' %}">Certificates</a> / Fulfill Request</span>
+<span>Brgy. Sico Sico Management System / Certifications / Fulfill Request</span>
 {% endblock %}
 
 {% block content %}
+{% url 'certifications:request_list' as back_url %}
+{% include 'components/back_button.html' with back_url=back_url back_label='Back' %}
 <style>
     .fulfill-container {
         max-width: 900px;
@@ -40,10 +41,12 @@
 
     .form-control-sm {
         width: 100%;
-        padding: 10px;
+        padding: 8px 12px;
         border: 1px solid #e2e8f0;
         border-radius: 8px;
         font-size: .9rem;
+        height: 40px;
+        line-height: 1.4;
     }
 
     .btn-submit {
@@ -66,51 +69,74 @@
 
 <div class="fulfill-container">
     <div class="card">
-        <h2 style="margin-bottom: 24px; color: #1e293b;">Fulfill Certificate Request</h2>
+        <form method="POST">
+            {% csrf_token %}
+            <div class="grid">
+                <!-- Left: Request Info (Editable) -->
+                <div class="data-box">
+                    <h3 style="font-size: 1rem; margin-bottom: 16px;">Verify & Modify Request Details</h3>
+                    <div class="form-group">
+                        <label class="form-label">Resident</label>
+                        <p><strong>{{ cert_request.resident.full_name }}</strong></p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Certificate Type</label>
+                        <p class="badge badge-primary">{{ cert_request.get_cert_type_display }}</p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Purpose (Editable)</label>
+                        <input type="text" name="purpose" class="form-control-sm" value="{{ cert_request.purpose }}" required>
+                    </div>
 
-        <div class="grid">
-            <!-- Left: Request Info -->
-            <div class="data-box">
-                <h3 style="font-size: 1rem; margin-bottom: 16px;">Request Details</h3>
-                <div class="form-group">
-                    <label class="form-label">Resident</label>
-                    <p><strong>{{ cert_request.resident.full_name }}</strong></p>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Certificate Type</label>
-                    <p>{{ cert_request.get_cert_type_display }}</p>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Purpose</label>
-                    <p>{{ cert_request.purpose }}</p>
+                    {% if cert_request.cert_type == 'business_permit' %}
+                    <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">Business Name</label>
+                            <input type="text" name="business_name" class="form-control-sm" value="{{ cert_request.business_name|default:'' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Business Address</label>
+                            <textarea name="business_address" class="form-control-sm" rows="2">{{ cert_request.business_address|default:'' }}</textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Business Type</label>
+                            <input type="text" name="business_type" class="form-control-sm" value="{{ cert_request.business_type|default:'' }}">
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if cert_request.cert_type == 'late_registration' %}
+                    <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">Child Name</label>
+                            <input type="text" name="child_name" class="form-control-sm" value="{{ cert_request.child_name|default:'' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Birth Date</label>
+                            <input type="date" name="child_birth_date" class="form-control-sm" value="{{ cert_request.child_birth_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Birth Place</label>
+                            <input type="text" name="child_birth_place" class="form-control-sm" value="{{ cert_request.child_birth_place|default:'' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Father's Name</label>
+                            <input type="text" name="father_name" class="form-control-sm" value="{{ cert_request.father_name|default:'' }}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Mother's Name</label>
+                            <input type="text" name="mother_name" class="form-control-sm" value="{{ cert_request.mother_name|default:'' }}">
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
 
-                {% if cert_request.cert_type == 'business_permit' %}
-                <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 16px;">
-                    <label class="form-label">Business Name</label>
-                    <p>{{ cert_request.business_name|default:"--" }}</p>
-                    <label class="form-label">Business Address</label>
-                    <p>{{ cert_request.business_address|default:"--" }}</p>
-                </div>
-                {% endif %}
-
-                {% if cert_request.cert_type == 'late_registration' %}
-                <div style="margin-top: 16px; border-top: 1px dashed #cbd5e1; padding-top: 16px;">
-                    <label class="form-label">Child Name</label>
-                    <p>{{ cert_request.child_name|default:"--" }}</p>
-                    <label class="form-label">Birth Date</label>
-                    <p>{{ cert_request.child_birth_date|default:"--" }}</p>
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Right: Issuance Form -->
-            <form method="POST">
-                {% csrf_token %}
-                <div class="form-group">
-                    <label class="form-label">Control Number (Automated)</label>
-                    <input type="text" name="control_number" class="form-control-sm" value="{{ suggested_control }}" required>
-                </div>
+                <!-- Right: Issuance Form -->
+                <div style="padding: 10px;">
+                    <div class="form-group">
+                        <label class="form-label">Control Number (Automated)</label>
+                        <input type="text" name="control_number" class="form-control-sm" value="{{ suggested_control }}" required>
+                    </div>
 
                 <div class="form-group">
                     <label class="form-label">OR Number*</label>
@@ -142,10 +168,26 @@
                   </div>
                 </div>
 
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                  <div style="flex:1;">
+                    <label class="form-label">Height (cm)</label>
+                    <input type="text" name="height" class="form-control-sm" value="{{ cert_request.height|default:'' }}">
+                  </div>
+                  <div style="flex:1;">
+                    <label class="form-label">Weight (kg)</label>
+                    <input type="text" name="weight" class="form-control-sm" value="{{ cert_request.weight|default:'' }}">
+                  </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Place of Issue</label>
+                    <input type="text" name="place_of_issue" class="form-control-sm" value="{{ cert_request.place_of_issue|default:'Sico-Sico, Gigaquit, SDN' }}">
+                </div>
+
                 <div class="form-group">
                     <label class="form-label">Property Value (Cat A)</label>
                     <div style="display:flex; gap:10px;">
-                      <input type="number" step="0.01" id="raw_prop" class="form-control-sm cedula-raw" placeholder="Value" value="{{ cert_request.raw_taxable_property|default:'0' }}">
+                      <input type="number" step="0.01" name="raw_taxable_property" id="raw_prop" class="form-control-sm cedula-raw" placeholder="Value" value="{{ cert_request.raw_taxable_property|default:'0' }}">
                       <input type="number" step="0.01" name="additional_tax_property" id="val_prop" class="form-control-sm" readonly style="width:100px; background:#f1f5f9;">
                     </div>
                 </div>
@@ -153,7 +195,7 @@
                 <div class="form-group">
                     <label class="form-label">Business Receipts (Cat B)</label>
                     <div style="display:flex; gap:10px;">
-                      <input type="number" step="0.01" id="raw_bus" class="form-control-sm cedula-raw" placeholder="Receipts" value="{{ cert_request.raw_taxable_business|default:'0' }}">
+                      <input type="number" step="0.01" name="raw_taxable_business" id="raw_bus" class="form-control-sm cedula-raw" placeholder="Receipts" value="{{ cert_request.raw_taxable_business|default:'0' }}">
                       <input type="number" step="0.01" name="additional_tax_business" id="val_bus" class="form-control-sm" readonly style="width:100px; background:#f1f5f9;">
                     </div>
                 </div>
@@ -161,7 +203,7 @@
                 <div class="form-group" id="income_group">
                     <label class="form-label">Annual Income (Cat C)</label>
                     <div style="display:flex; gap:10px;">
-                      <input type="number" step="0.01" id="raw_inc" class="form-control-sm cedula-raw" placeholder="Income" value="{{ cert_request.raw_taxable_income|default:'0' }}">
+                      <input type="number" step="0.01" name="raw_taxable_income" id="raw_inc" class="form-control-sm cedula-raw" placeholder="Income" value="{{ cert_request.raw_taxable_income|default:'0' }}">
                       <input type="number" step="0.01" name="additional_tax_income" id="val_inc" class="form-control-sm" readonly style="width:100px; background:#f1f5f9;">
                     </div>
                 </div>
@@ -169,16 +211,14 @@
 
                 <div class="form-group">
                     <label class="form-label" id="amount_label">Amount Paid (₱)</label>
-                    <input type="number" step="0.01" name="amount_paid" id="id_amount_paid" class="form-control-sm" value="{{ base_amount }}" required {% if cert_request.cert_type == 'cedula' %}readonly style="background:#f1f5f9;"{% endif %}>
+                    <div style="display:flex; gap:15px; align-items:center;">
+                        <input type="number" step="0.01" name="amount_paid" id="id_amount_paid" class="form-control-sm" value="{{ base_amount }}" required {% if cert_request.cert_type == 'cedula' %}readonly style="background:#f1f5f9; flex:1;"{% else %}style="flex:1;"{% endif %}>
+                        <label style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; cursor:pointer; margin:0;">
+                            <input type="checkbox" name="is_exempt" id="is_exempt">
+                            Exempt (RA 11261)
+                        </label>
+                    </div>
                 </div>
-
-                {% if cert_request.cert_type == 'late_registration' %}
-                <input type="hidden" name="child_name" value="{{ cert_request.child_name }}">
-                <input type="hidden" name="child_birth_date" value="{{ cert_request.child_birth_date|date:'Y-m-d' }}">
-                <input type="hidden" name="child_birth_place" value="{{ cert_request.child_birth_place }}">
-                <input type="hidden" name="father_name" value="{{ cert_request.father_name }}">
-                <input type="hidden" name="mother_name" value="{{ cert_request.mother_name }}">
-                {% endif %}
 
                 <div style="margin-top: 30px;">
                     <button type="submit" class="btn-submit">
@@ -186,9 +226,9 @@
                     </button>
                     <a href="{% url 'certifications:list' %}" style="margin-left: 10px; color: #64748b; font-size: .9rem;">Cancel</a>
                 </div>
-            </form>
+            </div>
         </div>
-    </div>
+    </form>
 </div>
 
 {% if cert_request.cert_type == 'cedula' %}
@@ -243,6 +283,26 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial calculation
     calculateCedula();
+
+    const isExempt = document.getElementById('is_exempt');
+    const orInput = document.getElementsByName('or_number')[0];
+    const originalAmount = amountPaidInput.value;
+
+    isExempt.addEventListener('change', function() {
+        if (this.checked) {
+            amountPaidInput.value = "0.00";
+            if (orInput) {
+                orInput.value = "EXEMPT-RA11261";
+                orInput.readOnly = true;
+            }
+        } else {
+            calculateCedula();
+            if (orInput) {
+                orInput.value = "";
+                orInput.readOnly = false;
+            }
+        }
+    });
 });
 </script>
 {% endif %}

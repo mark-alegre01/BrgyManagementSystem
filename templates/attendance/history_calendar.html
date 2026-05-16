@@ -123,21 +123,10 @@
                         <!-- Empty for future dates -->
                     </div>
                     {% elif day_data %}
-                    <div class="space-y-2">
-                        <div class="flex items-center gap-2">
-                            <div class="status-dot bg-emerald-500"></div>
-                            <span class="text-[10px] font-bold text-slate-500">{{ day_data.present }} Present</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="status-dot bg-amber-500"></div>
-                            <span class="text-[10px] font-bold text-slate-500">{{ day_data.late }} Late</span>
-                        </div>
-                        {% if day_data.absent > 0 %}
-                        <div class="flex items-center gap-2">
-                            <div class="status-dot bg-red-500"></div>
-                            <span class="text-[10px] font-bold text-slate-500">{{ day_data.absent }} Absent</span>
-                        </div>
-                        {% endif %}
+                    <div class="mt-auto pt-2">
+                        <span class="text-[9px] font-black text-emerald-600 uppercase tracking-widest flex items-center gap-1 group">
+                            View Details <i data-lucide="arrow-right" class="w-2.5 h-2.5 transition-transform group-hover:translate-x-0.5"></i>
+                        </span>
                     </div>
                     {% else %}
                     <div class="h-full flex items-center justify-center">
@@ -151,21 +140,7 @@
         {% endfor %}
     </div>
 
-    <!-- Legend -->
-    <div class="mt-8 flex items-center gap-6 justify-center bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-        <div class="flex items-center gap-2">
-            <div class="status-dot bg-emerald-500"></div>
-            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Present</span>
-        </div>
-        <div class="flex items-center gap-2">
-            <div class="status-dot bg-amber-500"></div>
-            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Late</span>
-        </div>
-        <div class="flex items-center gap-2">
-            <div class="status-dot bg-red-500"></div>
-            <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Absent</span>
-        </div>
-    </div>
+
 </div>
 
 <script>

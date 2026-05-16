@@ -494,7 +494,6 @@ def biometric_attendance_start(request):
 
 
 @csrf_exempt
-@login_required
 def biometric_attendance_status_check(request):
     """Poll ESP32 after biometric_attendance_start; accept any active official with a matching slot.
        Also handles global hardware button polls without a request_id.

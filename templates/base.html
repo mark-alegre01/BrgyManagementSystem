@@ -45,6 +45,35 @@
 
 
 
+      <!-- RESIDENT SERVICES -->
+      {% if r == 'resident' %}
+      <div class="nav-section">
+        <span class="nav-section-title">MY SERVICES</span>
+        {% if user_profile.resident %}
+        <a href="{% url 'residents:view' user_profile.resident.pk %}"
+          class="nav-item {% if request.resolver_match.app_name == 'residents' and request.resolver_match.url_name == 'view' %}active{% endif %}">
+          <i class="fas fa-user-circle"></i><span>My Personal Profile</span>
+        </a>
+        {% endif %}
+        <a href="{% url 'certifications:list' %}"
+          class="nav-item {% if request.resolver_match.app_name == 'certifications' and request.resolver_match.url_name == 'list' %}active{% endif %}">
+          <i class="fas fa-file-invoice"></i><span>My Certificates</span>
+        </a>
+        <a href="{% url 'certifications:request_certificate' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'request_certificate' %}active{% endif %}">
+          <i class="fas fa-plus-circle"></i><span>Request Certificate</span>
+        </a>
+        <a href="{% url 'certifications:my_requests' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'my_requests' %}active{% endif %}">
+          <i class="fas fa-history"></i><span>My Requests</span>
+        </a>
+        <a href="{% url 'ordinances:list' %}"
+          class="nav-item {% if request.resolver_match.app_name ==  'ordinances' %}active{% endif %}">
+          <i class="fas fa-gavel"></i><span>Brgy. Ordinances</span>
+        </a>
+      </div>
+      {% endif %}
+
       <!-- MANAGEMENT -->
       {% if s or r != 'resident' %}
       <div class="nav-section">
@@ -75,7 +104,7 @@
           class="nav-item {% if request.resolver_match.url_name == 'registration_list' %}active{% endif %}">
           <i class="fas fa-user-clock"></i><span>Pending Registrations</span>
           {% if pending_registrations_count > 0 and request.resolver_match.url_name != 'registration_list' %}
-          <span class="badge badge-danger" style="margin-left: auto;">{{ pending_registrations_count }}</span>
+          <span id="registration-badge" class="badge badge-danger" style="margin-left: auto;">{{ pending_registrations_count }}</span>
           {% endif %}
         </a>
         {% endif %}
@@ -88,15 +117,15 @@
         <span class="nav-section-title">SERVICES</span>
 
         <a href="{% url 'certifications:list' %}"
-          class="nav-item {% if request.resolver_match.app_name == 'certifications' and request.resolver_match.url_name == 'list' %}active{% endif %}">
+          class="nav-item {% with url=request.resolver_match.url_name %}{% if request.resolver_match.app_name == 'certifications' and url == 'list' or url == 'view' or url == 'pdf' or url == 'receipt' or url == 'virtual_certificate' or url == 'issue' %}active{% endif %}{% endwith %}">
           <i class="fas fa-certificate"></i><span>Certifications</span>
         </a>
         <a href="{% url 'certifications:request_list' %}"
-          class="nav-item {% if request.resolver_match.url_name == 'request_list' %}active{% endif %}">
+          class="nav-item {% with url=request.resolver_match.url_name %}{% if url == 'request_list' or url == 'fulfill_request' or url == 'reject_request' %}active{% endif %}{% endwith %}">
           <i class="fas fa-inbox"></i>
           <span>Cert. Requests</span>
-          {% if pending_cert_requests_count > 0 %}
-          <span <span
+          {% if pending_cert_requests_count > 0 and request.resolver_match.url_name != 'request_list' and request.resolver_match.url_name != 'fulfill_request' and request.resolver_match.url_name != 'reject_request' %}
+          <span id="cert-requests-badge"
             style="margin-left:auto;background:#ef4444;color:#fff;border-radius:20px;padding:1px 7px;font-size:.72rem;font-weight:700;">{{ pending_cert_requests_count }}</span>
           {% endif %}
         </a>
@@ -383,6 +412,46 @@
   {% block extra_js %}{% endblock %}
 
   {% include 'core/hardware_poller.html' %}
+  <!-- Notification Badge Management -->
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Certificate Requests Logic
+      const certBadge = document.getElementById('cert-requests-badge');
+      const certCount = parseInt('{{ pending_cert_requests_count|default:0 }}');
+      const isCertPage = {% if request.resolver_match.url_name == 'request_list' %}true{% else %}false{% endif %};
+      
+      if (isCertPage) {
+        localStorage.setItem('last_cert_count', certCount);
+      } else if (certBadge) {
+        const lastSeenCert = parseInt(localStorage.getItem('last_cert_count') || '0');
+        if (certCount <= lastSeenCert) {
+          certBadge.style.display = 'none';
+        }
+      }
+
+      // Registration Requests Logic
+      const regBadge = document.getElementById('registration-badge');
+      const regCount = parseInt('{{ pending_registrations_count|default:0 }}');
+      const isRegPage = {% if request.resolver_match.url_name == 'registration_list' %}true{% else %}false{% endif %};
+
+      if (isRegPage) {
+        localStorage.setItem('last_reg_count', regCount);
+      } else if (regBadge) {
+        const lastSeenReg = parseInt(localStorage.getItem('last_reg_count') || '0');
+        if (regCount <= lastSeenReg) {
+          regBadge.style.display = 'none';
+        }
+      }
+
+      // Add click listeners for immediate feedback
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', function() {
+          const badge = this.querySelector('#cert-requests-badge, #registration-badge');
+          if (badge) badge.style.display = 'none';
+        });
+      });
+    });
+  </script>
 </body>
 
 </html>

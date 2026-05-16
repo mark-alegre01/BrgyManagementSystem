@@ -35,10 +35,27 @@
 
     <div class="card mt-4">
       <div class="card-header">
-        <h3>Location</h3>
+        <h3>Family Structure</h3>
       </div>
       <div class="card-body">
-        <p>{{ household.address }}</p>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <div>
+            <span class="text-muted" style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Head of Family</span>
+            <div style="font-weight: 600; font-size: 15px; margin-top: 2px;">
+              {% if household.head %}
+              <i class="fas fa-user-tie" style="color: var(--primary); margin-right: 5px;"></i> {{ household.head.full_name }}
+              {% else %}
+              <span class="text-muted"><i class="fas fa-exclamation-circle" style="margin-right: 5px;"></i> Not Assigned</span>
+              {% endif %}
+            </div>
+          </div>
+          <div>
+            <span class="text-muted" style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Total Members</span>
+            <div style="font-weight: 600; font-size: 15px; margin-top: 2px;">
+              <i class="fas fa-users" style="color: var(--primary); margin-right: 5px;"></i> {{ members.count }} 
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

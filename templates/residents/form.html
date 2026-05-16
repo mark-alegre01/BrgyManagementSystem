@@ -35,7 +35,16 @@
           </div>
           <div class="form-group col-1">
             <label>Suffix</label>
-            <input type="text" name="suffix" value="{{ resident.suffix }}" class="form-control">
+            <select name="suffix" class="form-control">
+              <option value="">None</option>
+              <option value="Jr." {% if resident.suffix == 'Jr.' %}selected{% endif %}>Jr.</option>
+              <option value="Sr." {% if resident.suffix == 'Sr.' %}selected{% endif %}>Sr.</option>
+              <option value="I" {% if resident.suffix == 'I' %}selected{% endif %}>I</option>
+              <option value="II" {% if resident.suffix == 'II' %}selected{% endif %}>II</option>
+              <option value="III" {% if resident.suffix == 'III' %}selected{% endif %}>III</option>
+              <option value="IV" {% if resident.suffix == 'IV' %}selected{% endif %}>IV</option>
+              <option value="V" {% if resident.suffix == 'V' %}selected{% endif %}>V</option>
+            </select>
           </div>
         </div>
 
@@ -269,6 +278,33 @@
     text-align: right;
     border-top: 1px solid var(--border);
     padding-top: 20px;
+  }
+
+  @media (max-width: 768px) {
+    .modern-form {
+      padding: 15px;
+    }
+    
+    .form-row {
+      gap: 15px;
+      flex-direction: column;
+    }
+
+    .form-group.col-6, .form-group.col-4, .form-group.col-3, .form-group.col-1 {
+      flex: 0 0 100% !important;
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    
+    .form-control {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    
+    .checkbox-row {
+      flex-direction: column;
+      gap: 10px;
+    }
   }
 </style>
 <script>

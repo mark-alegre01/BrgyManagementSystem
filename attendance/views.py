@@ -234,7 +234,10 @@ def dtr_detail(request, official_id):
         s_cfg = shift_map.get(d_code)
         if s_cfg:
             log.shift_am_in = s_cfg.am_in
+            log.shift_am_out = s_cfg.am_out
             log.shift_pm_in = s_cfg.pm_in
+            log.shift_pm_out = s_cfg.pm_out
+            log.grace_period = s_cfg.grace_period
 
     import calendar
     context = {
