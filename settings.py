@@ -26,10 +26,10 @@ SECRET_KEY = "django-insecure-l5c3)u(1jer_siq#rx-y5xqa(+!f9a*cd@w!4*^!8ru8mya%(4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.1.47', '*.ts.net', '*.tailscale.net', 'barangay.local']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '192.168.0.47', '*.ts.net', '*.tailscale.net', 'barangay.local']
 
 # Local ESP32 fingerprint module proxy target
-ESP32_BASE_URL = 'http://192.168.1.55'
+ESP32_BASE_URL = 'http://192.168.0.55'
 FINGERPRINT_SENSOR_MAX_SLOTS = int(os.environ.get("FINGERPRINT_SENSOR_MAX_SLOTS", "1000"))
 
 # Application definition
@@ -77,20 +77,56 @@ TEMPLATES = [
     },
 ]
 
+    "residents",
+    "census",
+    "officials",
+    "attendance",
+    "certifications",
+    "reports",
+    "philsys",
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "barangay_system.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
 WSGI_APPLICATION = "barangay_system.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# Using Orange Pi Zero 3 (Static IP: 192.168.1.47) as the Database Server
+# Using Orange Pi Zero 3 (Static IP: 192.168.0.47) as the Database Server
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "brgy_db",
         "USER": "brgy_user",
         "PASSWORD": "admin123",
-        "HOST": "192.168.1.47",
+        "HOST": "192.168.0.47",
         "PORT": "5432",
     }
 }
@@ -145,7 +181,7 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.tailscale.net',
     'http://barangay.local',
     'http://127.0.0.1',
-    'http://192.168.1.47',
+    'http://192.168.0.47',
 ]
 
 # Support for HTTPS through Tailscale/Cloudflare tunnels

@@ -7,12 +7,12 @@
 #include <time.h>
 
 // ============= WiFi CREDENTIALS =============
-const char* SSID = "LadyJune";
-const char* PASSWORD = "TwinStar@2025";
+const char* SSID = "lordwarenwifi- 2.4G";
+const char* PASSWORD = "lordwarenlp12";
 
 // ============= WiFi STATIC IP CONFIG =============
-IPAddress local_IP(192, 168, 1, 55);
-IPAddress gateway(192, 168, 1, 1);
+IPAddress local_IP(192, 168, 0, 55);
+IPAddress gateway(192, 168, 0, 1);
 IPAddress subnet(255, 255, 255, 0);
 IPAddress primaryDNS(8, 8, 8, 8);   // Optional: Google DNS
 IPAddress secondaryDNS(8, 8, 4, 4); // Optional: Google DNS

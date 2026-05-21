@@ -97,7 +97,7 @@ def esp32_status_proxy(request):
     if not request.user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': 'Authentication required'}, status=401)
     
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.0.55').rstrip('/')
     try:
         # Bypassing proxies for local network reliability
         response = requests.get(f"{esp32_base_url}/status", timeout=10, proxies={'http': None, 'https': None})
@@ -131,7 +131,7 @@ def esp32_start_enrollment_proxy(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.0.55').rstrip('/')
     slot_id = request.GET.get('id') or request.POST.get('id')
     
     url = f"{esp32_base_url}/start-enrollment"
@@ -175,7 +175,7 @@ def esp32_stop_enrollment_proxy(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.0.55')
     try:
         response = requests.post(f"{esp32_base_url}/stop-enrollment", timeout=4, proxies={'http': None, 'https': None})
         response.raise_for_status()
@@ -820,7 +820,7 @@ def _get_effective_fingerprint_max_slots():
     """
     settings_cap = max(1, int(getattr(settings, 'FINGERPRINT_SENSOR_MAX_SLOTS', 1000)))
     offline_safe_cap = min(settings_cap, 300)
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.0.55').rstrip('/')
     try:
         response = requests.get(
             f'{esp32_base_url}/status',
@@ -1044,7 +1044,7 @@ def remove_fingerprint(request, pk):
     
     # 1. Erase template on R307 (retry — WiFi/serial can miss the first attempt)
     if resident.fingerprint_id is not None:
-        esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.55').rstrip('/')
+        esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.0.55').rstrip('/')
         slot = resident.fingerprint_id
         for attempt in range(3):
             try:
