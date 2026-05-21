@@ -1421,8 +1421,10 @@ void updateLCD() {
   switch(currentState) {
     case STANDBY:
       {
+        time_t epoch;
+        time(&epoch);
         struct tm timeinfo;
-        if(getLocalTime(&timeinfo)){
+        if (epoch > 1000000000 && getLocalTime(&timeinfo, 50)) {
           char timeStr[15];
           strftime(timeStr, sizeof(timeStr), "%I:%M:%S %p", &timeinfo);
           line1 = "Barangay System";
@@ -1461,8 +1463,10 @@ void updateLCD() {
         else if (attendanceMode == "out") modeLabel = "TIME OUT";
         else modeLabel = "SCAN SUCCESS";
         line1 = modeLabel;
+        time_t epoch;
+        time(&epoch);
         struct tm timeinfo;
-        if (getLocalTime(&timeinfo)) {
+        if (epoch > 1000000000 && getLocalTime(&timeinfo, 50)) {
           char timeStr[12];
           strftime(timeStr, sizeof(timeStr), "%I:%M %p", &timeinfo);
           line2 = String(timeStr);
