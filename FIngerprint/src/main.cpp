@@ -146,6 +146,7 @@ bool scanCompleted[MAX_SCANS] = {false, false, false};
 // ============= FUNCTION DECLARATIONS =============
 void initializeHardware();
 bool initializeFingerprintModule();
+void configModeCallback(WiFiManager *myWiFiManager);
 void initializeWiFi();
 void initializeWebServer();
 void handleRoot();
@@ -365,6 +366,21 @@ bool initializeFingerprintModule() {
   return false;
 }
 
+// Callback when WiFiManager enters Configuration/AP mode
+void configModeCallback(WiFiManager *myWiFiManager) {
+  Serial.println("[WIFI] Entered configuration portal mode.");
+  Serial.print("[WIFI] SSID: ");
+  Serial.println(myWiFiManager->getConfigPortalSSID());
+  Serial.print("[WIFI] IP: ");
+  Serial.println(WiFi.softAPIP());
+
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("WiFi Portal Open");
+  lcd.setCursor(0, 1);
+  lcd.print("IP: 192.168.4.1");
+}
+
 // ============= WiFi INITIALIZATION =============
 void initializeWiFi() {
   // Show portal waiting message on LCD
@@ -378,6 +394,11 @@ void initializeWiFi() {
   WiFi.setTxPower(WIFI_POWER_11dBm); // Reduce TX power to avoid brownout
 
   WiFiManager wm;
+
+  // Setup configuration portal settings
+  wm.setAPCallback(configModeCallback);
+  wm.setCaptivePortalEnable(true);
+  wm.setConfigPortalTimeout(180); // 3 minutes timeout so it retries connection if unattended
 
   // Automatically try saved credentials; open portal hotspot if they fail
   // Portal SSID: "ESP32-Fingerprint-Portal" (open, no password)
