@@ -270,6 +270,7 @@ void initializeHardware() {
 
   // Initialize I2C and LCD
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
+  Wire.setClock(50000); // Lower I2C clock speed from 100kHz to 50kHz to make it highly noise-resilient
   lcd.init();
   lcd.backlight();
   lcd.setCursor(0, 0);
@@ -374,7 +375,9 @@ void configModeCallback(WiFiManager *myWiFiManager) {
   Serial.print("[WIFI] IP: ");
   Serial.println(WiFi.softAPIP());
 
-  lcd.clear();
+  // Re-initialize and restore LCD setup to clear any communication glitches caused by WiFi startup noise
+  lcd.init();
+  lcd.backlight();
   lcd.setCursor(0, 0);
   lcd.print("WiFi Portal Open");
   lcd.setCursor(0, 1);
@@ -403,6 +406,10 @@ void initializeWiFi() {
   // Automatically try saved credentials; open portal hotspot if they fail
   // Portal SSID: "ESP32-Fingerprint-Portal" (open, no password)
   bool connected = wm.autoConnect("ESP32-Fingerprint-Portal");
+
+  // Re-initialize LCD interface again to clear any glitches introduced during the WiFi connection sequence
+  lcd.init();
+  lcd.backlight();
 
   if (connected) {
     Serial.print("[WIFI] Connected! Dynamic IP: ");
