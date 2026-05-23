@@ -1,10 +1,13 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include <WiFi.h>
+#include <ESPmDNS.h>
 #include <WebServer.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <time.h>
+#include "soc/soc.h"
+#include "soc/rtc_cntl_reg.h"
 
 // ============= WiFi CREDENTIALS =============
 const char* SSID = "lordwarenwifi- 2.4G";
@@ -183,6 +186,7 @@ void setLeds(bool red, bool green, bool blue);
 
 // ============= SETUP =============
 void setup() {
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // Disable brownout detector to prevent reboot loop on Wi-Fi initialization
   Serial.begin(115200);
   initializeHardware();
   initializeWiFi();
@@ -364,11 +368,15 @@ bool initializeFingerprintModule() {
 
 // ============= WiFi INITIALIZATION =============
 void initializeWiFi() {
+  // Commented out to enable DHCP (Automatic IP) so it works on any router
+  /*
   if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
     Serial.println("[WIFI] STA Failed to configure static IP");
   }
+  */
   
   WiFi.mode(WIFI_STA);
+  WiFi.setTxPower(WIFI_POWER_11dBm); // Reduce WiFi transmit power slightly to avoid sudden voltage drops
   WiFi.begin(SSID, PASSWORD);
   int attempts = 0;
   while(WiFi.status() != WL_CONNECTED && attempts < 20) {
@@ -377,10 +385,18 @@ void initializeWiFi() {
   }
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("[WIFI] Connected! Static IP: ");
+    Serial.print("[WIFI] Connected! Dynamic IP: ");
     Serial.println(WiFi.localIP());
+    
+    // Start mDNS responder so we can access it via http://esp32-fingerprint.local
+    if (MDNS.begin("esp32-fingerprint")) {
+      Serial.println("[MDNS] Responder started: http://esp32-fingerprint.local");
+      MDNS.addService("http", "tcp", 80);
+    } else {
+      Serial.println("[MDNS] Error setting up MDNS responder!");
+    }
   } else {
-    Serial.println("[WIFI] Connection failed, using DHCP fallback if available");
+    Serial.println("[WIFI] Connection failed.");
   }
 }
 

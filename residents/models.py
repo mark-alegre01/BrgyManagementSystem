@@ -313,7 +313,7 @@ def delete_fingerprint_from_sensor(sender, instance, **kwargs):
     if instance.fingerprint_id is not None:
         from django.conf import settings
         import requests
-        esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.0.55').rstrip('/')
+        esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
         try:
             requests.post(f"{esp32_base_url}/delete-fingerprint?id={instance.fingerprint_id}", timeout=2, proxies={'http': None, 'https': None})
         except Exception:

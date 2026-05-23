@@ -338,7 +338,7 @@ def biometric_status_check(request):
         return JsonResponse({'status': 'authenticated'})
 
     # Poll ESP32 for detection
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.0.55').rstrip('/')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
     try:
         resp = requests.get(
             f"{esp32_base_url}/status",
@@ -435,7 +435,7 @@ def biometric_status_check(request):
 
 def _esp32_trigger_start_verification(mode=None):
     """POST /start-verification on the ESP32. Returns True if ESP32 acknowledged, False otherwise."""
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.0.55').rstrip('/')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
     max_slot = (
         Resident.objects.filter(is_active=True, fingerprint_id__isnull=False)
         .aggregate(m=Max('fingerprint_id'))
@@ -507,7 +507,7 @@ def biometric_attendance_status_check(request):
         if state.get('status') == 'authenticated':
             return JsonResponse({'status': 'authenticated', 'attendance_mode': state.get('attendance_mode', 'none')})
 
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.0.55').rstrip('/')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
     try:
         resp = requests.get(
             f"{esp32_base_url}/status",
@@ -699,7 +699,7 @@ def biometric_reset_all(request):
     Resident.objects.all().update(fingerprint_id=None, fingerprint_template=None)
     
     # 2. Erase all templates on the R307 module (flash can take several seconds)
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.0.55').rstrip('/')
+    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
     esp32_status = "offline"
     try:
         resp = requests.post(
