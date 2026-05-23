@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include <WiFi.h>
+#include <WiFiManager.h>         // Automatic Wi-Fi portal — no more hardcoded credentials!
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <Wire.h>
@@ -9,16 +10,14 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 
-// ============= WiFi CREDENTIALS =============
-const char* SSID = "lordwarenwifi- 2.4G";
-const char* PASSWORD = "lordwarenlp12";
-
-// ============= WiFi STATIC IP CONFIG =============
-IPAddress local_IP(192, 168, 0, 55);
-IPAddress gateway(192, 168, 0, 1);
-IPAddress subnet(255, 255, 255, 0);
-IPAddress primaryDNS(8, 8, 8, 8);   // Optional: Google DNS
-IPAddress secondaryDNS(8, 8, 4, 4); // Optional: Google DNS
+// ============= WiFi CONFIG =============
+// WiFi credentials are now managed automatically via the WiFiManager portal.
+// On first boot (or if Wi-Fi is lost), the ESP32 creates a hotspot:
+//   SSID    : "ESP32-Fingerprint-Portal"
+//   Password: (open / no password)
+// Connect your phone/laptop to that hotspot and a setup page will appear.
+// Select your Wi-Fi, enter the password, and the ESP32 saves it automatically.
+// The saved credentials survive reboots and power cuts via on-chip flash storage.
 
 // ============= HTTP SERVER CONFIG =============
 WebServer server(80);
@@ -368,27 +367,35 @@ bool initializeFingerprintModule() {
 
 // ============= WiFi INITIALIZATION =============
 void initializeWiFi() {
-  // Commented out to enable DHCP (Automatic IP) so it works on any router
-  /*
-  if (!WiFi.config(local_IP, gateway, subnet, primaryDNS, secondaryDNS)) {
-    Serial.println("[WIFI] STA Failed to configure static IP");
-  }
-  */
-  
-  WiFi.mode(WIFI_STA);
-  WiFi.setTxPower(WIFI_POWER_11dBm); // Reduce WiFi transmit power slightly to avoid sudden voltage drops
-  WiFi.begin(SSID, PASSWORD);
-  int attempts = 0;
-  while(WiFi.status() != WL_CONNECTED && attempts < 20) {
-    delay(500);
-    attempts++;
-  }
+  // Show portal waiting message on LCD
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Connecting WiFi");
+  lcd.setCursor(0, 1);
+  lcd.print("Please wait...");
 
-  if (WiFi.status() == WL_CONNECTED) {
+  WiFi.mode(WIFI_STA);
+  WiFi.setTxPower(WIFI_POWER_11dBm); // Reduce TX power to avoid brownout
+
+  WiFiManager wm;
+
+  // Automatically try saved credentials; open portal hotspot if they fail
+  // Portal SSID: "ESP32-Fingerprint-Portal" (open, no password)
+  bool connected = wm.autoConnect("ESP32-Fingerprint-Portal");
+
+  if (connected) {
     Serial.print("[WIFI] Connected! Dynamic IP: ");
     Serial.println(WiFi.localIP());
-    
-    // Start mDNS responder so we can access it via http://esp32-fingerprint.local
+
+    // Show IP on LCD briefly
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("WiFi Connected!");
+    lcd.setCursor(0, 1);
+    lcd.print(WiFi.localIP());
+    delay(2000);
+
+    // Start mDNS so the ESP32 is reachable as http://esp32-fingerprint.local
     if (MDNS.begin("esp32-fingerprint")) {
       Serial.println("[MDNS] Responder started: http://esp32-fingerprint.local");
       MDNS.addService("http", "tcp", 80);
@@ -396,7 +403,14 @@ void initializeWiFi() {
       Serial.println("[MDNS] Error setting up MDNS responder!");
     }
   } else {
-    Serial.println("[WIFI] Connection failed.");
+    Serial.println("[WIFI] Failed to connect via WiFiManager portal.");
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("WiFi FAILED");
+    lcd.setCursor(0, 1);
+    lcd.print("Restarting...");
+    delay(3000);
+    ESP.restart();
   }
 }
 
