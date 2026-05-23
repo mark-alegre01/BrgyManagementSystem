@@ -26,7 +26,7 @@ SECRET_KEY = "django-insecure-l5c3)u(1jer_siq#rx-y5xqa(+!f9a*cd@w!4*^!8ru8mya%(4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'brgysicosico.local', 'barangay.local', '*.ts.net', '*.tailscale.net']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'brgysicosico.local', 'barangay.local', 'mhark.local', '.local', '*.ts.net', '*.tailscale.net']
 
 # Local ESP32 fingerprint module proxy target
 ESP32_BASE_URL = 'http://esp32-fingerprint.local'
