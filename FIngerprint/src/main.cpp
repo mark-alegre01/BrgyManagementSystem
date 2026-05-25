@@ -36,10 +36,10 @@ WebServer server(80);
 
 // ============= SYSTEM STATES =============
 enum SystemState {
-  STANDBY,      // Module idle, red LED blinks slowly (1 second)
-  ENROLLING,    // Waiting for fingerprint, red LED blinks fast
-  VERIFYING,    // Waiting for login fingerprint, red LED blinks fast
-  WAIT_REMOVE,  // Success! Wait for finger to be removed
+  STANDBY,      // Module idle, blue LED blinks slowly (1 second)
+  ENROLLING,    // Waiting for fingerprint, blue LED blinks fast
+  VERIFYING,    // Waiting for login fingerprint, blue LED blinks fast
+  WAIT_REMOVE,  // Success! Wait for finger to be removed (Green ON + Blue blinking)
   FINGERPRINT_DETECTED,  // Fingerprint detected, green LED + buzzer sync
   AUTH_FAILED          // Error feedback (Red LED + 3 beeps)
 };
@@ -143,6 +143,11 @@ SystemState resumeStateAfterWaitRemove = ENROLLING;
 uint8_t fingerprintTemplates[MAX_SCANS][512]; // Store templates for 3 scans
 bool scanCompleted[MAX_SCANS] = {false, false, false};
 
+// ============= ORANGE PI mDNS RESOLVER =============
+IPAddress orangePiIP(0,0,0,0);
+unsigned long lastMDNSQueryTime = 0;
+const unsigned long MDNS_QUERY_INTERVAL = 30000; // Query every 30 seconds
+
 // ============= FUNCTION DECLARATIONS =============
 void initializeHardware();
 bool initializeFingerprintModule();
@@ -183,6 +188,7 @@ bool r307RefreshFingerprintCapacity();
 void triggerAuthFailed(const String& reason, bool resumeVerifyingSessionAfterBeeps = false);
 void printSystemStatus();
 void setLeds(bool red, bool green, bool blue);
+void resolveOrangePiIP();
 
 // ============= SETUP =============
 void setup() {
@@ -208,6 +214,15 @@ void setup() {
 void loop() {
   server.handleClient();
   updateSystemState();
+  
+  // Periodically query Orange Pi's IP address every 30 seconds in STANDBY
+  if (currentState == STANDBY && WiFi.status() == WL_CONNECTED) {
+    unsigned long currentMillis = millis();
+    if (orangePiIP.toString() == "0.0.0.0" || currentMillis - lastMDNSQueryTime >= MDNS_QUERY_INTERVAL) {
+      lastMDNSQueryTime = currentMillis;
+      resolveOrangePiIP();
+    }
+  }
   
   switch(currentState) {
     case STANDBY:
@@ -304,11 +319,21 @@ void initializeHardware() {
   delay(100); // Give hardware time to stabilize
 }
 
+// Set this to 'true' if you are using a Common Anode RGB LED (where LOW turns the LED ON)
+// Set to 'false' if you are using a Common Cathode RGB LED (where HIGH turns the LED ON)
+const bool LED_ACTIVE_LOW = false; 
+
 // ============= LED CONTROL UTILITY =============
 void setLeds(bool red, bool green, bool blue) {
-  digitalWrite(RED_LED_PIN, red ? HIGH : LOW);
-  digitalWrite(GREEN_LED_PIN, green ? HIGH : LOW);
-  digitalWrite(BLUE_LED_PIN, blue ? HIGH : LOW);
+  if (LED_ACTIVE_LOW) {
+    digitalWrite(RED_LED_PIN, red ? LOW : HIGH);
+    digitalWrite(GREEN_LED_PIN, green ? LOW : HIGH);
+    digitalWrite(BLUE_LED_PIN, blue ? LOW : HIGH);
+  } else {
+    digitalWrite(RED_LED_PIN, red ? HIGH : LOW);
+    digitalWrite(GREEN_LED_PIN, green ? HIGH : LOW);
+    digitalWrite(BLUE_LED_PIN, blue ? HIGH : LOW);
+  }
 }
 
 // ============= FINGERPRINT MODULE INITIALIZATION =============
@@ -430,6 +455,9 @@ void initializeWiFi() {
     } else {
       Serial.println("[MDNS] Error setting up MDNS responder!");
     }
+
+    // Resolve Orange Pi IP immediately on boot
+    resolveOrangePiIP();
   } else {
     Serial.println("[WIFI] Failed to connect via WiFiManager portal.");
     lcd.clear();
@@ -713,7 +741,11 @@ void handleEmptyLibrary() {
 
 void handleErrorFeedback() {
   addCorsHeaders();
-  triggerAuthFailed("External request");
+  String reason = "External request";
+  if (server.hasArg("reason")) {
+    reason = server.arg("reason");
+  }
+  triggerAuthFailed(reason);
   server.send(200, "application/json", "{\"status\":\"success\"}");
 }
 
@@ -735,6 +767,10 @@ void triggerAuthFailed(const String& reason, bool resumeVerifyingSessionAfterBee
   // Clear any existing visual/audio states
   setLeds(false, false, false);
   ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+
+  // Force LCD update to show the failure reason before blocking beeps start
+  lastLCDUpdateTime = 0; 
+  updateLCD();
 }
 
 void handleStopEnrollment() {
@@ -786,7 +822,7 @@ void handleGetStatus() {
   server.send(200, "application/json", response);
 }
 
-// ============= STANDBY MODE (Red LED steady) =============
+// ============= STANDBY MODE (Blue LED slow blink) =============
 void handleStandbyMode() {
   unsigned long currentTime = millis();
   
@@ -795,8 +831,8 @@ void handleStandbyMode() {
     lastRedBlinkTime = currentTime;
     redLedState = !redLedState;
     
-    // Standby: Blink Red, keep others OFF
-    setLeds(redLedState, false, false);
+    // Standby: Blink Blue slowly, keep others OFF (matches slow blue standby comment)
+    setLeds(false, false, redLedState);
     
     ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
     ledcWrite(BUZZER_LEDC_CHANNEL, 0);
@@ -1479,17 +1515,25 @@ void updateLCD() {
   switch(currentState) {
     case STANDBY:
       {
+        // Alternate standby screen every 4 seconds
+        bool showSystemTime = ((now / 4000) % 2 == 0);
+        
         time_t epoch;
         time(&epoch);
         struct tm timeinfo;
-        if (epoch > 1000000000 && getLocalTime(&timeinfo, 50)) {
+        
+        if (showSystemTime && epoch > 1000000000 && getLocalTime(&timeinfo, 50)) {
           char timeStr[15];
           strftime(timeStr, sizeof(timeStr), "%I:%M:%S %p", &timeinfo);
           line1 = "Barangay System";
           line2 = String(dayNames[timeinfo.tm_wday]) + " " + String(timeStr);
         } else {
-          line1 = "Barangay System";
-          line2 = "Ready - " + WiFi.localIP().toString();
+          line1 = "Web App IP:";
+          if (orangePiIP.toString() != "0.0.0.0") {
+            line2 = orangePiIP.toString();
+          } else {
+            line2 = "Searching OPi...";
+          }
         }
       }
       break;
@@ -1541,7 +1585,16 @@ void updateLCD() {
 
     case AUTH_FAILED:
       line1 = "SCAN FAILED";
-      line2 = "Try Again...";
+      if (lastErrorMessage.indexOf("not recognized") != -1 || 
+          lastErrorMessage.indexOf("not registered") != -1 || 
+          lastErrorMessage.indexOf("Not registered") != -1) {
+        line2 = "Not Registered";
+      } else if (lastErrorMessage.indexOf("No Clock-In") != -1 || 
+                 lastErrorMessage.indexOf("No Time In") != -1) {
+        line2 = "No Clock-In!";
+      } else {
+        line2 = "Try Again...";
+      }
       break;
   }
 
@@ -1557,6 +1610,20 @@ void updateLCD() {
   }
 }
 
+// ============= RESOLVE ORANGE PI IP VIA mDNS =============
+void resolveOrangePiIP() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  Serial.println("[MDNS] Querying Orange Pi (brgysicosico.local)...");
+  IPAddress resolved = MDNS.queryHost("brgysicosico", 1500); // 1.5s timeout
+  if (resolved.toString() != "0.0.0.0") {
+    orangePiIP = resolved;
+    Serial.print("[MDNS] Orange Pi resolved to: ");
+    Serial.println(orangePiIP);
+  } else {
+    Serial.println("[MDNS] Orange Pi not found via mDNS.");
+  }
+}
+
 // ============= SYSTEM STATUS PRINT =============
 void printSystemStatus() {
   // Serial.println("\n================================");
@@ -1566,10 +1633,10 @@ void printSystemStatus() {
   
   switch(currentState) {
     case STANDBY:
-      // Serial.println("STANDBY (Red LED slow blink - 1 second)");
+      // Serial.println("STANDBY (Blue LED slow blink - 1 second)");
       break;
     case ENROLLING:
-      // Serial.println("ENROLLING (Red LED fast blink - waiting for fingerprint)");
+      // Serial.println("ENROLLING (Blue LED fast blink - waiting for fingerprint)");
       break;
     case FINGERPRINT_DETECTED:
       // Serial.println("FINGERPRINT_DETECTED (Green LED + Buzzer pulsing)");

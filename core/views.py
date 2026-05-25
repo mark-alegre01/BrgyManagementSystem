@@ -397,7 +397,7 @@ def biometric_status_check(request):
                         else "Fingerprint not registered for biometric login."
                     )
                     try:
-                        requests.post(f"{esp32_base_url}/error-feedback", timeout=2,
+                        requests.post(f"{esp32_base_url}/error-feedback", data={'reason': 'Not Registered'}, timeout=2,
                                       proxies={'http': None, 'https': None})
                     except Exception:
                         pass
@@ -551,6 +551,7 @@ def biometric_attendance_status_check(request):
                     try:
                         requests.post(
                             f"{esp32_base_url}/error-feedback",
+                            data={'reason': 'Not Registered'},
                             timeout=2,
                             proxies={'http': None, 'https': None},
                         )
@@ -564,6 +565,37 @@ def biometric_attendance_status_check(request):
                     return JsonResponse({'status': 'failed', 'reason': reason})
 
                 attendance_mode = data.get('attendance_mode') or 'none'
+
+                # Hardware validation: Reject TIME OUT if no TIME IN is recorded for today
+                if attendance_mode == 'out':
+                    from datetime import date
+                    today = date.today()
+                    log = AttendanceLog.objects.filter(official=official_rec, date=today).first()
+                    if not log or (not log.am_in and not log.pm_in):
+                        reason = 'No Clock-In'
+                        try:
+                            requests.post(
+                                f"{esp32_base_url}/error-feedback",
+                                data={'reason': reason},
+                                timeout=2,
+                                proxies={'http': None, 'https': None},
+                            )
+                        except Exception:
+                            pass
+                        
+                        target_req_id = request_id or 'global_hardware_scan'
+                        cache.set(
+                            f"biometric_attendance:{target_req_id}",
+                            {
+                                'status': 'failed',
+                                'reason': f"Clock-Out Rejected: No Clock-In recorded today for {official_rec.resident.full_name}."
+                            },
+                            timeout=30,
+                        )
+                        return JsonResponse({
+                            'status': 'failed',
+                            'reason': f"Clock-Out Rejected: No Clock-In recorded today for {official_rec.resident.full_name}."
+                        })
 
                 if request_id:
                     cache.set(
