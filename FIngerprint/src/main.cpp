@@ -1711,28 +1711,34 @@ bool scanSubnetForOrangePi() {
       mdnsFailCount = 0;
       Serial.printf("[SCAN] Orange Pi found at: %s\n", targetIP.c_str());
       
-      // Update LCD briefly to show success
+      // Re-initialize LCD to clear any I2C EMI corruption from the Wi-Fi scan
+      lcd.init();
+      lcd.backlight();
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("Orange Pi Found!");
       lcd.setCursor(0, 1);
       lcd.print(orangePiIP.toString());
-      delay(1500); // Brief pause so user sees it
+      delay(2000); // Brief pause so user sees it
       
       // Force LCD to redraw standby screen on next loop
       lastLCDLine1 = "";
       return true;
     }
     
-    // Yield to keep WiFi/watchdog happy, and update progress
+    // Yield to keep WiFi/watchdog happy, and process other events
     if (i % 10 == 0) {
-      lcd.setCursor(0, 1);
-      lcd.print("IP " + String(i) + " of 254   ");
+      // Intentionally NOT updating the LCD here to prevent I2C bus corruption 
+      // from Wi-Fi TX burst noise
       yield();
       server.handleClient();
       detectFingerprint();
     }
   }
+  
+  // Re-initialize LCD to clear any I2C EMI corruption
+  lcd.init();
+  lcd.backlight();
   Serial.println("[SCAN] No Django server found on subnet.");
   return false;
 }
