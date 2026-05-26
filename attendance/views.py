@@ -380,6 +380,9 @@ def api_biometric_verify(request):
         is_morning = now < midpoint
         action_label = ""
         
+        from core.utils.biometric_discovery import get_esp32_base_url
+        esp32_base_url = get_esp32_base_url()
+
         if not log:
             log = AttendanceLog.objects.create(official=official, date=today, method='biometric')
 
@@ -399,7 +402,11 @@ def api_biometric_verify(request):
                     if data.get('auto'):
                         att_rid = request.session.get('biometric_attendance_request_id')
                         if att_rid: cache.delete(f"biometric_attendance:{att_rid}")
-                    return JsonResponse({'status': 'info', 'message': 'Morning IN already recorded.'})
+                    try:
+                        requests.post(f"{esp32_base_url}/error-feedback", data={'reason': 'Already Timed In'}, timeout=2, proxies={'http': None, 'https': None})
+                    except Exception:
+                        pass
+                    return JsonResponse({'status': 'failed', 'message': 'Morning IN already recorded.'})
             else:
                 if not log.pm_in:
                     log.pm_in = now
@@ -416,16 +423,42 @@ def api_biometric_verify(request):
                     if data.get('auto'):
                         att_rid = request.session.get('biometric_attendance_request_id')
                         if att_rid: cache.delete(f"biometric_attendance:{att_rid}")
-                    return JsonResponse({'status': 'info', 'message': 'Afternoon IN already recorded.'})
+                    try:
+                        requests.post(f"{esp32_base_url}/error-feedback", data={'reason': 'Already Timed In'}, timeout=2, proxies={'http': None, 'https': None})
+                    except Exception:
+                        pass
+                    return JsonResponse({'status': 'failed', 'message': 'Afternoon IN already recorded.'})
         
         elif requested_action == 'out' or (requested_action is None):
             # Handle OUT
             if is_morning:
-                log.am_out = now
-                action_label = "Morning Clock OUT"
+                if not log.am_out:
+                    log.am_out = now
+                    action_label = "Morning Clock OUT"
+                else:
+                    # Clear state
+                    if data.get('auto'):
+                        att_rid = request.session.get('biometric_attendance_request_id')
+                        if att_rid: cache.delete(f"biometric_attendance:{att_rid}")
+                    try:
+                        requests.post(f"{esp32_base_url}/error-feedback", data={'reason': 'Already Timed Out'}, timeout=2, proxies={'http': None, 'https': None})
+                    except Exception:
+                        pass
+                    return JsonResponse({'status': 'failed', 'message': 'Morning OUT already recorded.'})
             else:
-                log.pm_out = now
-                action_label = "Afternoon Clock OUT"
+                if not log.pm_out:
+                    log.pm_out = now
+                    action_label = "Afternoon Clock OUT"
+                else:
+                    # Clear state
+                    if data.get('auto'):
+                        att_rid = request.session.get('biometric_attendance_request_id')
+                        if att_rid: cache.delete(f"biometric_attendance:{att_rid}")
+                    try:
+                        requests.post(f"{esp32_base_url}/error-feedback", data={'reason': 'Already Timed Out'}, timeout=2, proxies={'http': None, 'https': None})
+                    except Exception:
+                        pass
+                    return JsonResponse({'status': 'failed', 'message': 'Afternoon OUT already recorded.'})
         
         log.save()
 

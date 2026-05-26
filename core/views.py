@@ -24,6 +24,7 @@ from .utils.backup import perform_backup, get_backup_destinations, create_backup
 from biometrics.utils import get_biometric_provider
 from django.conf import settings
 from django.db.models import Max
+from core.utils.biometric_discovery import get_esp32_base_url
 import requests
 
 
@@ -338,21 +339,34 @@ def biometric_status_check(request):
         return JsonResponse({'status': 'authenticated'})
 
     # Poll ESP32 for detection
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
+    esp32_base_url = get_esp32_base_url()
     try:
         resp = requests.get(
             f"{esp32_base_url}/status",
-            timeout=(5, 12),
+            timeout=(3, 5),
             proxies={'http': None, 'https': None},
         )
+    except Exception:
+        esp32_base_url = get_esp32_base_url(force_scan=True)
+        try:
+            resp = requests.get(
+                f"{esp32_base_url}/status",
+                timeout=(3, 5),
+                proxies={'http': None, 'https': None},
+            )
+        except Exception as e:
+            print(f"[Biometric] Status poll failed after scan: {str(e)}")
+            return JsonResponse({'status': 'pending'})
+    try:
         if resp.ok:
             data = resp.json()
             
             # Only fail on fingerprint not found errors during verification mode
             esp32_state_raw = data.get('state', '')
-            last_error = data.get('last_error', '').lower()
-            if esp32_state_raw == 'auth_failed' and ('not found' in last_error or 'account not found' in last_error):
+            if esp32_state_raw == 'auth_failed':
                 reason = data.get('last_error', 'Fingerprint not recognized.')
+                if reason.startswith("Auth Failed: "):
+                    reason = reason[len("Auth Failed: "):]
                 cache.set(f"biometric:{request_id}", {"status": "failed", "reason": reason}, timeout=120)
                 return JsonResponse({'status': 'failed', 'reason': reason})
 
@@ -435,7 +449,7 @@ def biometric_status_check(request):
 
 def _esp32_trigger_start_verification(mode=None):
     """POST /start-verification on the ESP32. Returns True if ESP32 acknowledged, False otherwise."""
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
+    esp32_base_url = get_esp32_base_url()
     max_slot = (
         Resident.objects.filter(is_active=True, fingerprint_id__isnull=False)
         .aggregate(m=Max('fingerprint_id'))
@@ -452,14 +466,25 @@ def _esp32_trigger_start_verification(mode=None):
         resp = requests.post(
             f"{esp32_base_url}/start-verification",
             data=payload if payload else None,
-            timeout=5,
+            timeout=3,
             proxies={'http': None, 'https': None},
         )
         print(f"[Biometric] ESP32 /start-verification response: {resp.status_code} {resp.text[:100]}")
         return resp.ok
     except Exception as e:
-        print(f"[Biometric] Failed to trigger ESP32: {str(e)}")
-        return False
+        print(f"[Biometric] Failed to trigger ESP32: {str(e)}. Scanning...")
+        esp32_base_url = get_esp32_base_url(force_scan=True)
+        try:
+            resp = requests.post(
+                f"{esp32_base_url}/start-verification",
+                data=payload if payload else None,
+                timeout=3,
+                proxies={'http': None, 'https': None},
+            )
+            return resp.ok
+        except Exception as retry_err:
+            print(f"[Biometric] Failed to trigger ESP32 after scan: {str(retry_err)}")
+            return False
 
 
 @csrf_exempt
@@ -507,21 +532,33 @@ def biometric_attendance_status_check(request):
         if state.get('status') == 'authenticated':
             return JsonResponse({'status': 'authenticated', 'attendance_mode': state.get('attendance_mode', 'none')})
 
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
+    esp32_base_url = get_esp32_base_url()
     try:
         resp = requests.get(
             f"{esp32_base_url}/status",
-            timeout=(5, 12),
+            timeout=(3, 5),
             proxies={'http': None, 'https': None},
         )
+    except Exception:
+        esp32_base_url = get_esp32_base_url(force_scan=True)
+        try:
+            resp = requests.get(
+                f"{esp32_base_url}/status",
+                timeout=(3, 5),
+                proxies={'http': None, 'https': None},
+            )
+        except Exception as e:
+            print(f"[Biometric] Attendance status poll failed after scan: {str(e)}")
+            return JsonResponse({'status': 'pending'})
+    try:
         if resp.ok:
             data = resp.json()
             esp32_state_raw = data.get('state', '')
             last_error = (data.get('last_error') or '').lower()
-            if esp32_state_raw == 'auth_failed' and (
-                'not found' in last_error or 'account not found' in last_error
-            ):
+            if esp32_state_raw == 'auth_failed':
                 reason = data.get('last_error', 'Fingerprint not recognized.')
+                if reason.startswith("Auth Failed: "):
+                    reason = reason[len("Auth Failed: "):]
                 cache.set(
                     f"biometric_attendance:{request_id}",
                     {'status': 'failed', 'reason': reason},
@@ -731,15 +768,27 @@ def biometric_reset_all(request):
     Resident.objects.all().update(fingerprint_id=None, fingerprint_template=None)
     
     # 2. Erase all templates on the R307 module (flash can take several seconds)
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
+    esp32_base_url = get_esp32_base_url()
     esp32_status = "offline"
+    resp = None
     try:
         resp = requests.post(
             f"{esp32_base_url}/empty-library",
-            timeout=15,
+            timeout=10,
             proxies={'http': None, 'https': None},
         )
-        if resp.ok:
+    except Exception:
+        esp32_base_url = get_esp32_base_url(force_scan=True)
+        try:
+            resp = requests.post(
+                f"{esp32_base_url}/empty-library",
+                timeout=10,
+                proxies={'http': None, 'https': None},
+            )
+        except Exception:
+            pass
+
+    if resp and resp.ok:
             try:
                 payload = resp.json()
                 if payload.get('status') == 'success':

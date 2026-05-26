@@ -28,8 +28,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'brgysicosico.local', 'barangay.local', 'mhark.local', '.local', '*.ts.net', '*.tailscale.net']
 
-# Local ESP32 fingerprint module proxy target
-ESP32_BASE_URL = 'http://esp32-fingerprint.local'
+# Local ESP32 fingerprint module proxy target (Replace with your ESP32's actual IP if .local fails)
+ESP32_BASE_URL = os.environ.get("ESP32_BASE_URL", "http://192.168.1.50")
 FINGERPRINT_SENSOR_MAX_SLOTS = int(os.environ.get("FINGERPRINT_SENSOR_MAX_SLOTS", "1000"))
 
 # Application definition

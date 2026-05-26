@@ -56,7 +56,8 @@ const int daylightOffset_sec = 0;
 // ============= ATTENDANCE CONFIG =============
 String attendanceMode = "none"; // "in", "out", or "none"
 unsigned long lastButtonPress = 0;
-const int debounceDelay = 300;
+bool buttonBootGuardDone = false; // Prevents ghost triggers on first boot
+const int debounceDelay = 600;   // Increased from 300ms — reduces noise false-triggers
 
 // ============= TIMING CONSTANTS =============
 #define STANDBY_BLINK_INTERVAL 1000      // 1 second for standby (total cycle)
@@ -147,6 +148,7 @@ bool scanCompleted[MAX_SCANS] = {false, false, false};
 IPAddress orangePiIP(0,0,0,0);
 unsigned long lastMDNSQueryTime = 0;
 const unsigned long MDNS_QUERY_INTERVAL = 30000; // Query every 30 seconds
+int mdnsFailCount = 0;                          // Track consecutive mDNS lookup failures
 
 // ============= FUNCTION DECLARATIONS =============
 void initializeHardware();
@@ -321,7 +323,7 @@ void initializeHardware() {
 
 // Set this to 'true' if you are using a Common Anode RGB LED (where LOW turns the LED ON)
 // Set to 'false' if you are using a Common Cathode RGB LED (where HIGH turns the LED ON)
-const bool LED_ACTIVE_LOW = false; 
+const bool LED_ACTIVE_LOW = true; 
 
 // ============= LED CONTROL UTILITY =============
 void setLeds(bool red, bool green, bool blue) {
@@ -513,6 +515,15 @@ void addCorsHeaders() {
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.sendHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   server.sendHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // Dynamically learn the Orange Pi IP address from incoming Django requests
+  if (server.client()) {
+    IPAddress clientIP = server.client().remoteIP();
+    if (clientIP.toString() != "0.0.0.0" && clientIP.toString() != "127.0.0.1") {
+      orangePiIP = clientIP;
+      mdnsFailCount = 0; // Reset mDNS fail counter since we established communication
+    }
+  }
 }
 
 void handleRoot() {
@@ -643,11 +654,15 @@ void handleStartVerification() {
     // Just refresh the message and proceed
     lastErrorMessage = "Ready";
   } else {
-    clearR307Buffer(); // CLEAR SERIAL BUFFER
+    // Double-clear UART buffer: flush any stale packets from previous session
+    clearR307Buffer();
+    delay(30);
+    clearR307Buffer();
     currentState = VERIFYING;
     currentScan = 0;
     enrollmentActive = true;
     matchedFingerprintID = -1;
+    lastImageGenTime = 0; // Reset poll timer so first scan fires immediately (not after 150ms)
     
     // Only update attendanceMode if it was provided, otherwise default to "none" (login)
     attendanceMode = requestMode;
@@ -775,6 +790,10 @@ void triggerAuthFailed(const String& reason, bool resumeVerifyingSessionAfterBee
 
 void handleStopEnrollment() {
   addCorsHeaders();
+  if (isBeeping || currentState == AUTH_FAILED) {
+    server.send(200, "application/json", "{\"status\":\"ignored\",\"message\":\"Beeping in progress\",\"state\":\"auth_failed\"}");
+    return;
+  }
   currentState = STANDBY;
   enrollmentActive = false;
   currentScan = 0; // Reset scan count
@@ -932,39 +951,67 @@ void handleFailMode() {
 
 // ============= UPDATE SYSTEM STATE =============
 void updateSystemState() {
+  // Boot guard: skip button checks for the first 2 seconds after power-on
+  // This prevents floating/noisy GPIO from immediately triggering TIME IN on startup
+  if (!buttonBootGuardDone) {
+    if (millis() < 2000) return;
+    buttonBootGuardDone = true;
+    lastButtonPress = millis(); // Arm debounce from NOW, not from 0
+  }
+
   // Check Hardware Buttons (TIME IN / TIME OUT)
   if (millis() - lastButtonPress > debounceDelay) {
-    if (digitalRead(BUTTON_IN_PIN) == LOW) {
+    bool inPressed  = (digitalRead(BUTTON_IN_PIN)  == LOW);
+    bool outPressed = (digitalRead(BUTTON_OUT_PIN) == LOW);
+
+    // Double-sample confirmation: re-read after 10ms to filter noise/glitches
+    if (inPressed || outPressed) {
+      delay(10);
+      inPressed  = (digitalRead(BUTTON_IN_PIN)  == LOW);
+      outPressed = (digitalRead(BUTTON_OUT_PIN) == LOW);
+    }
+
+    if (inPressed) {
       lastButtonPress = millis();
       attendanceMode = "in";
+      clearR307Buffer();
+      delay(30);
+      clearR307Buffer();
       currentState = VERIFYING;
       enrollmentActive = true;
       currentScan = 0;
+      matchedFingerprintID = -1;
+      lastImageGenTime = 0; // Reset poll timer so first scan fires immediately
       lastErrorMessage = "TIME IN selected";
       Serial.println("[BUTTON] TIME IN pressed");
-      // --- Buzzer: two short beeps (same as TIME OUT) ---
+      // --- Buzzer: two short beeps ---
       for (int i = 0; i < 2; i++) {
         ledcWriteTone(BUZZER_LEDC_CHANNEL, 3000);
         ledcWrite(BUZZER_LEDC_CHANNEL, 160);
         delay(80);
         ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
-        if (i < 1) delay(80); // gap between beeps
+        if (i < 1) delay(80);
       }
-    } else if (digitalRead(BUTTON_OUT_PIN) == LOW) {
+    } else if (outPressed) {
       lastButtonPress = millis();
       attendanceMode = "out";
+      clearR307Buffer();
+      delay(30);
+      clearR307Buffer();
       currentState = VERIFYING;
       enrollmentActive = true;
       currentScan = 0;
+      matchedFingerprintID = -1;
+      lastImageGenTime = 0; // Reset poll timer so first scan fires immediately
       lastErrorMessage = "TIME OUT selected";
       Serial.println("[BUTTON] TIME OUT pressed");
-      // --- Buzzer: two short beeps for TIME OUT ---
+      // --- Buzzer: two short beeps ---
       for (int i = 0; i < 2; i++) {
         ledcWriteTone(BUZZER_LEDC_CHANNEL, 3000);
         ledcWrite(BUZZER_LEDC_CHANNEL, 160);
         delay(80);
         ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
-        if (i < 1) delay(80); // gap between beeps
+        if (i < 1) delay(80);
       }
     }
   }
@@ -976,6 +1023,7 @@ void updateSystemState() {
       attendanceMode = "none";
       enrollmentActive = false;
       lastErrorMessage = "Ready";
+      lastButtonPress = millis(); // IMPORTANT: reset so debounce doesn't re-fire immediately
       Serial.println("[BUTTON] Timeout. Reverting to STANDBY.");
     }
   }
@@ -1069,9 +1117,14 @@ void detectFingerprint() {
   }
   lastImageGenTime = currentTime;
 
-  server.handleClient();
   // 1. Generate Image (Synchronous)
   uint8_t code = r307GenerateImage();
+  server.handleClient();
+  
+  if (code != 0x02) { // 0x02 is the normal "no finger" code
+    Serial.printf("[R307] GenerateImage returned: 0x%02X\n", code);
+  }
+  
   server.handleClient();
   
   // 2. Handle Wait for Remove state
@@ -1194,7 +1247,13 @@ void detectFingerprint() {
       uint8_t i2 = r307Img2Tz(1);
       server.handleClient();
       if (i2 != 0x00) {
-        // Soft fail: keep verification session so user can lift finger and try again
+        // Soft fail: single short error tone and wait for finger lift
+        ledcWriteTone(BUZZER_LEDC_CHANNEL, 2000);
+        ledcWrite(BUZZER_LEDC_CHANNEL, 120);
+        delay(150);
+        ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+        ledcWrite(BUZZER_LEDC_CHANNEL, 0);
+
         resumeStateAfterWaitRemove = VERIFYING;
         currentState = WAIT_REMOVE;
         lastErrorMessage = "Poor scan — lift finger and try again";
@@ -1592,6 +1651,12 @@ void updateLCD() {
       } else if (lastErrorMessage.indexOf("No Clock-In") != -1 || 
                  lastErrorMessage.indexOf("No Time In") != -1) {
         line2 = "No Clock-In!";
+      } else if (lastErrorMessage.indexOf("Already Timed In") != -1 || 
+                 lastErrorMessage.indexOf("Already Clocked In") != -1) {
+        line2 = "Already ClockedIn";
+      } else if (lastErrorMessage.indexOf("Already Timed Out") != -1 || 
+                 lastErrorMessage.indexOf("Already Clocked Out") != -1) {
+        line2 = "AlreadyClockedOut";
       } else {
         line2 = "Try Again...";
       }
@@ -1617,10 +1682,14 @@ void resolveOrangePiIP() {
   IPAddress resolved = MDNS.queryHost("brgysicosico", 1500); // 1.5s timeout
   if (resolved.toString() != "0.0.0.0") {
     orangePiIP = resolved;
+    mdnsFailCount = 0;
     Serial.print("[MDNS] Orange Pi resolved to: ");
     Serial.println(orangePiIP);
   } else {
-    Serial.println("[MDNS] Orange Pi not found via mDNS.");
+    mdnsFailCount++;
+    Serial.printf("[MDNS] Orange Pi not found via mDNS. Failure count: %d\n", mdnsFailCount);
+    // Note: We do NOT reset or set a static IP here on failure. 
+    // This allows the ESP32 to keep showing the last IP it learned dynamically from incoming Django requests.
   }
 }
 

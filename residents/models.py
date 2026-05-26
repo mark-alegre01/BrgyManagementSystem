@@ -311,9 +311,9 @@ def cleanup_user_on_resident_delete(sender, instance, **kwargs):
 def delete_fingerprint_from_sensor(sender, instance, **kwargs):
     """Attempt to delete fingerprint from ESP32 sensor when resident is deleted."""
     if instance.fingerprint_id is not None:
-        from django.conf import settings
+        from core.utils.biometric_discovery import get_esp32_base_url
         import requests
-        esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
+        esp32_base_url = get_esp32_base_url()
         try:
             requests.post(f"{esp32_base_url}/delete-fingerprint?id={instance.fingerprint_id}", timeout=2, proxies={'http': None, 'https': None})
         except Exception:

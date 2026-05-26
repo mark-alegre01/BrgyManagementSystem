@@ -9,8 +9,8 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*", "localhost", "127.0.0.1", "barangay.local", "brgysicosico.local"]
 
-# Local ESP32 fingerprint module proxy target
-ESP32_BASE_URL = 'http://esp32-fingerprint.local'
+# Local ESP32 fingerprint module proxy target (Replace with your ESP32's actual IP if .local fails)
+ESP32_BASE_URL = os.environ.get("ESP32_BASE_URL", "http://192.168.1.50")
 # Ceiling for slot IDs; effective slots = min(this, sensor-reported capacity from ESP32 /status).
 # If the scanner is unreachable, enrollment uses min(this, 300) for safety on common R307 modules.
 FINGERPRINT_SENSOR_MAX_SLOTS = int(os.environ.get("FINGERPRINT_SENSOR_MAX_SLOTS", "1000"))

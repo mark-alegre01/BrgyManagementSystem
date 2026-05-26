@@ -12,6 +12,7 @@ User = get_user_model()
 from .models import Official
 from core.models import UserProfile
 from residents.models import Resident
+from core.utils.biometric_discovery import get_esp32_base_url
 
 
 OFFICIAL_USERNAME_BY_ROLE = {
@@ -97,26 +98,37 @@ def esp32_status_proxy(request):
     if not request.user.is_authenticated:
         return JsonResponse({'status': 'error', 'message': 'Authentication required'}, status=401)
     
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
+    esp32_base_url = get_esp32_base_url()
     try:
         # Bypassing proxies for local network reliability
-        response = requests.get(f"{esp32_base_url}/status", timeout=10, proxies={'http': None, 'https': None})
+        response = requests.get(f"{esp32_base_url}/status", timeout=4, proxies={'http': None, 'https': None})
         response.raise_for_status()
         try:
             payload = response.json()
         except ValueError:
             payload = {'status': 'success', 'message': response.text}
         return JsonResponse(payload, status=response.status_code)
-    except requests.RequestException as exc:
-        if exc.response is not None:
-             try:
-                 return JsonResponse(exc.response.json(), status=exc.response.status_code)
-             except Exception:
-                 return JsonResponse({'status': 'error', 'message': f'ESP32 Error: {exc.response.text}'}, status=exc.response.status_code)
-        return JsonResponse({
-            'status': 'error',
-            'message': f'ESP32 disconnected or IP changed. Tried: {esp32_base_url}. Error: {str(exc)}'
-        }, status=503)
+    except Exception:
+        # Retry with force scan
+        esp32_base_url = get_esp32_base_url(force_scan=True)
+        try:
+            response = requests.get(f"{esp32_base_url}/status", timeout=4, proxies={'http': None, 'https': None})
+            response.raise_for_status()
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = {'status': 'success', 'message': response.text}
+            return JsonResponse(payload, status=response.status_code)
+        except requests.RequestException as exc:
+            if exc.response is not None:
+                 try:
+                     return JsonResponse(exc.response.json(), status=exc.response.status_code)
+                 except Exception:
+                     return JsonResponse({'status': 'error', 'message': f'ESP32 Error: {exc.response.text}'}, status=exc.response.status_code)
+            return JsonResponse({
+                'status': 'error',
+                'message': f'ESP32 disconnected or IP changed. Tried: {esp32_base_url}. Error: {str(exc)}'
+            }, status=503)
     except Exception as exc:
         return JsonResponse({
             'status': 'error',
@@ -131,7 +143,7 @@ def esp32_start_enrollment_proxy(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
+    esp32_base_url = get_esp32_base_url()
     slot_id = request.GET.get('id') or request.POST.get('id')
     
     url = f"{esp32_base_url}/start-enrollment"
@@ -145,22 +157,39 @@ def esp32_start_enrollment_proxy(request):
             payload = response.json()
         except ValueError:
             payload = {
-                'status': 'error' if response.status_code >= 400 else 'success',
+                'status': 'error',
                 'message': response.text or 'Invalid response from ESP32',
             }
         if response.status_code >= 400 and payload.get('status') != 'error':
             payload['status'] = 'error'
         return JsonResponse(payload, status=response.status_code)
-    except requests.RequestException as exc:
-        if exc.response is not None:
-             try:
-                 return JsonResponse(exc.response.json(), status=exc.response.status_code)
-             except Exception:
-                 return JsonResponse({'status': 'error', 'message': f'ESP32 Error: {exc.response.text}'}, status=exc.response.status_code)
-        return JsonResponse({
-            'status': 'error',
-            'message': f'ESP32 unreachable at {esp32_base_url}. Error: {str(exc)}'
-        }, status=503)
+    except Exception:
+        esp32_base_url = get_esp32_base_url(force_scan=True)
+        url = f"{esp32_base_url}/start-enrollment"
+        if slot_id:
+            url += f"?id={slot_id}"
+        try:
+            response = requests.post(url, timeout=25, proxies={'http': None, 'https': None})
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = {
+                    'status': 'error',
+                    'message': response.text or 'Invalid response from ESP32',
+                }
+            if response.status_code >= 400 and payload.get('status') != 'error':
+                payload['status'] = 'error'
+            return JsonResponse(payload, status=response.status_code)
+        except requests.RequestException as exc:
+            if exc.response is not None:
+                 try:
+                     return JsonResponse(exc.response.json(), status=exc.response.status_code)
+                 except Exception:
+                     return JsonResponse({'status': 'error', 'message': f'ESP32 Error: {exc.response.text}'}, status=exc.response.status_code)
+            return JsonResponse({
+                'status': 'error',
+                'message': f'ESP32 unreachable at {esp32_base_url}. Error: {str(exc)}'
+            }, status=503)
     except Exception as exc:
         return JsonResponse({
             'status': 'error',
@@ -175,7 +204,7 @@ def esp32_stop_enrollment_proxy(request):
     if request.method != 'POST':
         return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
 
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local')
+    esp32_base_url = get_esp32_base_url()
     try:
         response = requests.post(f"{esp32_base_url}/stop-enrollment", timeout=4, proxies={'http': None, 'https': None})
         response.raise_for_status()
@@ -820,11 +849,11 @@ def _get_effective_fingerprint_max_slots():
     """
     settings_cap = max(1, int(getattr(settings, 'FINGERPRINT_SENSOR_MAX_SLOTS', 1000)))
     offline_safe_cap = min(settings_cap, 300)
-    esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
+    esp32_base_url = get_esp32_base_url()
     try:
         response = requests.get(
             f'{esp32_base_url}/status',
-            timeout=4,
+            timeout=3,
             proxies={'http': None, 'https': None},
         )
         response.raise_for_status()
@@ -1044,13 +1073,13 @@ def remove_fingerprint(request, pk):
     
     # 1. Erase template on R307 (retry — WiFi/serial can miss the first attempt)
     if resident.fingerprint_id is not None:
-        esp32_base_url = getattr(settings, 'ESP32_BASE_URL', 'http://esp32-fingerprint.local').rstrip('/')
+        esp32_base_url = get_esp32_base_url()
         slot = resident.fingerprint_id
         for attempt in range(3):
             try:
                 r = requests.post(
                     f"{esp32_base_url}/delete-fingerprint?id={slot}",
-                    timeout=8,
+                    timeout=5,
                     proxies={'http': None, 'https': None},
                 )
                 if r.ok:
