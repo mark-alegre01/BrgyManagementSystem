@@ -1675,9 +1675,47 @@ void updateLCD() {
   }
 }
 
-// ============= RESOLVE ORANGE PI IP VIA mDNS =============
+// ============= RESOLVE ORANGE PI IP VIA mDNS + SUBNET SCAN =============
+bool scanSubnetForOrangePi() {
+  // Scan the local subnet for a device running Django on port 8001
+  IPAddress localIP = WiFi.localIP();
+  String subnet = String(localIP[0]) + "." + String(localIP[1]) + "." + String(localIP[2]) + ".";
+  
+  Serial.printf("[SCAN] Scanning subnet %s0/24 for Django server on port 8001...\n", subnet.c_str());
+  
+  for (int i = 1; i <= 254; i++) {
+    // Skip our own IP
+    if (i == localIP[3]) continue;
+    
+    String targetIP = subnet + String(i);
+    WiFiClient client;
+    client.setTimeout(150); // 150ms timeout per IP — fast enough for LAN
+    
+    if (client.connect(targetIP.c_str(), 8001)) {
+      client.stop();
+      // Found a device with port 8001 open — that's the Orange Pi running Django
+      IPAddress found;
+      found.fromString(targetIP);
+      orangePiIP = found;
+      mdnsFailCount = 0;
+      Serial.printf("[SCAN] Orange Pi found at: %s\n", targetIP.c_str());
+      return true;
+    }
+    
+    // Yield to keep WiFi/watchdog happy during long scan
+    if (i % 10 == 0) {
+      yield();
+      server.handleClient();
+    }
+  }
+  Serial.println("[SCAN] No Django server found on subnet.");
+  return false;
+}
+
 void resolveOrangePiIP() {
   if (WiFi.status() != WL_CONNECTED) return;
+  
+  // Step 1: Try mDNS first (works on home routers with multicast support)
   Serial.println("[MDNS] Querying Orange Pi (brgysicosico.local)...");
   IPAddress resolved = MDNS.queryHost("brgysicosico", 1500); // 1.5s timeout
   if (resolved.toString() != "0.0.0.0") {
@@ -1685,11 +1723,17 @@ void resolveOrangePiIP() {
     mdnsFailCount = 0;
     Serial.print("[MDNS] Orange Pi resolved to: ");
     Serial.println(orangePiIP);
-  } else {
-    mdnsFailCount++;
-    Serial.printf("[MDNS] Orange Pi not found via mDNS. Failure count: %d\n", mdnsFailCount);
-    // Note: We do NOT reset or set a static IP here on failure. 
-    // This allows the ESP32 to keep showing the last IP it learned dynamically from incoming Django requests.
+    return;
+  }
+  
+  mdnsFailCount++;
+  Serial.printf("[MDNS] mDNS failed (count: %d)\n", mdnsFailCount);
+  
+  // Step 2: After 2 mDNS failures, fall back to subnet scan
+  // This handles mobile hotspots and routers that block multicast
+  if (mdnsFailCount >= 2) {
+    Serial.println("[MDNS] Falling back to subnet scan...");
+    scanSubnetForOrangePi();
   }
 }
 
