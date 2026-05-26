@@ -386,54 +386,36 @@ def api_biometric_verify(request):
         if not log:
             log = AttendanceLog.objects.create(official=official, date=today, method='biometric')
 
-        if requested_action == 'in' or (requested_action is None and (is_morning or not log.am_in)):
-            # Handle IN (either AM or PM)
+        target_field = None
+        error_msg = ""
+        
+        # Determine target action and field based on time and requested action
+        if requested_action == 'in':
+            if is_morning:
+                target_field = 'am_in'
+                action_label = "Morning Clock IN"
+                error_msg = "Morning IN already recorded."
+            else:
+                target_field = 'pm_in'
+                action_label = "Afternoon Clock IN"
+                error_msg = "Afternoon IN already recorded."
+        elif requested_action == 'out':
+            if is_morning:
+                target_field = 'am_out'
+                action_label = "Morning Clock OUT"
+                error_msg = "Morning OUT already recorded."
+            else:
+                target_field = 'pm_out'
+                action_label = "Afternoon Clock OUT"
+                error_msg = "Afternoon OUT already recorded."
+        else:
+            # Auto-detect (requested_action is None or 'attendance')
             if is_morning:
                 if not log.am_in:
-                    log.am_in = now
+                    target_field = 'am_in'
                     action_label = "Morning Clock IN"
-                    # Check lateness
-                    threshold = shift.am_in if shift else time(8, 0)
-                    grace = shift.grace_period if shift else 15
-                    threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
-                    log.status = 'late' if datetime.now() > threshold_dt else 'present'
-                else:
-                    # Clear state before returning info
-                    if data.get('auto'):
-                        att_rid = request.session.get('biometric_attendance_request_id')
-                        if att_rid: cache.delete(f"biometric_attendance:{att_rid}")
-                    try:
-                        requests.post(f"{esp32_base_url}/error-feedback", data={'reason': 'Already Timed In'}, timeout=2, proxies={'http': None, 'https': None})
-                    except Exception:
-                        pass
-                    return JsonResponse({'status': 'failed', 'message': 'Morning IN already recorded.'})
-            else:
-                if not log.pm_in:
-                    log.pm_in = now
-                    action_label = "Afternoon Clock IN"
-                    # Optional: Check PM lateness?
-                    threshold = shift.pm_in if shift else time(13, 0)
-                    grace = shift.grace_period if shift else 15
-                    threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
-                    # We keep the worst status (if already late in morning, stay late)
-                    if datetime.now() > threshold_dt and log.status != 'late':
-                        log.status = 'late'
-                else:
-                    # Clear state before returning info
-                    if data.get('auto'):
-                        att_rid = request.session.get('biometric_attendance_request_id')
-                        if att_rid: cache.delete(f"biometric_attendance:{att_rid}")
-                    try:
-                        requests.post(f"{esp32_base_url}/error-feedback", data={'reason': 'Already Timed In'}, timeout=2, proxies={'http': None, 'https': None})
-                    except Exception:
-                        pass
-                    return JsonResponse({'status': 'failed', 'message': 'Afternoon IN already recorded.'})
-        
-        elif requested_action == 'out' or (requested_action is None):
-            # Handle OUT
-            if is_morning:
-                if not log.am_out:
-                    log.am_out = now
+                elif not log.am_out:
+                    target_field = 'am_out'
                     action_label = "Morning Clock OUT"
                 else:
                     # Clear state
@@ -444,10 +426,14 @@ def api_biometric_verify(request):
                         requests.post(f"{esp32_base_url}/error-feedback", data={'reason': 'Already Timed Out'}, timeout=2, proxies={'http': None, 'https': None})
                     except Exception:
                         pass
-                    return JsonResponse({'status': 'failed', 'message': 'Morning OUT already recorded.'})
+                    return JsonResponse({'status': 'failed', 'message': 'Morning shift already completed.'})
             else:
-                if not log.pm_out:
-                    log.pm_out = now
+                # Afternoon
+                if not log.pm_in:
+                    target_field = 'pm_in'
+                    action_label = "Afternoon Clock IN"
+                elif not log.pm_out:
+                    target_field = 'pm_out'
                     action_label = "Afternoon Clock OUT"
                 else:
                     # Clear state
@@ -458,8 +444,36 @@ def api_biometric_verify(request):
                         requests.post(f"{esp32_base_url}/error-feedback", data={'reason': 'Already Timed Out'}, timeout=2, proxies={'http': None, 'https': None})
                     except Exception:
                         pass
-                    return JsonResponse({'status': 'failed', 'message': 'Afternoon OUT already recorded.'})
-        
+                    return JsonResponse({'status': 'failed', 'message': 'Afternoon shift already completed.'})
+
+        # Check if already recorded
+        if getattr(log, target_field) is not None:
+            if data.get('auto'):
+                att_rid = request.session.get('biometric_attendance_request_id')
+                if att_rid: cache.delete(f"biometric_attendance:{att_rid}")
+            try:
+                reason_err = 'Already Timed In' if 'IN' in action_label else 'Already Timed Out'
+                requests.post(f"{esp32_base_url}/error-feedback", data={'reason': reason_err}, timeout=2, proxies={'http': None, 'https': None})
+            except Exception:
+                pass
+            return JsonResponse({'status': 'failed', 'message': error_msg or f"{action_label} already recorded."})
+
+        # Save the time
+        setattr(log, target_field, now)
+
+        # Handle lateness / status calculation for clock in
+        if target_field == 'am_in':
+            threshold = shift.am_in if shift else time(8, 0)
+            grace = shift.grace_period if shift else 15
+            threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
+            log.status = 'late' if datetime.now() > threshold_dt else 'present'
+        elif target_field == 'pm_in':
+            threshold = shift.pm_in if shift else time(13, 0)
+            grace = shift.grace_period if shift else 15
+            threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
+            if datetime.now() > threshold_dt and log.status != 'late':
+                log.status = 'late'
+
         log.save()
 
         # Clear active scan state

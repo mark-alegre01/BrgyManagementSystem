@@ -378,6 +378,30 @@ def biometric_status_check(request):
 
             # Fingerprint matched — only Captain, Secretary, Treasurer may use biometric *login*
             if esp32_state in ('detected', 'standby') and has_fp and matched_id is not None:
+                attendance_mode = data.get('attendance_mode') or 'none'
+                
+                # Cross-route if this is an attendance scan (mode is 'in', 'out', or 'attendance')
+                if attendance_mode in ('in', 'out', 'attendance'):
+                    from officials.models import Official as OfficialModel
+                    official_rec = OfficialModel.objects.select_related('resident', 'user').filter(
+                        resident__fingerprint_id=matched_id,
+                        resident__is_active=True,
+                        status='active',
+                    ).first()
+                    if official_rec:
+                        att_rid = request.session.get('biometric_attendance_request_id') or 'global_hardware_scan'
+                        cache.set(
+                            f"biometric_attendance:{att_rid}",
+                            {
+                                'status': 'authenticated',
+                                'official_id': official_rec.id,
+                                'user_id': official_rec.user_id,
+                                'attendance_mode': attendance_mode,
+                            },
+                            timeout=60,
+                        )
+                    return JsonResponse({'status': 'pending'})
+
                 from officials.models import Official as OfficialModel
                 user = None
 
@@ -571,6 +595,29 @@ def biometric_attendance_status_check(request):
             matched_id = data.get('fingerprint_id') if has_fp else None
 
             if esp32_state in ('detected', 'standby') and has_fp and matched_id is not None:
+                attendance_mode = data.get('attendance_mode') or 'none'
+                
+                # Cross-route if this is a login scan (mode is 'none')
+                if attendance_mode == 'none':
+                    from officials.models import Official as OfficialModel
+                    official_rec = OfficialModel.objects.select_related('resident', 'user').filter(
+                        resident__fingerprint_id=matched_id,
+                        resident__is_active=True,
+                        status='active',
+                    ).first()
+                    if official_rec and official_rec.user_id:
+                        login_req_id = request.session.get('biometric_request_id')
+                        if login_req_id:
+                            cache.set(
+                                f"biometric:{login_req_id}",
+                                {
+                                    'status': 'authenticated',
+                                    'user_id': official_rec.user_id,
+                                },
+                                timeout=60,
+                            )
+                    return JsonResponse({'status': 'pending'})
+
                 from officials.models import Official as OfficialModel
                 official_rec = OfficialModel.objects.select_related('resident', 'user').filter(
                     resident__fingerprint_id=matched_id,
@@ -600,8 +647,6 @@ def biometric_attendance_status_check(request):
                         timeout=30,
                     )
                     return JsonResponse({'status': 'failed', 'reason': reason})
-
-                attendance_mode = data.get('attendance_mode') or 'none'
 
                 # Hardware validation: Reject TIME OUT if no TIME IN is recorded for today
                 if attendance_mode == 'out':
