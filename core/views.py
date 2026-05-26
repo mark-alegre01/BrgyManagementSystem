@@ -789,18 +789,16 @@ def biometric_reset_all(request):
             pass
 
     if resp and resp.ok:
-            try:
-                payload = resp.json()
-                if payload.get('status') == 'success':
-                    esp32_status = "sensor cleared"
-                else:
-                    esp32_status = f"sensor error: {payload.get('message', resp.text)[:120]}"
-            except ValueError:
-                esp32_status = "sensor cleared" if resp.status_code == 200 else f"HTTP {resp.status_code}"
-        else:
-            esp32_status = f"HTTP {resp.status_code}"
-    except Exception as exc:
-        esp32_status = f"offline ({str(exc)[:80]})"
+        try:
+            payload = resp.json()
+            if payload.get('status') == 'success':
+                esp32_status = "sensor cleared"
+            else:
+                esp32_status = f"sensor error: {payload.get('message', resp.text)[:120]}"
+        except ValueError:
+            esp32_status = "sensor cleared" if resp.status_code == 200 else f"HTTP {resp.status_code}"
+    elif resp is not None:
+        esp32_status = f"HTTP {resp.status_code}"
 
     messages.success(
         request,
