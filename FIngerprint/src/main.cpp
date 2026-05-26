@@ -220,8 +220,7 @@ void loop() {
   // Periodically query Orange Pi's IP address every 30 seconds in STANDBY
   if (currentState == STANDBY && WiFi.status() == WL_CONNECTED) {
     unsigned long currentMillis = millis();
-    unsigned long interval = (orangePiIP.toString() == "0.0.0.0") ? 5000 : MDNS_QUERY_INTERVAL;
-    if (lastMDNSQueryTime == 0 || currentMillis - lastMDNSQueryTime >= interval) {
+    if (orangePiIP.toString() == "0.0.0.0" || currentMillis - lastMDNSQueryTime >= MDNS_QUERY_INTERVAL) {
       lastMDNSQueryTime = currentMillis;
       resolveOrangePiIP();
     }
@@ -1676,77 +1675,9 @@ void updateLCD() {
   }
 }
 
-// ============= RESOLVE ORANGE PI IP VIA mDNS + SUBNET SCAN =============
-bool scanSubnetForOrangePi() {
-  // Scan the local subnet for a device running Django on port 8001
-  IPAddress localIP = WiFi.localIP();
-  String subnet = String(localIP[0]) + "." + String(localIP[1]) + "." + String(localIP[2]) + ".";
-  
-  Serial.printf("[SCAN] Scanning subnet %s0/24 for Django server on port 8001...\n", subnet.c_str());
-  
-  // Show scanning message on LCD immediately
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Scanning Subnet");
-  lcd.setCursor(0, 1);
-  lcd.print("Please wait...");
-  lastLCDLine1 = "Scanning Subnet";
-  lastLCDLine2 = "Please wait...";
-  
-  for (int i = 1; i <= 254; i++) {
-    // Skip our own IP
-    if (i == localIP[3]) continue;
-    
-    String targetIP = subnet + String(i);
-    WiFiClient client;
-    
-    // Use the 3rd argument of connect() for the connection timeout (150ms).
-    // client.setTimeout() only applies to reading/writing AFTER connection!
-    if (client.connect(targetIP.c_str(), 8001, 150)) {
-      client.stop();
-      // Found a device with port 8001 open — that's the Orange Pi running Django
-      IPAddress found;
-      found.fromString(targetIP);
-      orangePiIP = found;
-      mdnsFailCount = 0;
-      Serial.printf("[SCAN] Orange Pi found at: %s\n", targetIP.c_str());
-      
-      // Re-initialize LCD to clear any I2C EMI corruption from the Wi-Fi scan
-      lcd.init();
-      lcd.backlight();
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Orange Pi Found!");
-      lcd.setCursor(0, 1);
-      lcd.print(orangePiIP.toString());
-      delay(2000); // Brief pause so user sees it
-      
-      // Force LCD to redraw standby screen on next loop
-      lastLCDLine1 = "";
-      return true;
-    }
-    
-    // Yield to keep WiFi/watchdog happy, and process other events
-    if (i % 10 == 0) {
-      // Intentionally NOT updating the LCD here to prevent I2C bus corruption 
-      // from Wi-Fi TX burst noise
-      yield();
-      server.handleClient();
-      detectFingerprint();
-    }
-  }
-  
-  // Re-initialize LCD to clear any I2C EMI corruption
-  lcd.init();
-  lcd.backlight();
-  Serial.println("[SCAN] No Django server found on subnet.");
-  return false;
-}
-
+// ============= RESOLVE ORANGE PI IP VIA mDNS =============
 void resolveOrangePiIP() {
   if (WiFi.status() != WL_CONNECTED) return;
-  
-  // Step 1: Try mDNS first (works on home routers with multicast support)
   Serial.println("[MDNS] Querying Orange Pi (brgysicosico.local)...");
   IPAddress resolved = MDNS.queryHost("brgysicosico", 1500); // 1.5s timeout
   if (resolved.toString() != "0.0.0.0") {
@@ -1754,17 +1685,11 @@ void resolveOrangePiIP() {
     mdnsFailCount = 0;
     Serial.print("[MDNS] Orange Pi resolved to: ");
     Serial.println(orangePiIP);
-    return;
-  }
-  
-  mdnsFailCount++;
-  Serial.printf("[MDNS] mDNS failed (count: %d)\n", mdnsFailCount);
-  
-  // Step 2: After 2 mDNS failures, fall back to subnet scan
-  // This handles mobile hotspots and routers that block multicast
-  if (mdnsFailCount >= 2) {
-    Serial.println("[MDNS] Falling back to subnet scan...");
-    scanSubnetForOrangePi();
+  } else {
+    mdnsFailCount++;
+    Serial.printf("[MDNS] Orange Pi not found via mDNS. Failure count: %d\n", mdnsFailCount);
+    // Note: We do NOT reset or set a static IP here on failure. 
+    // This allows the ESP32 to keep showing the last IP it learned dynamically from incoming Django requests.
   }
 }
 
