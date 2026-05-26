@@ -397,6 +397,8 @@ def biometric_status_check(request):
                                 'official_id': official_rec.id,
                                 'user_id': official_rec.user_id,
                                 'attendance_mode': attendance_mode,
+                                'device_time': data.get('device_time') or '',
+                                'device_date': data.get('device_date') or '',
                             },
                             timeout=60,
                         )
@@ -648,11 +650,20 @@ def biometric_attendance_status_check(request):
                     )
                     return JsonResponse({'status': 'failed', 'reason': reason})
 
+                device_time = data.get('device_time') or ''
+                device_date = data.get('device_date') or ''
+
                 # Hardware validation: Reject TIME OUT if no TIME IN is recorded for today
                 if attendance_mode == 'out':
-                    from datetime import date
-                    today = date.today()
-                    log = AttendanceLog.objects.filter(official=official_rec, date=today).first()
+                    from datetime import date, datetime
+                    check_date = date.today()
+                    if device_date:
+                        try:
+                            check_date = datetime.strptime(device_date, "%Y-%m-%d").date()
+                        except Exception:
+                            pass
+                    
+                    log = AttendanceLog.objects.filter(official=official_rec, date=check_date).first()
                     if not log or (not log.am_in and not log.pm_in):
                         reason = 'No Clock-In'
                         try:
@@ -687,6 +698,8 @@ def biometric_attendance_status_check(request):
                             'official_id': official_rec.id,
                             'user_id': official_rec.user_id,
                             'attendance_mode': attendance_mode,
+                            'device_time': device_time,
+                            'device_date': device_date,
                         },
                         timeout=60,
                     )
@@ -701,6 +714,8 @@ def biometric_attendance_status_check(request):
                             'official_id': official_rec.id,
                             'user_id': official_rec.user_id,
                             'attendance_mode': attendance_mode,
+                            'device_time': device_time,
+                            'device_date': device_date,
                         },
                         timeout=60,
                     )
@@ -714,7 +729,9 @@ def biometric_attendance_status_check(request):
                     pass
                 return JsonResponse({
                     'status': 'authenticated',
-                    'attendance_mode': data.get('attendance_mode') or 'none'
+                    'attendance_mode': data.get('attendance_mode') or 'none',
+                    'device_time': device_time,
+                    'device_date': device_date,
                 })
 
             esp_st = (data.get('state') or '').strip()

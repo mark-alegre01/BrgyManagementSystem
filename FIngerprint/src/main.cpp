@@ -816,6 +816,21 @@ void handleGetStatus() {
     case AUTH_FAILED: stateStr = "auth_failed"; break;
     default: stateStr = "unknown"; break;
   }
+
+  // Retrieve current timeinfo from internal RTC (NTP synchronized)
+  time_t epoch = 0;
+  time(&epoch);
+  struct tm timeinfo;
+  String devTime = "";
+  String devDate = "";
+  if (epoch > 1000000000 && getLocalTime(&timeinfo, 50)) {
+    char tBuf[20];
+    char dBuf[20];
+    strftime(tBuf, sizeof(tBuf), "%H:%M:%S", &timeinfo);
+    strftime(dBuf, sizeof(dBuf), "%Y-%m-%d", &timeinfo);
+    devTime = String(tBuf);
+    devDate = String(dBuf);
+  }
   
   String response = "{";
   response += "\"state\":\"" + stateStr + "\",";
@@ -833,6 +848,8 @@ void handleGetStatus() {
     attendanceMode = "none";   // CONSUME IT
   }
   
+  response += "\"device_time\":\"" + devTime + "\",";
+  response += "\"device_date\":\"" + devDate + "\",";
   response += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
   response += "\"uptime\":" + String(millis()) + ",";
   response += "\"wifi_signal\":" + String(WiFi.RSSI());

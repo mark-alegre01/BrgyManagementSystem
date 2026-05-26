@@ -351,9 +351,29 @@ def api_biometric_verify(request):
         if not official:
             return JsonResponse({'status': 'failed', 'message': 'Fingerprint not recognized or session expired'})
 
+        device_time_str = data.get('device_time')
+        device_date_str = data.get('device_date')
+        
+        is_auto = data.get('auto', False)
+        if is_auto and (not device_time_str or not device_date_str):
+            att_rid = request.session.get('biometric_attendance_request_id') or 'global_hardware_scan'
+            if att_rid:
+                att_state = cache.get(f"biometric_attendance:{att_rid}")
+                if att_state:
+                    device_time_str = device_time_str or att_state.get('device_time')
+                    device_date_str = device_date_str or att_state.get('device_date')
+
         today = date.today()
         now = datetime.now().time()
         
+        if device_time_str and device_date_str:
+            try:
+                parsed_dt = datetime.strptime(f"{device_date_str} {device_time_str}", "%Y-%m-%d %H:%M:%S")
+                today = parsed_dt.date()
+                now = parsed_dt.time()
+            except Exception as e:
+                print(f"[Biometric] Failed to parse device date/time: {e}")
+
         requested_action = data.get('action')
         if requested_action == 'attendance' or not requested_action:
             requested_action = None
