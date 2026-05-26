@@ -220,7 +220,8 @@ void loop() {
   // Periodically query Orange Pi's IP address every 30 seconds in STANDBY
   if (currentState == STANDBY && WiFi.status() == WL_CONNECTED) {
     unsigned long currentMillis = millis();
-    if (orangePiIP.toString() == "0.0.0.0" || currentMillis - lastMDNSQueryTime >= MDNS_QUERY_INTERVAL) {
+    unsigned long interval = (orangePiIP.toString() == "0.0.0.0") ? 5000 : MDNS_QUERY_INTERVAL;
+    if (lastMDNSQueryTime == 0 || currentMillis - lastMDNSQueryTime >= interval) {
       lastMDNSQueryTime = currentMillis;
       resolveOrangePiIP();
     }
@@ -1683,6 +1684,15 @@ bool scanSubnetForOrangePi() {
   
   Serial.printf("[SCAN] Scanning subnet %s0/24 for Django server on port 8001...\n", subnet.c_str());
   
+  // Show scanning message on LCD immediately
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Scanning Subnet");
+  lcd.setCursor(0, 1);
+  lcd.print("Please wait...");
+  lastLCDLine1 = "Scanning Subnet";
+  lastLCDLine2 = "Please wait...";
+  
   for (int i = 1; i <= 254; i++) {
     // Skip our own IP
     if (i == localIP[3]) continue;
@@ -1699,13 +1709,25 @@ bool scanSubnetForOrangePi() {
       orangePiIP = found;
       mdnsFailCount = 0;
       Serial.printf("[SCAN] Orange Pi found at: %s\n", targetIP.c_str());
+      
+      // Update LCD briefly to show success
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("Orange Pi Found!");
+      lcd.setCursor(0, 1);
+      lcd.print(orangePiIP.toString());
+      delay(1500); // Brief pause so user sees it
+      
+      // Force LCD to redraw standby screen on next loop
+      lastLCDLine1 = "";
       return true;
     }
     
-    // Yield to keep WiFi/watchdog happy during long scan
+    // Yield to keep WiFi/watchdog happy, and process other events
     if (i % 10 == 0) {
       yield();
       server.handleClient();
+      detectFingerprint();
     }
   }
   Serial.println("[SCAN] No Django server found on subnet.");
