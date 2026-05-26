@@ -1699,9 +1699,10 @@ bool scanSubnetForOrangePi() {
     
     String targetIP = subnet + String(i);
     WiFiClient client;
-    client.setTimeout(150); // 150ms timeout per IP — fast enough for LAN
     
-    if (client.connect(targetIP.c_str(), 8001)) {
+    // Use the 3rd argument of connect() for the connection timeout (150ms).
+    // client.setTimeout() only applies to reading/writing AFTER connection!
+    if (client.connect(targetIP.c_str(), 8001, 150)) {
       client.stop();
       // Found a device with port 8001 open — that's the Orange Pi running Django
       IPAddress found;
@@ -1723,8 +1724,10 @@ bool scanSubnetForOrangePi() {
       return true;
     }
     
-    // Yield to keep WiFi/watchdog happy, and process other events
+    // Yield to keep WiFi/watchdog happy, and update progress
     if (i % 10 == 0) {
+      lcd.setCursor(0, 1);
+      lcd.print("IP " + String(i) + " of 254   ");
       yield();
       server.handleClient();
       detectFingerprint();
