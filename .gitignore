@@ -36,3 +36,6 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Project caches
+.esp32_ip
