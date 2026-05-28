@@ -369,8 +369,9 @@ def api_biometric_verify(request):
         if device_time_str and device_date_str:
             try:
                 parsed_dt = datetime.strptime(f"{device_date_str} {device_time_str}", "%Y-%m-%d %H:%M:%S")
-                today = parsed_dt.date()
-                now = parsed_dt.time()
+                if parsed_dt.year >= 2026:
+                    today = parsed_dt.date()
+                    now = parsed_dt.time()
             except Exception as e:
                 print(f"[Biometric] Failed to parse device date/time: {e}")
 

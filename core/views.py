@@ -702,7 +702,9 @@ def biometric_attendance_status_check(request):
                     check_date = date.today()
                     if device_date:
                         try:
-                            check_date = datetime.strptime(device_date, "%Y-%m-%d").date()
+                            parsed_date = datetime.strptime(device_date, "%Y-%m-%d").date()
+                            if parsed_date.year >= 2026:
+                                check_date = parsed_date
                         except Exception:
                             pass
                     
