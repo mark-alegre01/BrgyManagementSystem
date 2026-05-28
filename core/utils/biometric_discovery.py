@@ -189,7 +189,20 @@ def get_esp32_base_url(force_scan: bool = False) -> str:
     default_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.50').rstrip('/')
 
     if not force_scan:
-        # ---- 1. mDNS hostname (works on any network without router config) ----
+        # ---- 1. Heartbeat-registered IP (ESP32 dynamically announced its IP on boot) ----
+        hb_url = get_heartbeat_url()
+        if hb_url and _is_esp32(hb_url):
+            print(f"[Biometric] ESP32 found via heartbeat cache: {hb_url}")
+            save_esp32_url(hb_url)
+            return hb_url
+
+        # ---- 2. Last cached IP from .esp32_ip (known working IP from previous scans) ----
+        cached_url = get_saved_esp32_url()
+        if cached_url and cached_url != hb_url and _is_esp32(cached_url):
+            print(f"[Biometric] ESP32 found via IP cache: {cached_url}")
+            return cached_url
+
+        # ---- 3. mDNS hostname (works on routers supporting mDNS) ----
         try:
             resp = requests.get(
                 f"{_MDNS_URL}/status",
@@ -202,19 +215,6 @@ def get_esp32_base_url(force_scan: bool = False) -> str:
                 return _MDNS_URL
         except Exception:
             pass
-
-        # ---- 2. Heartbeat-registered IP (ESP32 told us on boot) ----
-        hb_url = get_heartbeat_url()
-        if hb_url and _is_esp32(hb_url):
-            print(f"[Biometric] ESP32 found via heartbeat cache: {hb_url}")
-            save_esp32_url(hb_url)
-            return hb_url
-
-        # ---- 3. Last cached IP from .esp32_ip ----
-        cached_url = get_saved_esp32_url()
-        if cached_url and cached_url != hb_url and _is_esp32(cached_url):
-            print(f"[Biometric] ESP32 found via IP cache: {cached_url}")
-            return cached_url
 
         # ---- 4. Settings default URL ----
         if _is_esp32(default_url):
