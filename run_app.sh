@@ -11,5 +11,5 @@ echo " Starting Barangay Management System "
 echo "=================================================="
 echo "Project Path: $PROJECT_DIR"
 
-# Run the Django server
-./venv/bin/python manage.py runserver 127.0.0.1:8001
+# Run the Django server (0.0.0.0 = listen on all interfaces, including LAN)
+./venv/bin/python manage.py runserver 0.0.0.0:8001
