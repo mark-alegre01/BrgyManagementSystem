@@ -658,6 +658,18 @@ void handleStartVerification() {
     requestMode = server.arg("mode");
   }
 
+  // --- NEW: Dynamic Server IP Registration ---
+  // If Django passes its IP, learn it instantly instead of waiting for mDNS
+  if (server.hasArg("server_ip")) {
+    String sip = server.arg("server_ip");
+    IPAddress newIP;
+    if (newIP.fromString(sip)) {
+      orangePiIP = newIP;
+      lastMDNSQueryTime = millis(); // Reset mDNS timer
+      Serial.println("[SYNC] Learned Django Server IP: " + orangePiIP.toString());
+    }
+  }
+
   if (currentState == VERIFYING) {
     // Already in verifying mode (triggered by hardware button or active session)
     // Don't reset if we already have a match waiting
@@ -667,6 +679,9 @@ void handleStartVerification() {
     }
     // Just refresh the message and proceed
     lastErrorMessage = "Ready";
+    
+    // CRITICAL FIX: Always update attendance mode, even if already verifying!
+    attendanceMode = requestMode;
   } else {
     // Double-clear UART buffer: flush any stale packets from previous session
     clearR307Buffer();
