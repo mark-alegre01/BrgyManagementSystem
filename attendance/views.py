@@ -7,6 +7,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.core.cache import cache
 from datetime import date, datetime, time, timedelta
+from django.utils import timezone
 from .models import AttendanceLog, FaceEncoding, ShiftConfiguration, SpecialDate
 from officials.models import Official
 import json
@@ -22,7 +23,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 @login_required
 def attendance_dashboard(request):
     """Attendance overview."""
-    today = date.today()
+    today = timezone.localdate()
     today_logs = AttendanceLog.objects.filter(date=today).select_related('official__resident')
     officials = Official.objects.filter(status='active')
 
@@ -77,7 +78,7 @@ def attendance_dashboard(request):
 @login_required
 def clock_in_out(request):
     """Manual clock in/out page."""
-    today = date.today()
+    today = timezone.localdate()
 
     if request.method == 'POST':
         official_id = request.POST.get('official')
@@ -363,8 +364,8 @@ def api_biometric_verify(request):
                     device_time_str = device_time_str or att_state.get('device_time')
                     device_date_str = device_date_str or att_state.get('device_date')
 
-        today = date.today()
-        now = datetime.now().time()
+        today = timezone.localdate()
+        now = timezone.localtime().time()
         
         if device_time_str and device_date_str:
             try:
@@ -483,16 +484,17 @@ def api_biometric_verify(request):
         setattr(log, target_field, now)
 
         # Handle lateness / status calculation for clock in
+        local_now = timezone.localtime().replace(tzinfo=None)
         if target_field == 'am_in':
             threshold = shift.am_in if shift else time(8, 0)
             grace = shift.grace_period if shift else 15
             threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
-            log.status = 'late' if datetime.now() > threshold_dt else 'present'
+            log.status = 'late' if local_now > threshold_dt else 'present'
         elif target_field == 'pm_in':
             threshold = shift.pm_in if shift else time(13, 0)
             grace = shift.grace_period if shift else 15
             threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
-            if datetime.now() > threshold_dt and log.status != 'late':
+            if local_now > threshold_dt and log.status != 'late':
                 log.status = 'late'
 
         log.save()

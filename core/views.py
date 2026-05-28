@@ -699,7 +699,8 @@ def biometric_attendance_status_check(request):
                 # Hardware validation: Reject TIME OUT if no TIME IN is recorded for today
                 if attendance_mode == 'out':
                     from datetime import date, datetime
-                    check_date = date.today()
+                    from django.utils import timezone
+                    check_date = timezone.localdate()
                     if device_date:
                         try:
                             parsed_date = datetime.strptime(device_date, "%Y-%m-%d").date()
