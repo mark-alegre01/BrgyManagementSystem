@@ -55,6 +55,7 @@ echo "[INFO] Configuring DHCP (dnsmasq)..."
 mv /etc/dnsmasq.conf /etc/dnsmasq.conf.orig 2>/dev/null
 cat <<EOF > /etc/dnsmasq.conf
 interface=$WIFI_IFACE
+bind-interfaces
 dhcp-range=10.42.0.10,10.42.0.100,255.255.255.0,24h
 domain=local
 address=/brgysicosico.local/10.42.0.1
