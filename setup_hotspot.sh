@@ -22,8 +22,13 @@ if ! command -v nmcli &> /dev/null; then
     exit 1
 fi
 
-# 2. Get the WiFi interface name (usually wlan0, but sometimes wlx...)
-WIFI_IFACE=$(nmcli -t -f DEVICE,TYPE device | grep 802-11-wireless | cut -d: -f1 | head -n 1)
+# 2. Make sure WiFi radio is enabled
+echo "[INFO] Turning on WiFi radio..."
+nmcli radio wifi on
+sudo rfkill unblock wifi 2>/dev/null
+
+# 3. Get the WiFi interface name (usually wlan0)
+WIFI_IFACE=$(nmcli -t -f DEVICE,TYPE device | grep -w "wifi" | cut -d: -f1 | head -n 1)
 
 if [ -z "$WIFI_IFACE" ]; then
     echo "[ERROR] No WiFi hardware found on this device!"
