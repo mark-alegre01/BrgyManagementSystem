@@ -24,7 +24,7 @@ from .utils.backup import perform_backup, get_backup_destinations, create_backup
 from biometrics.utils import get_biometric_provider
 from django.conf import settings
 from django.db.models import Max
-from core.utils.biometric_discovery import get_esp32_base_url
+from core.utils.biometric_discovery import get_esp32_base_url, save_heartbeat_url
 import requests
 
 
@@ -176,8 +176,51 @@ from django.views.decorators.http import require_http_methods
 from django.db.models import Q
 import json
 
+# ============================================================
+# ESP32 HEARTBEAT — Called by ESP32 on every boot via HTTP POST
+# Registers its current DHCP IP so Django never needs to scan.
+# No authentication required (device has no credentials).
+# ============================================================
+@csrf_exempt
+@require_http_methods(["POST", "GET"])
+def esp32_heartbeat(request):
+    """
+    The ESP32 POSTs its own local IP here immediately after connecting to Wi-Fi.
+    Django saves it so it can be used as the highest-priority discovery address.
+    Accepts both POST (from ESP32) and GET (for health-check / browser testing).
+    """
+    if request.method == 'GET':
+        # Simple health-check — ESP32 can confirm the endpoint is alive
+        return JsonResponse({'status': 'ok', 'message': 'Heartbeat endpoint ready'})
+
+    try:
+        # Prefer X-ESP32-IP header; fall back to request body JSON
+        ip = request.META.get('HTTP_X_ESP32_IP', '').strip()
+        if not ip:
+            try:
+                body = json.loads(request.body)
+                ip = body.get('ip', '').strip()
+            except Exception:
+                ip = ''
+
+        # Last resort: use the remote IP of the incoming connection
+        if not ip:
+            ip = request.META.get('REMOTE_ADDR', '')
+
+        if ip and ip != '127.0.0.1':
+            url = f"http://{ip}"
+            save_heartbeat_url(url)
+            print(f"[Biometric] ESP32 heartbeat received — registered at {url}")
+            return JsonResponse({'status': 'ok', 'registered_ip': ip})
+
+        return JsonResponse({'status': 'error', 'message': 'Could not determine ESP32 IP'}, status=400)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
 @csrf_exempt
 def biometric_templates(request):
+
     """API for the 32-bit service to fetch all registered templates."""
     role = (request.GET.get('role') or '').strip()
     username_param = (request.GET.get('username') or '').strip()

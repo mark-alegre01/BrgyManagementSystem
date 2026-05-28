@@ -23,6 +23,10 @@ urlpatterns = [
     ),
     path('biometric-login-complete/', views.biometric_login_complete, name='biometric_login_complete'),
     path('biometric-reset-all/', views.biometric_reset_all, name='biometric_reset_all'),
+
+    # ESP32 self-registration — called by the device on every boot to announce its current IP
+    path('api/esp32-heartbeat/', views.esp32_heartbeat, name='esp32_heartbeat'),
+
     path('backup/choose/', views.backup_setup, name='backup_setup'),
     path('backup/download/', views.backup_download, name='backup_download'),
     path('backup/execute/', views.backup_execute, name='backup_execute'),
@@ -32,3 +36,4 @@ urlpatterns = [
     path('notifications/', views.notifications_view, name='notifications'),
     path('notifications/<int:pk>/read/', views.mark_notification_read, name='mark_notification_read'),
 ]
+

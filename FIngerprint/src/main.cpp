@@ -4,6 +4,7 @@
 #include <WiFiManager.h>         // Automatic Wi-Fi portal — no more hardcoded credentials!
 #include <ESPmDNS.h>
 #include <WebServer.h>
+#include <HTTPClient.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <time.h>
@@ -149,6 +150,9 @@ IPAddress orangePiIP(0,0,0,0);
 unsigned long lastMDNSQueryTime = 0;
 const unsigned long MDNS_QUERY_INTERVAL = 30000; // Query every 30 seconds
 int mdnsFailCount = 0;                          // Track consecutive mDNS lookup failures
+IPAddress lastAnnouncedOrangePiIP(0,0,0,0);
+IPAddress lastAnnouncedLocalIP(0,0,0,0);
+unsigned long lastAnnounceAttemptTime = 0;
 
 // ============= FUNCTION DECLARATIONS =============
 void initializeHardware();
@@ -191,6 +195,7 @@ void triggerAuthFailed(const String& reason, bool resumeVerifyingSessionAfterBee
 void printSystemStatus();
 void setLeds(bool red, bool green, bool blue);
 void resolveOrangePiIP();
+void announceToServer();
 
 // ============= SETUP =============
 void setup() {
@@ -223,6 +228,13 @@ void loop() {
     if (orangePiIP.toString() == "0.0.0.0" || currentMillis - lastMDNSQueryTime >= MDNS_QUERY_INTERVAL) {
       lastMDNSQueryTime = currentMillis;
       resolveOrangePiIP();
+    }
+    // Also periodically verify if we need to announce (e.g. if IP changed or not yet announced)
+    if (orangePiIP.toString() != "0.0.0.0" && (orangePiIP != lastAnnouncedOrangePiIP || WiFi.localIP() != lastAnnouncedLocalIP)) {
+      if (currentMillis - lastAnnounceAttemptTime >= 10000) { // Limit attempts to once every 10 seconds
+        lastAnnounceAttemptTime = currentMillis;
+        announceToServer();
+      }
     }
   }
   
@@ -460,6 +472,8 @@ void initializeWiFi() {
 
     // Resolve Orange Pi IP immediately on boot
     resolveOrangePiIP();
+    lastAnnounceAttemptTime = millis();
+    announceToServer();
   } else {
     Serial.println("[WIFI] Failed to connect via WiFiManager portal.");
     lcd.clear();
@@ -1604,11 +1618,12 @@ void updateLCD() {
           line1 = "Barangay System";
           line2 = String(dayNames[timeinfo.tm_wday]) + " " + String(timeStr);
         } else {
-          line1 = "Web App IP:";
           if (orangePiIP.toString() != "0.0.0.0") {
+            line1 = "Web App IP:";
             line2 = orangePiIP.toString();
           } else {
-            line2 = "Searching OPi...";
+            line1 = "Web App Address:";
+            line2 = "brgysicosico.loc";
           }
         }
       }
@@ -1707,6 +1722,38 @@ void resolveOrangePiIP() {
     Serial.printf("[MDNS] Orange Pi not found via mDNS. Failure count: %d\n", mdnsFailCount);
     // Note: We do NOT reset or set a static IP here on failure. 
     // This allows the ESP32 to keep showing the last IP it learned dynamically from incoming Django requests.
+  }
+}
+
+// ============= ANNOUNCE IP TO DJANGO SERVER =============
+void announceToServer() {
+  if (WiFi.status() != WL_CONNECTED) return;
+  if (orangePiIP.toString() == "0.0.0.0") return;
+  
+  // Try port 8000 first, then 8001 if needed. But for simplicity, we use the port learned if possible.
+  // We'll try the known Django ports
+  int portsToTry[] = {8000, 8001};
+  String myIP = WiFi.localIP().toString();
+  String payload = "{\"ip\":\"" + myIP + "\"}";
+  
+  for (int port : portsToTry) {
+    String url = "http://" + orangePiIP.toString() + ":" + String(port) + "/api/esp32-heartbeat/";
+    Serial.printf("[Heartbeat] Announcing IP %s to %s\n", myIP.c_str(), url.c_str());
+    
+    HTTPClient http;
+    http.begin(url);
+    http.setTimeout(2000); // 2 second timeout to avoid blocking main loop too long
+    http.addHeader("Content-Type", "application/json");
+    http.addHeader("X-ESP32-IP", myIP);
+    int code = http.POST(payload);
+    Serial.printf("[Heartbeat] Response on port %d: %d\n", port, code);
+    http.end();
+    
+    if (code == 200 || code == 201 || code == 204) {
+      lastAnnouncedOrangePiIP = orangePiIP;
+      lastAnnouncedLocalIP = WiFi.localIP();
+      break; // Success! No need to try other ports
+    }
   }
 }
 
