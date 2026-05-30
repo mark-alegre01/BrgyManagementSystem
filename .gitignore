@@ -39,3 +39,4 @@ Thumbs.db
 
 # Project caches
 .esp32_ip
+.esp32_heartbeat_ip
