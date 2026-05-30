@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include <WiFi.h>
+#include <WiFiManager.h>         // Automatic Wi-Fi portal — no more hardcoded credentials!
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <HTTPClient.h>
@@ -11,14 +12,13 @@
 #include "soc/rtc_cntl_reg.h"
 
 // ============= WiFi CONFIG =============
-// The ESP32 connects to the Orange Pi's dedicated private hotspot.
-// The Orange Pi runs hostapd and is ALWAYS at 10.42.0.1 on this network.
-// No WiFiManager portal, no dynamic IP guessing — plug and play.
-// Residents access the web app via the Orange Pi's LAN (ethernet) interface separately.
-#define WIFI_SSID     "Barangay_System_WiFi"
-#define WIFI_PASSWORD "barangay123"
-#define ORANGE_PI_IP  "10.42.0.1"
-#define DJANGO_PORT   8001
+// WiFi credentials are now managed automatically via the WiFiManager portal.
+// On first boot (or if Wi-Fi is lost), the ESP32 creates a hotspot:
+//   SSID    : "ESP32-Fingerprint-Portal"
+//   Password: (open / no password)
+// Connect your phone/laptop to that hotspot and a setup page will appear.
+// Select your Wi-Fi, enter the password, and the ESP32 saves it automatically.
+// The saved credentials survive reboots and power cuts via on-chip flash storage.
 
 // ============= HTTP SERVER CONFIG =============
 WebServer server(80);
@@ -149,11 +149,11 @@ SystemState resumeStateAfterWaitRemove = ENROLLING;
 uint8_t fingerprintTemplates[MAX_SCANS][512]; // Store templates for 3 scans
 bool scanCompleted[MAX_SCANS] = {false, false, false};
 
-// ============= ORANGE PI SERVER CONFIG =============
-// The Orange Pi is always at 10.42.0.1 on the Barangay_System_WiFi hotspot.
-// This IP never changes — no mDNS lookup or DHCP guessing needed.
-IPAddress orangePiIP(10, 42, 0, 1);             // FIXED: Orange Pi hotspot IP (permanent)
-int mdnsFailCount = 0;                          // Reset when Django contacts us
+// ============= ORANGE PI mDNS RESOLVER =============
+IPAddress orangePiIP(0,0,0,0);
+unsigned long lastMDNSQueryTime = 0;
+const unsigned long MDNS_QUERY_INTERVAL = 30000; // Query every 30 seconds
+int mdnsFailCount = 0;                          // Track consecutive mDNS lookup failures
 IPAddress lastAnnouncedOrangePiIP(0,0,0,0);
 IPAddress lastAnnouncedLocalIP(0,0,0,0);
 unsigned long lastAnnounceAttemptTime = 0;
@@ -161,6 +161,7 @@ unsigned long lastAnnounceAttemptTime = 0;
 // ============= FUNCTION DECLARATIONS =============
 void initializeHardware();
 bool initializeFingerprintModule();
+void configModeCallback(WiFiManager *myWiFiManager);
 void initializeWiFi();
 void initializeWebServer();
 void handleRoot();
@@ -225,32 +226,18 @@ void loop() {
   server.handleClient();
   updateSystemState();
   
-  // ============= WiFi WATCHDOG =============
-  // Runs every 5 seconds. Reconnects to the barangay hotspot if the link drops.
-  // Also re-announces our IP to Django after a reconnect so heartbeat stays fresh.
-  {
-    static unsigned long lastWiFiCheckTime = 0;
-    static int wifiRetryCount = 0;
-    unsigned long wifiNow = millis();
-    if (wifiNow - lastWiFiCheckTime >= 5000) {
-      lastWiFiCheckTime = wifiNow;
-      if (WiFi.status() != WL_CONNECTED) {
-        wifiRetryCount++;
-        lcdSafePrint("Hotspot Lost!", "Retry: " + String(wifiRetryCount));
-        Serial.printf("[WIFI] Reconnecting to %s (attempt %d)...\r\n", WIFI_SSID, wifiRetryCount);
-        WiFi.disconnect();
-        delay(100);
-        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-      } else {
-        wifiRetryCount = 0;
-        // Re-announce to Django if our assigned IP changed (e.g. fresh reconnect)
-        if (currentState == STANDBY &&
-            (WiFi.localIP() != lastAnnouncedLocalIP || orangePiIP != lastAnnouncedOrangePiIP)) {
-          if (wifiNow - lastAnnounceAttemptTime >= 10000) {
-            lastAnnounceAttemptTime = wifiNow;
-            announceToServer();
-          }
-        }
+  // Periodically query Orange Pi's IP address every 30 seconds in STANDBY
+  if (currentState == STANDBY && WiFi.status() == WL_CONNECTED) {
+    unsigned long currentMillis = millis();
+    if (orangePiIP.toString() == "0.0.0.0" || currentMillis - lastMDNSQueryTime >= MDNS_QUERY_INTERVAL) {
+      lastMDNSQueryTime = currentMillis;
+      resolveOrangePiIP();
+    }
+    // Also periodically verify if we need to announce (e.g. if IP changed or not yet announced)
+    if (orangePiIP.toString() != "0.0.0.0" && (orangePiIP != lastAnnouncedOrangePiIP || WiFi.localIP() != lastAnnouncedLocalIP)) {
+      if (currentMillis - lastAnnounceAttemptTime >= 10000) { // Limit attempts to once every 10 seconds
+        lastAnnounceAttemptTime = currentMillis;
+        announceToServer();
       }
     }
   }
@@ -451,57 +438,67 @@ bool initializeFingerprintModule() {
   return false;
 }
 
+// Callback when WiFiManager enters Configuration/AP mode
+void configModeCallback(WiFiManager *myWiFiManager) {
+  Serial.println("[WIFI] Entered configuration portal mode.");
+  Serial.print("[WIFI] SSID: ");
+  Serial.println(myWiFiManager->getConfigPortalSSID());
+  Serial.print("[WIFI] IP: ");
+  Serial.println(WiFi.softAPIP());
+
+  // Safe reinit after WiFi AP mode starts — RF noise can corrupt the LCD controller
+  lcdSafeInit();
+  lcdSafePrint("WiFi Portal Open", "IP: 192.168.4.1");
+}
+
 // ============= WiFi INITIALIZATION =============
-// Hardcoded to connect to the Orange Pi's dedicated hotspot.
-// The Orange Pi is ALWAYS at 10.42.0.1 on this private network — no portal, no guessing.
 void initializeWiFi() {
-  lcdSafePrint("Connecting WiFi", WIFI_SSID);
+  // Show portal waiting message — use safe print (no lcd.clear)
+  lcdSafePrint("Connecting WiFi", "Please wait...");
 
   WiFi.mode(WIFI_STA);
   WiFi.setTxPower(WIFI_POWER_11dBm); // Reduce TX power to avoid brownout
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    attempts++;
-    Serial.printf("[WIFI] Connecting to %s... attempt %d\r\n", WIFI_SSID, attempts);
-    lcdSafePrint("Connecting WiFi", "Attempt: " + String(attempts));
+  WiFiManager wm;
 
-    // After 30 seconds, restart to recover from any hardware/startup fault.
-    // The WiFi watchdog in loop() will handle reconnects after a clean boot.
-    if (attempts >= 30) {
-      Serial.println("[WIFI] Hotspot not found. Ensure Orange Pi is running. Restarting...");
-      lcdSafePrint("Hotspot Missing!", "Restarting...");
-      delay(3000);
-      ESP.restart();
-    }
-  }
+  // Setup configuration portal settings
+  wm.setAPCallback(configModeCallback);
+  wm.setCaptivePortalEnable(true);
+  wm.setConfigPortalTimeout(180); // 3 minutes timeout so it retries connection if unattended
+
+  // Automatically try saved credentials; open portal hotspot if they fail
+  // Portal SSID: "ESP32-Fingerprint-Portal" (open, no password)
+  bool connected = wm.autoConnect("ESP32-Fingerprint-Portal");
 
   // CRITICAL: WiFi startup generates heavy RF noise on I2C bus.
-  // Always do a full safe reinit before writing to LCD after WiFi connects.
+  // Always do a full safe reinit with delay before writing ANYTHING to the LCD here.
   lcdSafeInit();
 
-  Serial.print("[WIFI] Connected to ");
-  Serial.print(WIFI_SSID);
-  Serial.print(", IP: ");
-  Serial.println(WiFi.localIP());
-  Serial.println("[WIFI] Orange Pi server: http://" ORANGE_PI_IP ":" + String(DJANGO_PORT) + " (fixed)");
+  if (connected) {
+    Serial.print("[WIFI] Connected! Dynamic IP: ");
+    Serial.println(WiFi.localIP());
 
-  lcdSafePrint("WiFi Connected!", WiFi.localIP().toString());
-  delay(2000);
+    lcdSafePrint("WiFi Connected!", WiFi.localIP().toString());
+    delay(2000);
 
-  // Start mDNS so Django can discover this ESP32 as http://esp32-fingerprint.local
-  if (MDNS.begin("esp32-fingerprint")) {
-    Serial.println("[MDNS] ESP32 mDNS responder started: http://esp32-fingerprint.local");
-    MDNS.addService("http", "tcp", 80);
+    // Start mDNS so the ESP32 is reachable as http://esp32-fingerprint.local
+    if (MDNS.begin("esp32-fingerprint")) {
+      Serial.println("[MDNS] Responder started: http://esp32-fingerprint.local");
+      MDNS.addService("http", "tcp", 80);
+    } else {
+      Serial.println("[MDNS] Error setting up MDNS responder!");
+    }
+
+    // Resolve Orange Pi IP immediately on boot
+    resolveOrangePiIP();
+    lastAnnounceAttemptTime = millis();
+    announceToServer();
   } else {
-    Serial.println("[MDNS] Error starting mDNS responder.");
+    Serial.println("[WIFI] Failed to connect via WiFiManager portal.");
+    lcdSafePrint("WiFi FAILED", "Restarting...");
+    delay(3000);
+    ESP.restart();
   }
-
-  // Orange Pi is always at 10.42.0.1 — announce our IP immediately on boot
-  lastAnnounceAttemptTime = millis();
-  announceToServer();
 }
 
 // ============= WEB SERVER INITIALIZATION =============
@@ -683,6 +680,7 @@ void handleStartVerification() {
     IPAddress newIP;
     if (newIP.fromString(sip)) {
       orangePiIP = newIP;
+      lastMDNSQueryTime = millis(); // Reset mDNS timer
       Serial.println("[SYNC] Learned Django Server IP: " + orangePiIP.toString());
     }
   }
@@ -1808,12 +1806,22 @@ void updateLCD() {
   }
 }
 
-// ============= ORANGE PI IP RESOLUTION =============
-// No-op: Orange Pi is always at 10.42.0.1 on the Barangay_System_WiFi hotspot.
-// IP is hardcoded at declaration — no runtime lookup needed.
+// ============= RESOLVE ORANGE PI IP VIA mDNS =============
 void resolveOrangePiIP() {
-  // orangePiIP = IPAddress(10, 42, 0, 1) is set at boot and never changes.
-  Serial.println("[INFO] Orange Pi IP fixed at " ORANGE_PI_IP " (no lookup needed).");
+  if (WiFi.status() != WL_CONNECTED) return;
+  Serial.println("[MDNS] Querying Orange Pi (brgysicosico.local)...");
+  IPAddress resolved = MDNS.queryHost("brgysicosico", 1500); // 1.5s timeout
+  if (resolved.toString() != "0.0.0.0") {
+    orangePiIP = resolved;
+    mdnsFailCount = 0;
+    Serial.print("[MDNS] Orange Pi resolved to: ");
+    Serial.println(orangePiIP);
+  } else {
+    mdnsFailCount++;
+    Serial.printf("[MDNS] Orange Pi not found via mDNS. Failure count: %d\n", mdnsFailCount);
+    // Note: We do NOT reset or set a static IP here on failure. 
+    // This allows the ESP32 to keep showing the last IP it learned dynamically from incoming Django requests.
+  }
 }
 
 // ============= ANNOUNCE IP TO DJANGO SERVER =============
