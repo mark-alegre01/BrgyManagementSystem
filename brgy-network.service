@@ -1,0 +1,14 @@
+[Unit]
+Description=Barangay System Network Fix (Hotspot + Routing)
+After=network.target NetworkManager.service hostapd.service
+Wants=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /home/admin/BrgyManagementSystem/apply_network_fix.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
