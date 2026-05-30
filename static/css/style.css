@@ -1269,6 +1269,47 @@ textarea.form-control {
     td {
         padding: 12px 10px;
     }
+
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.show {
+        display: block;
+        opacity: 1;
+    }
+
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+    }
+    
+    .table-responsive table {
+        margin-bottom: 0;
+        min-width: 600px; /* Force minimum width to prevent squishing */
+    }
+    
+    /* Ensure action buttons don't wrap awkwardly */
+    .table-responsive .btn-group {
+        white-space: nowrap;
+    }
+    
+    .page-content {
+        padding: 15px; /* Reduced from 30px */
+    }
 }
 
 
@@ -1305,6 +1346,67 @@ textarea.form-control {
 
     .detail-grid {
         gap: 15px !important;
+    }
+}
+
+/* Extra mobile refinements — small screens only */
+@media (max-width: 576px) {
+    /* Header with actions should always stack */
+    .page-header,
+    .officials-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+
+    .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .header-actions .btn,
+    .header-actions a.btn {
+        flex: 1 1 auto;
+        justify-content: center;
+        text-align: center;
+    }
+
+    /* Filter bars should stack vertically */
+    .filter-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    .filter-group {
+        flex-direction: column !important;
+    }
+
+    .filter-bar select,
+    .filter-bar input {
+        width: 100% !important;
+    }
+
+    /* Messages container should fit mobile screens */
+    .messages-container {
+        width: calc(100% - 20px) !important;
+        right: 10px !important;
+        left: 10px !important;
+    }
+
+    /* Reduce stats card padding */
+    .stat-card {
+        padding: 16px;
+        gap: 14px;
+    }
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 20px;
+    }
+
+    .stat-info .value {
+        font-size: 20px;
     }
 }
 

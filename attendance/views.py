@@ -25,9 +25,13 @@ def attendance_dashboard(request):
     """Attendance overview."""
     today = timezone.localdate()
     today_logs = AttendanceLog.objects.filter(date=today).select_related('official__resident')
-    officials = Official.objects.filter(status='active')
+    officials = Official.objects.filter(status='active').select_related('resident')
 
-    # Get shift config for threshold
+    # Get custom schedules for today
+    today_schedules = WorkSchedule.objects.filter(date=today)
+    sched_dict = {s.official_id: s for s in today_schedules}
+
+    # Get shift config for threshold (fallback)
     day_names = {0:'mon', 1:'tue', 2:'wed', 3:'thu', 4:'fri', 5:'sat', 6:'sun'}
     day_code = day_names[today.weekday()]
     shift_config = ShiftConfiguration.objects.filter(day=day_code).first()
@@ -35,41 +39,61 @@ def attendance_dashboard(request):
     log_dict = {log.official_id: log for log in today_logs}
     combined_logs = []
     
+    expected_count = 0
+    absent_count = 0
+    
     for official in officials:
         log = log_dict.get(official.id)
+        sched = sched_dict.get(official.id)
+        
+        # Determine status based on schedule and log
         if log:
-            combined_logs.append({
-                'official': official,
-                'date': log.date,
-                'am_in': log.am_in,
-                'am_out': log.am_out,
-                'pm_in': log.pm_in,
-                'pm_out': log.pm_out,
-                'status': log.status,
-                'has_log': True
-            })
+            status = log.status
+            display_status = log.get_status_display()
         else:
-            combined_logs.append({
-                'official': official,
-                'date': today,
-                'am_in': None,
-                'am_out': None,
-                'pm_in': None,
-                'pm_out': None,
-                'status': 'absent',
-                'has_log': False
-            })
+            if sched:
+                if sched.shift_type == 'leave':
+                    status = 'leave'
+                    display_status = 'On Leave'
+                elif sched.shift_type == 'day_off':
+                    status = 'day_off'
+                    display_status = 'Rest Day'
+                else:
+                    status = 'absent'
+                    display_status = 'Absent'
+                    expected_count += 1
+                    absent_count += 1
+            else:
+                # No schedule = Unscheduled/Rest Day
+                status = 'unscheduled'
+                display_status = 'Not Scheduled'
 
-    # Sort combined logs: Present first, then Late, then Absent
-    status_order = {'present': 0, 'late': 1, 'absent': 2}
-    combined_logs.sort(key=lambda x: (status_order.get(x['status'], 3), x['official'].resident.last_name))
+        if log:
+            expected_count += 1
+            
+        combined_logs.append({
+            'official': official,
+            'date': today,
+            'am_in': log.am_in if log else None,
+            'am_out': log.am_out if log else None,
+            'pm_in': log.pm_in if log else None,
+            'pm_out': log.pm_out if log else None,
+            'status': status,
+            'display_status': display_status,
+            'has_log': bool(log),
+            'shift_label': sched.get_shift_type_display() if sched else 'No Schedule'
+        })
+
+    # Sort combined logs: Present/Late first, then Absent, then Leave/Rest Day
+    status_order = {'present': 0, 'late': 1, 'absent': 2, 'leave': 3, 'day_off': 4, 'unscheduled': 5}
+    combined_logs.sort(key=lambda x: (status_order.get(x['status'], 6), x['official'].resident.last_name))
 
     context = {
         'today_logs': combined_logs,
         'total_officials': officials.count(),
         'present_count': today_logs.filter(status__in=['present', 'late']).count(),
         'late_count': today_logs.filter(status='late').count(),
-        'absent_count': officials.count() - today_logs.filter(status__in=['present', 'late']).count(),
+        'absent_count': absent_count,
         'shift_config': shift_config
     }
     return render(request, 'attendance/dashboard.html', context)
@@ -93,7 +117,10 @@ def clock_in_out(request):
 
         now = datetime.now().time()
         
-        # Get shift config for threshold
+        # Get custom schedule
+        sched = WorkSchedule.objects.filter(official=official, date=today).first()
+
+        # Get shift config for threshold (fallback)
         day_names = {0:'mon', 1:'tue', 2:'wed', 3:'thu', 4:'fri', 5:'sat', 6:'sun'}
         day_code = day_names[today.weekday()]
         shift = ShiftConfiguration.objects.filter(day=day_code).first()
@@ -103,10 +130,18 @@ def clock_in_out(request):
                 log.am_in = now
                 action_label = "Morning Clock IN"
                 # Check lateness
-                threshold = shift.am_in if shift else time(8, 0)
+                if sched and sched.start_time:
+                    threshold = sched.start_time
+                else:
+                    threshold = shift.am_in if shift else time(8, 0)
+                    
                 grace = shift.grace_period if shift else 15
                 threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
-                if datetime.now() > threshold_dt:
+                
+                # If they shouldn't be working today, we can just say present (unscheduled)
+                if sched and sched.shift_type in ['day_off', 'leave']:
+                    log.status = 'present' # or 'unscheduled'
+                elif datetime.now() > threshold_dt:
                     log.status = 'late'
                 else:
                     log.status = 'present'
@@ -382,12 +417,18 @@ def api_biometric_verify(request):
 
         log = AttendanceLog.objects.filter(official=official, date=today).first()
         
-        # Get shift configuration for today
+        # Get custom schedule
+        sched = WorkSchedule.objects.filter(official=official, date=today).first()
+        
+        # Get shift configuration for today (fallback)
         day_names = {0:'mon', 1:'tue', 2:'wed', 3:'thu', 4:'fri', 5:'sat', 6:'sun'}
         day_code = day_names[today.weekday()]
         shift = ShiftConfiguration.objects.filter(day=day_code).first()
         
-        if shift and shift.is_day_off:
+        if sched:
+            if sched.shift_type in ['day_off', 'leave']:
+                return JsonResponse({'status': 'info', 'message': f'Today is a {sched.get_shift_type_display()} for {official.resident.full_name}.'})
+        elif shift and shift.is_day_off:
             return JsonResponse({'status': 'info', 'message': f'Today is a Day Off for {official.resident.full_name}.'})
 
         # Determine slot based on time and requested action
@@ -485,14 +526,18 @@ def api_biometric_verify(request):
 
         # Handle lateness / status calculation for clock in
         local_now = timezone.localtime().replace(tzinfo=None)
+        
+        # Determine fallback shift config
+        shift_am_in = shift.am_in if shift else time(8, 0)
+        shift_pm_in = shift.pm_in if shift else time(13, 0)
+        grace = shift.grace_period if shift else 15
+        
         if target_field == 'am_in':
-            threshold = shift.am_in if shift else time(8, 0)
-            grace = shift.grace_period if shift else 15
+            threshold = sched.start_time if sched and sched.start_time else shift_am_in
             threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
             log.status = 'late' if local_now > threshold_dt else 'present'
         elif target_field == 'pm_in':
-            threshold = shift.pm_in if shift else time(13, 0)
-            grace = shift.grace_period if shift else 15
+            threshold = sched.start_time if sched and sched.start_time and sched.shift_type in ['afternoon', 'night'] else shift_pm_in
             threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
             if local_now > threshold_dt and log.status != 'late':
                 log.status = 'late'
@@ -808,6 +853,221 @@ def api_toggle_special_date(request):
             'is_day_off': special_date.is_day_off,
             'message': f"Date marked as {'Day Off' if special_date.is_day_off else 'Working Day'}"
         })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+# ==========================================
+# WORK SCHEDULING UI
+# ==========================================
+
+from .models import WorkSchedule
+
+@login_required
+def work_schedule_view(request):
+    """View and manage weekly work schedules."""
+    import calendar
+    today = timezone.localdate()
+    
+    # Check if user requested a specific week
+    date_str = request.GET.get('date')
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            target_date = today
+    else:
+        target_date = today
+        
+    # Get the start of the week (Monday)
+    start_of_week = target_date - timedelta(days=target_date.weekday())
+    
+    week_dates = []
+    for i in range(7):
+        current_date = start_of_week + timedelta(days=i)
+        week_dates.append({
+            'date': current_date,
+            'day_name': calendar.day_name[current_date.weekday()],
+            'date_str': current_date.strftime('%Y-%m-%d'),
+            'is_today': current_date == today
+        })
+
+    officials = Official.objects.filter(status='active').select_related('resident').order_by('position', 'resident__last_name')
+    
+    # Get schedules for this week
+    end_of_week = start_of_week + timedelta(days=6)
+    schedules = WorkSchedule.objects.filter(
+        date__range=[start_of_week, end_of_week]
+    )
+    
+    schedule_dict = {}
+    for sched in schedules:
+        if sched.official_id not in schedule_dict:
+            schedule_dict[sched.official_id] = {}
+        schedule_dict[sched.official_id][sched.date.strftime('%Y-%m-%d')] = {
+            'shift_type': sched.shift_type,
+            'shift_label': sched.get_shift_type_display(),
+            'notes': sched.notes
+        }
+
+    # Group officials by category for better UI
+    categories = {
+        'Council & Exec': ['captain', 'kagawad', 'sk_chairman', 'sk_kagawad'],
+        'Admin & Finance': ['secretary', 'treasurer', 'clerk', 'staff'],
+        'Health & Safety': ['tanod', 'bhw', 'nutrition_scholar', 'day_care_worker', 'lupon']
+    }
+    
+    grouped_officials = {cat: [] for cat in categories}
+    grouped_officials['Others'] = []
+    
+    for official in officials:
+        found = False
+        for cat, pos_list in categories.items():
+            if official.position in pos_list:
+                grouped_officials[cat].append(official)
+                found = True
+                break
+        if not found:
+            grouped_officials['Others'].append(official)
+
+    # Remove empty groups
+    grouped_officials = {k: v for k, v in grouped_officials.items() if v}
+
+    context = {
+        'week_dates': week_dates,
+        'grouped_officials': grouped_officials,
+        'schedule_dict': schedule_dict,
+        'start_of_week': start_of_week,
+        'end_of_week': end_of_week,
+        'prev_week': (start_of_week - timedelta(days=7)).strftime('%Y-%m-%d'),
+        'next_week': (start_of_week + timedelta(days=7)).strftime('%Y-%m-%d'),
+        'shift_choices': WorkSchedule.SHIFT_CHOICES
+    }
+    return render(request, 'attendance/schedule.html', context)
+
+@login_required
+@require_POST
+def api_generate_schedule(request):
+    """Auto-generate default schedules for the specified week."""
+    import json
+    data = json.loads(request.body)
+    start_date_str = data.get('start_date')
+    
+    if not start_date_str:
+        return JsonResponse({'status': 'error', 'message': 'Start date required'}, status=400)
+        
+    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    officials = Official.objects.filter(status='active')
+    
+    generated_count = 0
+    # Monday to Friday (5 days)
+    for i in range(5):
+        current_date = start_date + timedelta(days=i)
+        for official in officials:
+            # Create if doesn't exist
+            _, created = WorkSchedule.objects.get_or_create(
+                official=official,
+                date=current_date,
+                defaults={'shift_type': 'regular'}
+            )
+            if created:
+                generated_count += 1
+                
+    # Sat/Sun as day off
+    for i in [5, 6]:
+        current_date = start_date + timedelta(days=i)
+        for official in officials:
+            _, created = WorkSchedule.objects.get_or_create(
+                official=official,
+                date=current_date,
+                defaults={'shift_type': 'day_off'}
+            )
+            if created:
+                generated_count += 1
+                
+    return JsonResponse({
+        'status': 'success', 
+        'message': f'Auto-generated {generated_count} new schedule entries.'
+    })
+
+@login_required
+@require_POST
+def api_update_schedule(request):
+    """Update a specific shift assignment."""
+    import json
+    data = json.loads(request.body)
+    official_id = data.get('official_id')
+    date_str = data.get('date')
+    shift_type = data.get('shift_type')
+    notes = data.get('notes', '')
+    
+    if not all([official_id, date_str, shift_type]):
+        return JsonResponse({'status': 'error', 'message': 'Missing data'}, status=400)
+        
+    try:
+        official = Official.objects.get(pk=official_id)
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
+        schedule, created = WorkSchedule.objects.update_or_create(
+            official=official,
+            date=target_date,
+            defaults={
+                'shift_type': shift_type,
+                'notes': notes
+            }
+        )
+        
+        return JsonResponse({'status': 'success', 'message': 'Schedule updated successfully'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+def api_get_replacements(request):
+    """Get suggested replacements for a given official on a given date."""
+    official_id = request.GET.get('official_id')
+    date_str = request.GET.get('date')
+    
+    if not all([official_id, date_str]):
+        return JsonResponse({'status': 'error', 'message': 'Missing parameters'}, status=400)
+        
+    try:
+        official = Official.objects.get(pk=official_id)
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
+        # Find active officials with the SAME position
+        peers = Official.objects.filter(
+            position=official.position, 
+            status='active'
+        ).exclude(pk=official_id)
+        
+        # See what these peers are doing on that date
+        peer_schedules = WorkSchedule.objects.filter(
+            official__in=peers,
+            date=target_date
+        )
+        peer_schedule_dict = {s.official_id: s.shift_type for s in peer_schedules}
+        
+        working_shifts = ['regular', 'morning', 'afternoon', 'night']
+        
+        replacements = []
+        for peer in peers:
+            shift = peer_schedule_dict.get(peer.id)
+            if shift not in working_shifts:
+                # They are either unassigned, on leave, or have a day off
+                if shift == 'leave':
+                    status_desc = 'Also on Leave'
+                elif shift == 'day_off':
+                    status_desc = 'Rest Day'
+                else:
+                    status_desc = 'No Schedule'
+                    
+                replacements.append({
+                    'id': peer.id,
+                    'name': peer.resident.full_name,
+                    'status': status_desc
+                })
+                
+        return JsonResponse({'status': 'success', 'replacements': replacements})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 

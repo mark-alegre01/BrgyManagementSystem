@@ -26,10 +26,20 @@ SECRET_KEY = "django-insecure-l5c3)u(1jer_siq#rx-y5xqa(+!f9a*cd@w!4*^!8ru8mya%(4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'brgysicosico.local', 'barangay.local', 'mhark.local', '.local', '*.ts.net', '*.tailscale.net']
+ALLOWED_HOSTS = [
+    'localhost', '127.0.0.1',
+    '10.42.0.1',         # Orange Pi hotspot IP (fixed — for ESP32 communication)
+    '10.42.0.2',
+    '10.42.0.3',
+    '10.42.0.4',
+    '10.42.0.5',
+    'brgysicosico.local', 'barangay.local', 'mhark.local', '.local',
+    '*.ts.net', '*.tailscale.net',  # Tailscale for resident internet access
+]
 
-# Local ESP32 fingerprint module proxy target (Replace with your ESP32's actual IP if .local fails)
-ESP32_BASE_URL = os.environ.get("ESP32_BASE_URL", "http://192.168.1.50")
+# ESP32 is always on the Orange Pi's private hotspot subnet (10.42.0.x)
+# Django discovers it via heartbeat POST; this is just the fallback default.
+ESP32_BASE_URL = os.environ.get("ESP32_BASE_URL", "http://10.42.0.10")
 FINGERPRINT_SENSOR_MAX_SLOTS = int(os.environ.get("FINGERPRINT_SENSOR_MAX_SLOTS", "1000"))
 
 # Application definition
@@ -142,6 +152,8 @@ LOGOUT_REDIRECT_URL = "login"
 CSRF_TRUSTED_ORIGINS = [
     'https://*.ts.net',
     'https://*.tailscale.net',
+    'http://10.42.0.1',          # Orange Pi hotspot IP (ESP32 / local admin)
+    'http://10.42.0.1:8001',
     'http://barangay.local',
     'http://brgysicosico.local',
     'http://127.0.0.1',

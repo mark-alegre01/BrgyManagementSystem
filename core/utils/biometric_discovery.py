@@ -6,23 +6,32 @@ from django.conf import settings
 
 # ============================================================
 #  ESP32 DISCOVERY STRATEGY (in priority order):
-#  1. mDNS hostname  — http://esp32-fingerprint.local
-#  2. Heartbeat file — IP saved by ESP32's boot POST call
-#  3. Cached .esp32_ip file — last known working IP from scan
-#  4. settings.ESP32_BASE_URL — hardcoded fallback default
-#  5. Subnet scan   — brute-force scan of all 254 hosts
 #
-#  All timeouts are intentionally generous (1.5–2s) so that
-#  temporary Wi-Fi jitter and ESP32 sensor-read delays do NOT
-#  cause false "offline" reports.
+#  DEPLOYMENT MODE: Orange Pi runs as a WiFi hotspot (10.42.0.1)
+#  The ESP32 ALWAYS connects to "Barangay_System_WiFi" and gets
+#  a DHCP address in the 10.42.0.10 – 10.42.0.100 range.
+#
+#  Priority 1: Heartbeat file    — IP saved by ESP32's boot POST
+#  Priority 2: Cached .esp32_ip  — last known working IP
+#  Priority 3: mDNS hostname     — http://esp32-fingerprint.local
+#  Priority 4: Hotspot scan      — brute-force scan of 10.42.0.10–100
+#  Priority 5: settings fallback — ESP32_BASE_URL (last resort)
+#
+#  Timeouts are tight since the ESP32 is on the local hotspot —
+#  no internet routing delay, sub-millisecond LAN latency.
 # ============================================================
 
-PROBE_TIMEOUT   = 1.5   # seconds — per-host ping during scan / quick check
-CONNECT_TIMEOUT = 2.0   # seconds — TCP connect timeout for all requests
-READ_TIMEOUT    = 4.0   # seconds — HTTP read timeout for all requests
+PROBE_TIMEOUT   = 0.8   # seconds — fast on local hotspot LAN
+CONNECT_TIMEOUT = 1.0   # seconds — TCP connect on local LAN
+READ_TIMEOUT    = 3.0   # seconds — HTTP read (sensor may be busy)
 
 _MDNS_HOSTNAME  = "esp32-fingerprint.local"
 _MDNS_URL       = f"http://{_MDNS_HOSTNAME}"
+
+# The Orange Pi's private hotspot subnet (fixed — never changes)
+_HOTSPOT_SUBNET = "10.42.0."
+_HOTSPOT_DHCP_START = 10
+_HOTSPOT_DHCP_END   = 100
 
 
 # ---------------------------------------------------------------------------
@@ -30,23 +39,22 @@ _MDNS_URL       = f"http://{_MDNS_HOSTNAME}"
 # ---------------------------------------------------------------------------
 
 def get_local_ip():
-    """Return this machine's LAN IP (not 127.0.0.1)."""
+    """Return this machine's LAN IP (not 127.0.0.1).
+    On the Orange Pi, this will be 10.42.0.1 when routing to the hotspot subnet.
+    """
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        # Try a public IP (doesn't send traffic, just checks routing table)
-        s.connect(('8.8.8.8', 1))
+        # Try routing to the ESP32's subnet — will pick the wlan0 (hotspot) interface
+        s.connect(('10.42.0.10', 1))
         IP = s.getsockname()[0]
     except Exception:
         try:
-            # Fallback for disconnected networks with no default gateway
-            s.connect(('10.255.255.255', 1))
+            s.connect(('8.8.8.8', 1))
             IP = s.getsockname()[0]
         except Exception:
             try:
-                # Ultimate fallback
                 IP = socket.gethostbyname(socket.gethostname())
                 if IP.startswith('127.'):
-                    # Try to get it via standard hostname
                     IP = socket.gethostbyname(socket.getfqdn())
             except Exception:
                 IP = '127.0.0.1'
@@ -139,7 +147,7 @@ def _is_esp32(url: str, timeout: float = PROBE_TIMEOUT) -> bool:
 
 
 def _test_ip_for_esp32(ip: str):
-    """Used by the subnet scanner ThreadPoolExecutor."""
+    """Used by the hotspot subnet scanner ThreadPoolExecutor."""
     url = f"http://{ip}"
     if _is_esp32(url, timeout=PROBE_TIMEOUT):
         return url
@@ -147,11 +155,31 @@ def _test_ip_for_esp32(ip: str):
 
 
 # ---------------------------------------------------------------------------
-# Subnet scanner
+# Hotspot subnet scanner (fast — scans only the dnsmasq DHCP range)
 # ---------------------------------------------------------------------------
 
+def scan_hotspot_subnet_for_esp32():
+    """
+    Scan only the hotspot DHCP range (10.42.0.10 – 10.42.0.100).
+    Much faster than a full /24 scan since we know exactly where the ESP32 will be.
+    Runs in parallel with 30 workers (91 hosts max — completes in < 2 seconds).
+    """
+    ips = [f"{_HOTSPOT_SUBNET}{i}" for i in range(_HOTSPOT_DHCP_START, _HOTSPOT_DHCP_END + 1)]
+    print(f"[Biometric] Scanning hotspot subnet {_HOTSPOT_SUBNET}{_HOTSPOT_DHCP_START}"
+          f"–{_HOTSPOT_DHCP_END} for ESP32...")
+    with ThreadPoolExecutor(max_workers=30) as executor:
+        results = executor.map(_test_ip_for_esp32, ips)
+        for r in results:
+            if r:
+                return r
+    return None
+
+
 def scan_subnet_for_esp32():
-    """Scan all 254 hosts on the local /24 subnet in parallel."""
+    """
+    Legacy full /24 scan — kept as last resort but hotspot scan is preferred.
+    Only runs if hotspot scan fails (e.g. ESP32 has a non-standard IP).
+    """
     local_ip = get_local_ip()
     if local_ip == '127.0.0.1':
         return None
@@ -161,9 +189,12 @@ def scan_subnet_for_esp32():
         return None
 
     subnet = ".".join(parts[:3]) + "."
-    ips = [f"{subnet}{i}" for i in range(1, 255)]
+    # Skip rescanning the hotspot subnet (already done)
+    if subnet == _HOTSPOT_SUBNET:
+        return None
 
-    print(f"[Biometric] Scanning {subnet}0/24 for ESP32 module...")
+    ips = [f"{subnet}{i}" for i in range(1, 255)]
+    print(f"[Biometric] Full subnet scan {subnet}0/24 for ESP32...")
     with ThreadPoolExecutor(max_workers=60) as executor:
         results = executor.map(_test_ip_for_esp32, ips)
         for r in results:
@@ -179,30 +210,31 @@ def scan_subnet_for_esp32():
 def get_esp32_base_url(force_scan: bool = False) -> str:
     """
     Return the base URL of the ESP32 fingerprint module.
+
     Discovery order (skipped when force_scan=True):
-      1. mDNS hostname (http://esp32-fingerprint.local)
-      2. Heartbeat-registered IP (from ESP32's boot POST)
-      3. Cached .esp32_ip file
-      4. settings.ESP32_BASE_URL default
-    Then falls through to active subnet scan.
+      1. Heartbeat-registered IP  — ESP32 POSTs its IP on every boot
+      2. Cached .esp32_ip file    — last known working IP
+      3. mDNS hostname            — http://esp32-fingerprint.local
+
+    Then falls through to active hotspot subnet scan (fast, < 2 seconds).
     """
-    default_url = getattr(settings, 'ESP32_BASE_URL', 'http://192.168.1.50').rstrip('/')
+    default_url = getattr(settings, 'ESP32_BASE_URL', 'http://10.42.0.10').rstrip('/')
 
     if not force_scan:
-        # ---- 1. Heartbeat-registered IP (ESP32 dynamically announced its IP on boot) ----
+        # ---- 1. Heartbeat-registered IP (highest priority — set on ESP32 boot) ----
         hb_url = get_heartbeat_url()
         if hb_url and _is_esp32(hb_url):
             print(f"[Biometric] ESP32 found via heartbeat cache: {hb_url}")
             save_esp32_url(hb_url)
             return hb_url
 
-        # ---- 2. Last cached IP from .esp32_ip (known working IP from previous scans) ----
+        # ---- 2. Last cached IP from .esp32_ip ----
         cached_url = get_saved_esp32_url()
         if cached_url and cached_url != hb_url and _is_esp32(cached_url):
             print(f"[Biometric] ESP32 found via IP cache: {cached_url}")
             return cached_url
 
-        # ---- 3. mDNS hostname (works on routers supporting mDNS) ----
+        # ---- 3. mDNS hostname (works if avahi / mDNS is available) ----
         try:
             resp = requests.get(
                 f"{_MDNS_URL}/status",
@@ -216,20 +248,13 @@ def get_esp32_base_url(force_scan: bool = False) -> str:
         except Exception:
             pass
 
-        # ---- 4. Settings default URL ----
-        if _is_esp32(default_url):
-            print(f"[Biometric] ESP32 found at default URL: {default_url}")
-            save_esp32_url(default_url)
-            return default_url
-
-    # ---- 5. Active subnet scan (last resort / force) ----
-    print("[Biometric] Scanning local network for ESP32 module...")
-    discovered = scan_subnet_for_esp32()
+    # ---- 4. Hotspot subnet scan (fast — only scans DHCP range 10.42.0.10–100) ----
+    discovered = scan_hotspot_subnet_for_esp32()
     if discovered:
-        print(f"[Biometric] ESP32 auto-discovered at: {discovered}")
+        print(f"[Biometric] ESP32 found via hotspot scan: {discovered}")
         save_esp32_url(discovered)
         return discovered
 
-    # Nothing worked — return best guess so callers don't crash
-    print(f"[Biometric] ESP32 not found anywhere. Falling back to: {default_url}")
+    # ---- 5. Settings default (last resort — avoids crash if nothing works) ----
+    print(f"[Biometric] ESP32 not found. Falling back to default: {default_url}")
     return default_url

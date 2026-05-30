@@ -21,4 +21,10 @@ urlpatterns = [
     path('api/shift-settings/', views.api_get_shift_settings, name='api_get_shift_settings'),
     path('api/shift-settings/save/', views.api_save_shift_settings, name='api_save_shift_settings'),
     path('api/toggle-special-date/', views.api_toggle_special_date, name='api_toggle_special_date'),
+    
+    # Work Scheduling
+    path('schedule/', views.work_schedule_view, name='work_schedule'),
+    path('api/schedule/generate/', views.api_generate_schedule, name='api_generate_schedule'),
+    path('api/schedule/update/', views.api_update_schedule, name='api_update_schedule'),
+    path('api/schedule/replacements/', views.api_get_replacements, name='api_get_replacements'),
 ]

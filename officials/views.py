@@ -361,7 +361,7 @@ def official_list(request):
                 break
         if not found:
             if 'other' not in categories:
-                categories['other'] = {'title': 'Other Functionaries', 'officials': []}
+                categories['other'] = {'title': 'Other Functionaries', 'positions': [], 'officials': []}
             categories['other']['officials'].append(official)
 
     # Remove empty categories
@@ -574,19 +574,9 @@ def official_add(request):
             'username': profile.user.username if has_account else ''
         })
 
-    # Filter positions if type=staff is provided
-    add_type = request.GET.get('type')
-    positions = Official.POSITION_CHOICES
-    
-    if add_type == 'staff':
-        # Filter for non-council staff positions
-        staff_positions = ['tanod', 'bhw', 'nutrition_scholar', 'day_care_worker', 'lupon', 'clerk', 'staff']
-        positions = [p for p in positions if p[0] in staff_positions]
-
     context = {
         'residents_data': residents_data,
-        'positions': positions,
-        'add_type': add_type,
+        'positions': Official.POSITION_CHOICES,
     }
     return render(request, 'officials/form.html', context)
 

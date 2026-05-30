@@ -1,0 +1,330 @@
+{% extends 'base.html' %}
+
+{% block title %}Work Scheduling - Barangay Management System{% endblock %}
+
+{% block extra_head %}
+<style>
+  .schedule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .schedule-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  @media (max-width: 768px) {
+    .schedule-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .schedule-nav {
+      justify-content: flex-start;
+    }
+  }
+  .schedule-grid {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .schedule-grid th, .schedule-grid td {
+    border: 1px solid #e2e8f0;
+    padding: 10px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  .schedule-grid th {
+    background: #f8fafc;
+    font-size: 13px;
+    color: #475569;
+  }
+  .schedule-grid td.official-col {
+    text-align: left;
+    background: #f8fafc;
+    font-weight: bold;
+    width: 200px;
+  }
+  .shift-cell {
+    cursor: pointer;
+    transition: background 0.2s;
+    border-radius: 4px;
+    padding: 6px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .shift-cell:hover {
+    background: #f1f5f9;
+  }
+  .shift-regular { background-color: #dbeafe; color: #1e40af; }
+  .shift-morning { background-color: #ffedd5; color: #9a3412; }
+  .shift-afternoon { background-color: #fef08a; color: #854d0e; }
+  .shift-night { background-color: #e0e7ff; color: #3730a3; }
+  .shift-leave { background-color: #fee2e2; color: #991b1b; }
+  .shift-day_off { background-color: #f3f4f6; color: #4b5563; }
+  .shift-none { color: #9ca3af; font-style: italic; }
+
+  .category-row td {
+    background: #e2e8f0 !important;
+    text-align: left;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: #334155;
+  }
+  
+  .replacements-list {
+    margin-top: 15px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px;
+    display: none;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="schedule-header">
+  <div>
+    <h2>Work Scheduling</h2>
+    <p class="text-muted">Manage shifts, day-offs, and leaves</p>
+  </div>
+  <div class="schedule-nav">
+    <a href="?date={{ prev_week }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-chevron-left"></i> Prev Week</a>
+    <h4 class="m-0">{{ start_of_week|date:"M d" }} - {{ end_of_week|date:"M d, Y" }}</h4>
+    <a href="?date={{ next_week }}" class="btn btn-outline-secondary btn-sm">Next Week <i class="fas fa-chevron-right"></i></a>
+    <button class="btn btn-primary btn-sm ml-3" onclick="autoGenerate('{{ start_of_week|date:'Y-m-d' }}')">
+      <i class="fas fa-magic"></i> Auto-Generate Week
+    </button>
+  </div>
+</div>
+
+<div class="table-responsive">
+  <table class="schedule-grid" style="min-width: 750px;">
+    <thead>
+      <tr>
+        <th>Official / Staff</th>
+        {% for d in week_dates %}
+        <th class="{% if d.is_today %}bg-blue-50{% endif %}">
+          {{ d.day_name }}<br>
+          <small class="text-muted">{{ d.date|date:"M d" }}</small>
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for category, officials in grouped_officials.items %}
+      <tr class="category-row">
+        <td colspan="8">{{ category }}</td>
+      </tr>
+      {% for official in officials %}
+      <tr>
+        <td class="official-col">
+          {{ official.resident.full_name }}<br>
+          <span style="font-weight:normal; font-size:11px; color:#64748b;">{{ official.get_position_display }}</span>
+        </td>
+        {% for d in week_dates %}
+        {% with sched=schedule_dict|dictsort:official.id %}
+        {# We need a custom template tag or a bit of logic, but we structured schedule_dict as schedule_dict[off_id][date_str] #}
+        {% endwith %}
+        <!-- Jinja logic for dict lookup is limited, so we handle it with a data attribute approach or a custom filter.
+             For simplicity, we output empty cells and let JS populate them, or use a custom filter.
+             Let's use a simple approach: We will render empty div and populate via JS from a JSON object. -->
+        <td id="cell-{{ official.id }}-{{ d.date_str }}" 
+            class="shift-cell" 
+            onclick="openEditModal({{ official.id }}, '{{ official.resident.full_name }}', '{{ d.date_str }}')">
+          <div class="shift-content shift-none">Unscheduled</div>
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Edit Shift Modal -->
+<div class="modal fade" id="editShiftModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Schedule: <span id="modal-date"></span></h5>
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <h6 id="modal-official-name" class="font-weight-bold mb-3"></h6>
+        <input type="hidden" id="modal-official-id">
+        <input type="hidden" id="modal-date-val">
+        
+        <div class="form-group">
+          <label>Shift Type</label>
+          <select id="modal-shift-type" class="form-control" onchange="checkLeaveStatus()">
+            {% for val, label in shift_choices %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label>Notes (Optional)</label>
+          <input type="text" id="modal-notes" class="form-control" placeholder="Reason for leave, etc.">
+        </div>
+        
+        <!-- Replacements block -->
+        <div id="replacements-block" class="replacements-list">
+          <h6 class="text-primary" style="font-size:12px; text-transform:uppercase; font-weight:bold;">Suggested Replacements</h6>
+          <p style="font-size:11px; color:#64748b;">The following active officials (same position) are off or unscheduled on this date:</p>
+          <ul id="replacements-ul" style="font-size:12px; padding-left:20px; margin-bottom:0;">
+            <!-- Populated via JS -->
+          </ul>
+        </div>
+        
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveSchedule()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ schedule_dict|json_script:"schedule-data" }}
+<script>
+  const scheduleData = JSON.parse(document.getElementById('schedule-data').textContent);
+  
+  function renderGrid() {
+    for (const [offId, dates] of Object.entries(scheduleData)) {
+      for (const [dateStr, sched] of Object.entries(dates)) {
+        const cell = document.getElementById(`cell-${offId}-${dateStr}`);
+        if (cell) {
+          let content = `<div class="shift-content shift-${sched.shift_type} p-1 rounded">${sched.shift_label}</div>`;
+          if (sched.notes) {
+            content += `<small class="text-muted d-block mt-1" style="font-size:10px;">${sched.notes}</small>`;
+          }
+          cell.innerHTML = content;
+          // Store raw data for modal
+          cell.dataset.shift = sched.shift_type;
+          cell.dataset.notes = sched.notes || '';
+        }
+      }
+    }
+  }
+  
+  document.addEventListener('DOMContentLoaded', renderGrid);
+  
+  function openEditModal(officialId, name, dateStr) {
+    document.getElementById('modal-official-id').value = officialId;
+    document.getElementById('modal-official-name').textContent = name;
+    document.getElementById('modal-date').textContent = dateStr;
+    document.getElementById('modal-date-val').value = dateStr;
+    
+    const cell = document.getElementById(`cell-${officialId}-${dateStr}`);
+    document.getElementById('modal-shift-type').value = cell.dataset.shift || 'day_off';
+    document.getElementById('modal-notes').value = cell.dataset.notes || '';
+    
+    checkLeaveStatus();
+    $('#editShiftModal').modal('show');
+  }
+  
+  function checkLeaveStatus() {
+    const shiftType = document.getElementById('modal-shift-type').value;
+    const repBlock = document.getElementById('replacements-block');
+    if (shiftType === 'leave') {
+      repBlock.style.display = 'block';
+      fetchReplacements();
+    } else {
+      repBlock.style.display = 'none';
+    }
+  }
+  
+  function fetchReplacements() {
+    const officialId = document.getElementById('modal-official-id').value;
+    const dateStr = document.getElementById('modal-date-val').value;
+    const ul = document.getElementById('replacements-ul');
+    ul.innerHTML = '<li><i class="fas fa-spinner fa-spin"></i> Loading...</li>';
+    
+    fetch(`/attendance/api/schedule/replacements/?official_id=${officialId}&date=${dateStr}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') {
+          ul.innerHTML = '';
+          if (data.replacements.length === 0) {
+            ul.innerHTML = '<li>No available replacements found.</li>';
+          } else {
+            data.replacements.forEach(rep => {
+              ul.innerHTML += `<li><b>${rep.name}</b> <span class="text-muted">(${rep.status})</span></li>`;
+            });
+          }
+        }
+      })
+      .catch(e => {
+        ul.innerHTML = '<li>Error loading replacements.</li>';
+      });
+  }
+  
+  function saveSchedule() {
+    const officialId = document.getElementById('modal-official-id').value;
+    const dateStr = document.getElementById('modal-date-val').value;
+    const shiftType = document.getElementById('modal-shift-type').value;
+    const notes = document.getElementById('modal-notes').value;
+    
+    fetch('/attendance/api/schedule/update/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      body: JSON.stringify({
+        official_id: officialId,
+        date: dateStr,
+        shift_type: shiftType,
+        notes: notes
+      })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'success') {
+        window.location.reload();
+      } else {
+        alert('Error: ' + data.message);
+      }
+    });
+  }
+  
+  function autoGenerate(startDate) {
+    if (!confirm('This will assign a Regular (Mon-Fri 8-5) schedule for the entire week to all active officials. Existing overrides for this week will NOT be overwritten if you manually update them later, but this might overwrite empty ones. Continue?')) {
+      return;
+    }
+    
+    fetch('/attendance/api/schedule/generate/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}'
+      },
+      body: JSON.stringify({ start_date: startDate })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'success') {
+        alert(data.message);
+        window.location.reload();
+      } else {
+        alert('Error: ' + data.message);
+      }
+    });
+  }
+</script>
+{% endblock %}

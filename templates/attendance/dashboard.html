@@ -216,6 +216,11 @@
                     <!-- Divider -->
                     <div class="h-6 w-px bg-slate-200 mx-1"></div>
 
+                    <!-- Schedule Button -->
+                    <a href="{% url 'attendance:work_schedule' %}" class="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition shadow-sm text-xs no-underline">
+                        <i data-lucide="calendar-days" class="w-3.5 h-3.5"></i> Manage Schedules
+                    </a>
+
                     <!-- History Button -->
                     <a href="{% url 'attendance:history_calendar' %}" class="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition shadow-sm text-xs no-underline">
                         <i data-lucide="history" class="w-3.5 h-3.5"></i> Attendance History
@@ -234,8 +239,8 @@
                     {{ today_logs|length }} records
                 </span>
             </div>
-            <div class="overflow-x-hidden max-h-[380px] overflow-y-auto custom-scrollbar">
-                <table class="w-full text-left border-collapse table-fixed relative">
+            <div class="overflow-x-auto max-h-[380px] overflow-y-auto custom-scrollbar w-full">
+                <table class="w-full min-w-[700px] text-left border-collapse table-fixed relative">
                     <thead class="bg-slate-50 text-slate-500 uppercase text-[9px] font-black tracking-widest border-b border-slate-200 sticky top-0 z-10 shadow-sm">
                         <tr>
                             <th class="px-4 py-3 w-[35%]">Official Profile</th>
@@ -248,7 +253,7 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-xs">
                         {% for log in today_logs %}
-                        <tr class="hover:bg-slate-50 transition-colors group {% if log.status == 'absent' %}opacity-75 bg-slate-50/50{% endif %}">
+                        <tr class="hover:bg-slate-50 transition-colors group {% if log.status in 'absent,leave,day_off,unscheduled' %}opacity-75 bg-slate-50/50{% endif %}">
                             <td class="px-6 py-2.5">
                                 <div class="flex items-center gap-3">
                                     {% if log.official.resident.photo %}
@@ -260,8 +265,9 @@
                                     {% endif %}
                                     <div class="flex flex-col min-w-0">
                                         <span class="font-bold text-slate-800 whitespace-normal break-words leading-tight">{{ log.official.resident.full_name }}</span>
-                                        <div class="mt-0.5 pt-0.5 border-t border-slate-100 w-fit">
+                                        <div class="mt-0.5 pt-0.5 border-t border-slate-100 w-fit flex gap-2 items-center">
                                             <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">{{ log.official.get_position_display }}</span>
+                                            <span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-black tracking-widest uppercase">{{ log.shift_label }}</span>
                                         </div>
                                     </div>
                                 </div>

@@ -531,14 +531,15 @@ def _esp32_trigger_start_verification(mode=None):
     if mode:
         payload['mode'] = mode
         
-    # NEW: Pass our own server IP so ESP32 knows who to send heartbeat/callbacks to immediately
-    from django.conf import settings
-    # Try to grab the IP from the network interfaces, or fallback to the one in esp32_base_url
+    # Pass our server IP so ESP32 knows where to send callbacks.
+    # On the dedicated hotspot, the Orange Pi is ALWAYS at 10.42.0.1 —
+    # use socket routing to confirm, then fall back to the known fixed IP.
     server_ip = None
     if esp32_base_url:
         import socket
         try:
-            # Create a dummy socket to figure out which local IP routes to the ESP32
+            # Socket trick: which local interface routes to the ESP32?
+            # On the hotspot (wlan0), this will always return 10.42.0.1.
             esp32_ip = esp32_base_url.split('//')[1].split(':')[0]
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect((esp32_ip, 80))
@@ -546,9 +547,12 @@ def _esp32_trigger_start_verification(mode=None):
             s.close()
         except Exception:
             pass
-            
-    if server_ip:
-        payload['server_ip'] = server_ip
+
+    # Guaranteed fallback: Orange Pi hotspot IP is always 10.42.0.1
+    if not server_ip:
+        server_ip = '10.42.0.1'
+        
+    payload['server_ip'] = server_ip
 
     try:
         resp = requests.post(

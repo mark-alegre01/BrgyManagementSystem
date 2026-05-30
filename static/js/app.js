@@ -3,17 +3,28 @@ document.addEventListener('DOMContentLoaded', function () {
     const menuToggle = document.getElementById('menuToggle');
     const sidebar = document.getElementById('sidebar');
     const sidebarClose = document.getElementById('sidebarClose');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+    function openSidebar() {
+        if(sidebar) sidebar.classList.add('open');
+        if(sidebarOverlay) sidebarOverlay.classList.add('show');
+    }
+
+    function closeSidebar() {
+        if(sidebar) sidebar.classList.remove('open');
+        if(sidebarOverlay) sidebarOverlay.classList.remove('show');
+    }
 
     if (menuToggle) {
-        menuToggle.addEventListener('click', () => {
-            sidebar.classList.add('open');
-        });
+        menuToggle.addEventListener('click', openSidebar);
     }
 
     if (sidebarClose) {
-        sidebarClose.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-        });
+        sidebarClose.addEventListener('click', closeSidebar);
+    }
+
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', closeSidebar);
     }
 
     // Current DateTime

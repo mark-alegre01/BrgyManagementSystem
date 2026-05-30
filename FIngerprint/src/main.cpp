@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include <WiFi.h>
-#include <WiFiManager.h>         // Automatic Wi-Fi portal — no more hardcoded credentials!
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <HTTPClient.h>
@@ -12,13 +11,14 @@
 #include "soc/rtc_cntl_reg.h"
 
 // ============= WiFi CONFIG =============
-// WiFi credentials are now managed automatically via the WiFiManager portal.
-// On first boot (or if Wi-Fi is lost), the ESP32 creates a hotspot:
-//   SSID    : "ESP32-Fingerprint-Portal"
-//   Password: (open / no password)
-// Connect your phone/laptop to that hotspot and a setup page will appear.
-// Select your Wi-Fi, enter the password, and the ESP32 saves it automatically.
-// The saved credentials survive reboots and power cuts via on-chip flash storage.
+// The ESP32 connects to the Orange Pi's dedicated private hotspot.
+// The Orange Pi runs hostapd and is ALWAYS at 10.42.0.1 on this network.
+// No WiFiManager portal, no dynamic IP guessing — plug and play.
+// Residents access the web app via the Orange Pi's LAN (ethernet) interface separately.
+#define WIFI_SSID     "Barangay_System_WiFi"
+#define WIFI_PASSWORD "barangay123"
+#define ORANGE_PI_IP  "10.42.0.1"
+#define DJANGO_PORT   8001
 
 // ============= HTTP SERVER CONFIG =============
 WebServer server(80);
@@ -46,10 +46,14 @@ enum SystemState {
 };
 
 // ============= LCD CONFIG =============
-LiquidCrystal_I2C lcd(0x27, 16, 2);
-String lcdLine1 = "System Online";
-String lcdLine2 = "Ready...";
+// Both common I2C backpack addresses — auto-detected at boot.
+// If your LCD is blank/garbled, check Serial Monitor for [LCD] address message.
+LiquidCrystal_I2C _lcd_27(0x27, 16, 2);
+LiquidCrystal_I2C _lcd_3F(0x3F, 16, 2);
+LiquidCrystal_I2C* _lcdPtr = &_lcd_27; // Will be set to correct address at boot
+#define lcd (*_lcdPtr)                   // All lcd.xxx() calls use this transparently
 unsigned long lastLcdUpdate = 0;
+unsigned long lastLCDReinitTime = 0;  // Watchdog: periodic reinit to self-heal corruption
 const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 28800; // PHT (UTC+8)
 const int daylightOffset_sec = 0;
@@ -145,11 +149,11 @@ SystemState resumeStateAfterWaitRemove = ENROLLING;
 uint8_t fingerprintTemplates[MAX_SCANS][512]; // Store templates for 3 scans
 bool scanCompleted[MAX_SCANS] = {false, false, false};
 
-// ============= ORANGE PI mDNS RESOLVER =============
-IPAddress orangePiIP(0,0,0,0);
-unsigned long lastMDNSQueryTime = 0;
-const unsigned long MDNS_QUERY_INTERVAL = 30000; // Query every 30 seconds
-int mdnsFailCount = 0;                          // Track consecutive mDNS lookup failures
+// ============= ORANGE PI SERVER CONFIG =============
+// The Orange Pi is always at 10.42.0.1 on the Barangay_System_WiFi hotspot.
+// This IP never changes — no mDNS lookup or DHCP guessing needed.
+IPAddress orangePiIP(10, 42, 0, 1);             // FIXED: Orange Pi hotspot IP (permanent)
+int mdnsFailCount = 0;                          // Reset when Django contacts us
 IPAddress lastAnnouncedOrangePiIP(0,0,0,0);
 IPAddress lastAnnouncedLocalIP(0,0,0,0);
 unsigned long lastAnnounceAttemptTime = 0;
@@ -157,7 +161,6 @@ unsigned long lastAnnounceAttemptTime = 0;
 // ============= FUNCTION DECLARATIONS =============
 void initializeHardware();
 bool initializeFingerprintModule();
-void configModeCallback(WiFiManager *myWiFiManager);
 void initializeWiFi();
 void initializeWebServer();
 void handleRoot();
@@ -196,6 +199,8 @@ void printSystemStatus();
 void setLeds(bool red, bool green, bool blue);
 void resolveOrangePiIP();
 void announceToServer();
+void lcdSafeInit();
+void lcdSafePrint(const String& line1, const String& line2);
 
 // ============= SETUP =============
 void setup() {
@@ -210,11 +215,9 @@ void setup() {
   // Configure NTP
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("System Online");
-  lcd.setCursor(0, 1);
-  lcd.print("Ready...");
+  // Safe reinit after all startup noise (WiFi, fingerprint) has settled
+  lcdSafeInit();
+  lcdSafePrint("System Online", "Ready...");
 }
 
 // ============= MAIN LOOP =============
@@ -222,18 +225,32 @@ void loop() {
   server.handleClient();
   updateSystemState();
   
-  // Periodically query Orange Pi's IP address every 30 seconds in STANDBY
-  if (currentState == STANDBY && WiFi.status() == WL_CONNECTED) {
-    unsigned long currentMillis = millis();
-    if (orangePiIP.toString() == "0.0.0.0" || currentMillis - lastMDNSQueryTime >= MDNS_QUERY_INTERVAL) {
-      lastMDNSQueryTime = currentMillis;
-      resolveOrangePiIP();
-    }
-    // Also periodically verify if we need to announce (e.g. if IP changed or not yet announced)
-    if (orangePiIP.toString() != "0.0.0.0" && (orangePiIP != lastAnnouncedOrangePiIP || WiFi.localIP() != lastAnnouncedLocalIP)) {
-      if (currentMillis - lastAnnounceAttemptTime >= 10000) { // Limit attempts to once every 10 seconds
-        lastAnnounceAttemptTime = currentMillis;
-        announceToServer();
+  // ============= WiFi WATCHDOG =============
+  // Runs every 5 seconds. Reconnects to the barangay hotspot if the link drops.
+  // Also re-announces our IP to Django after a reconnect so heartbeat stays fresh.
+  {
+    static unsigned long lastWiFiCheckTime = 0;
+    static int wifiRetryCount = 0;
+    unsigned long wifiNow = millis();
+    if (wifiNow - lastWiFiCheckTime >= 5000) {
+      lastWiFiCheckTime = wifiNow;
+      if (WiFi.status() != WL_CONNECTED) {
+        wifiRetryCount++;
+        lcdSafePrint("Hotspot Lost!", "Retry: " + String(wifiRetryCount));
+        Serial.printf("[WIFI] Reconnecting to %s (attempt %d)...\r\n", WIFI_SSID, wifiRetryCount);
+        WiFi.disconnect();
+        delay(100);
+        WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+      } else {
+        wifiRetryCount = 0;
+        // Re-announce to Django if our assigned IP changed (e.g. fresh reconnect)
+        if (currentState == STANDBY &&
+            (WiFi.localIP() != lastAnnouncedLocalIP || orangePiIP != lastAnnouncedOrangePiIP)) {
+          if (wifiNow - lastAnnounceAttemptTime >= 10000) {
+            lastAnnounceAttemptTime = wifiNow;
+            announceToServer();
+          }
+        }
       }
     }
   }
@@ -297,40 +314,68 @@ void initializeHardware() {
   pinMode(BUTTON_IN_PIN, INPUT_PULLUP);
   pinMode(BUTTON_OUT_PIN, INPUT_PULLUP);
 
-  // Initialize I2C and LCD
-  Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
-  Wire.setClock(50000); // Lower I2C clock speed from 100kHz to 50kHz to make it highly noise-resilient
-  lcd.init();
-  lcd.backlight();
-  lcd.setCursor(0, 0);
-  lcd.print("System Booting");
-  lcd.setCursor(0, 1);
-  lcd.print("Please wait...");
+  // ---- Step 1: Hardware I2C Bus Recovery ----
+  // Toggle SCL 9 times to release any slave that held SDA LOW after a power glitch.
+  // Must happen BEFORE Wire.begin().
+  pinMode(LCD_SDA_PIN, OUTPUT);
+  pinMode(LCD_SCL_PIN, OUTPUT);
+  digitalWrite(LCD_SDA_PIN, HIGH);
+  for (int i = 0; i < 9; i++) {
+    digitalWrite(LCD_SCL_PIN, LOW);  delayMicroseconds(10);
+    digitalWrite(LCD_SCL_PIN, HIGH); delayMicroseconds(10);
+  }
+  // Issue I2C STOP: SDA LOW->HIGH while SCL HIGH
+  digitalWrite(LCD_SDA_PIN, LOW);  delayMicroseconds(10);
+  digitalWrite(LCD_SCL_PIN, HIGH); delayMicroseconds(10);
+  digitalWrite(LCD_SDA_PIN, HIGH); delayMicroseconds(10);
+  // Return pins to open-drain for Wire library
+  pinMode(LCD_SCL_PIN, INPUT_PULLUP);
+  pinMode(LCD_SDA_PIN, INPUT_PULLUP);
+  delay(50); // Let VCC/GND settle
 
-  // Set all to LOW/OFF state
+  // ---- Step 2: Start I2C at ultra-low speed ----
+  // 25 kHz is much more resilient to long wires and RF noise than 100 kHz.
+  Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
+  Wire.setClock(25000);
+  delay(100); // HD44780 power-on init requires ≥40ms after Vcc
+
+  // ---- Step 3: Auto-detect I2C address (0x27 or 0x3F) ----
+  // Some LCD backpacks use 0x3F instead of 0x27. We scan both and use whichever responds.
+  Wire.beginTransmission(0x27);
+  if (Wire.endTransmission() == 0) {
+    _lcdPtr = &_lcd_27;
+    Serial.println("[LCD] Detected I2C address: 0x27");
+  } else {
+    Wire.beginTransmission(0x3F);
+    if (Wire.endTransmission() == 0) {
+      _lcdPtr = &_lcd_3F;
+      Serial.println("[LCD] Detected I2C address: 0x3F");
+    } else {
+      _lcdPtr = &_lcd_27; // Fallback
+      Serial.println("[LCD] WARNING: No LCD found on 0x27 or 0x3F — check wiring!");
+    }
+  }
+
+  // ---- Step 4: Full LCD init (no Wire.end here, ever) ----
+  lcdSafeInit();
+  lcdSafePrint("System Booting", "Please wait...");
+
+  // Set all LEDs OFF
   setLeds(false, false, false);
-  
+
   // HARDWARE TEST: Cycle all LEDs and beep to verify wiring
   Serial.println("[BOOT] Starting Hardware Self-Test...");
-  
-  setLeds(true, false, false); // Red
-  delay(300);
-  setLeds(false, true, false); // Green
-  delay(300);
-  setLeds(false, false, true); // Blue
-  delay(300);
-  
-  // Beep + Green
+  setLeds(true, false, false);  delay(300);
+  setLeds(false, true, false);  delay(300);
+  setLeds(false, false, true);  delay(300);
   setLeds(false, true, false);
   ledcWriteTone(BUZZER_LEDC_CHANNEL, BUZZER_TONE_HZ);
   ledcWrite(BUZZER_LEDC_CHANNEL, 150);
   delay(200);
   ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
   setLeds(false, false, false);
-  
   Serial.println("[BOOT] Hardware test complete.");
-  
-  delay(100); // Give hardware time to stabilize
+  delay(100);
 }
 
 // Set this to 'true' if you are using a Common Anode RGB LED (where LOW turns the LED ON)
@@ -406,84 +451,57 @@ bool initializeFingerprintModule() {
   return false;
 }
 
-// Callback when WiFiManager enters Configuration/AP mode
-void configModeCallback(WiFiManager *myWiFiManager) {
-  Serial.println("[WIFI] Entered configuration portal mode.");
-  Serial.print("[WIFI] SSID: ");
-  Serial.println(myWiFiManager->getConfigPortalSSID());
-  Serial.print("[WIFI] IP: ");
-  Serial.println(WiFi.softAPIP());
-
-  // Re-initialize and restore LCD setup to clear any communication glitches caused by WiFi startup noise
-  lcd.init();
-  lcd.backlight();
-  lcd.setCursor(0, 0);
-  lcd.print("WiFi Portal Open");
-  lcd.setCursor(0, 1);
-  lcd.print("IP: 192.168.4.1");
-}
-
 // ============= WiFi INITIALIZATION =============
+// Hardcoded to connect to the Orange Pi's dedicated hotspot.
+// The Orange Pi is ALWAYS at 10.42.0.1 on this private network — no portal, no guessing.
 void initializeWiFi() {
-  // Show portal waiting message on LCD
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Connecting WiFi");
-  lcd.setCursor(0, 1);
-  lcd.print("Please wait...");
+  lcdSafePrint("Connecting WiFi", WIFI_SSID);
 
   WiFi.mode(WIFI_STA);
   WiFi.setTxPower(WIFI_POWER_11dBm); // Reduce TX power to avoid brownout
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
-  WiFiManager wm;
+  int attempts = 0;
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    attempts++;
+    Serial.printf("[WIFI] Connecting to %s... attempt %d\r\n", WIFI_SSID, attempts);
+    lcdSafePrint("Connecting WiFi", "Attempt: " + String(attempts));
 
-  // Setup configuration portal settings
-  wm.setAPCallback(configModeCallback);
-  wm.setCaptivePortalEnable(true);
-  wm.setConfigPortalTimeout(180); // 3 minutes timeout so it retries connection if unattended
-
-  // Automatically try saved credentials; open portal hotspot if they fail
-  // Portal SSID: "ESP32-Fingerprint-Portal" (open, no password)
-  bool connected = wm.autoConnect("ESP32-Fingerprint-Portal");
-
-  // Re-initialize LCD interface again to clear any glitches introduced during the WiFi connection sequence
-  lcd.init();
-  lcd.backlight();
-
-  if (connected) {
-    Serial.print("[WIFI] Connected! Dynamic IP: ");
-    Serial.println(WiFi.localIP());
-
-    // Show IP on LCD briefly
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("WiFi Connected!");
-    lcd.setCursor(0, 1);
-    lcd.print(WiFi.localIP());
-    delay(2000);
-
-    // Start mDNS so the ESP32 is reachable as http://esp32-fingerprint.local
-    if (MDNS.begin("esp32-fingerprint")) {
-      Serial.println("[MDNS] Responder started: http://esp32-fingerprint.local");
-      MDNS.addService("http", "tcp", 80);
-    } else {
-      Serial.println("[MDNS] Error setting up MDNS responder!");
+    // After 30 seconds, restart to recover from any hardware/startup fault.
+    // The WiFi watchdog in loop() will handle reconnects after a clean boot.
+    if (attempts >= 30) {
+      Serial.println("[WIFI] Hotspot not found. Ensure Orange Pi is running. Restarting...");
+      lcdSafePrint("Hotspot Missing!", "Restarting...");
+      delay(3000);
+      ESP.restart();
     }
-
-    // Resolve Orange Pi IP immediately on boot
-    resolveOrangePiIP();
-    lastAnnounceAttemptTime = millis();
-    announceToServer();
-  } else {
-    Serial.println("[WIFI] Failed to connect via WiFiManager portal.");
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("WiFi FAILED");
-    lcd.setCursor(0, 1);
-    lcd.print("Restarting...");
-    delay(3000);
-    ESP.restart();
   }
+
+  // CRITICAL: WiFi startup generates heavy RF noise on I2C bus.
+  // Always do a full safe reinit before writing to LCD after WiFi connects.
+  lcdSafeInit();
+
+  Serial.print("[WIFI] Connected to ");
+  Serial.print(WIFI_SSID);
+  Serial.print(", IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println("[WIFI] Orange Pi server: http://" ORANGE_PI_IP ":" + String(DJANGO_PORT) + " (fixed)");
+
+  lcdSafePrint("WiFi Connected!", WiFi.localIP().toString());
+  delay(2000);
+
+  // Start mDNS so Django can discover this ESP32 as http://esp32-fingerprint.local
+  if (MDNS.begin("esp32-fingerprint")) {
+    Serial.println("[MDNS] ESP32 mDNS responder started: http://esp32-fingerprint.local");
+    MDNS.addService("http", "tcp", 80);
+  } else {
+    Serial.println("[MDNS] Error starting mDNS responder.");
+  }
+
+  // Orange Pi is always at 10.42.0.1 — announce our IP immediately on boot
+  lastAnnounceAttemptTime = millis();
+  announceToServer();
 }
 
 // ============= WEB SERVER INITIALIZATION =============
@@ -665,7 +683,6 @@ void handleStartVerification() {
     IPAddress newIP;
     if (newIP.fromString(sip)) {
       orangePiIP = newIP;
-      lastMDNSQueryTime = millis(); // Reset mDNS timer
       Serial.println("[SYNC] Learned Django Server IP: " + orangePiIP.toString());
     }
   }
@@ -789,6 +806,8 @@ void handleErrorFeedback() {
   if (server.hasArg("reason")) {
     reason = server.arg("reason");
   }
+  matchedFingerprintID = -1;
+  attendanceMode = "none";
   triggerAuthFailed(reason);
   server.send(200, "application/json", "{\"status\":\"success\"}");
 }
@@ -827,6 +846,8 @@ void handleStopEnrollment() {
   enrollmentActive = false;
   currentScan = 0; // Reset scan count
   resumeStateAfterWaitRemove = ENROLLING;
+  matchedFingerprintID = -1;
+  attendanceMode = "none";
   lastErrorMessage = "Ready";
 
   String response = "{\"status\":\"success\",\"message\":\"Enrollment stopped\",\"state\":\"standby\"}";
@@ -873,8 +894,7 @@ void handleGetStatus() {
   if (matchedFingerprintID >= 0) {
     response += "\"fingerprint_id\":" + String(matchedFingerprintID) + ",";
     response += "\"attendance_mode\":\"" + attendanceMode + "\",";
-    matchedFingerprintID = -1; // CONSUME IT
-    attendanceMode = "none";   // CONSUME IT
+    // Do not consume here to prevent race conditions if Django request drops
   }
   
   response += "\"device_time\":\"" + devTime + "\",";
@@ -891,6 +911,14 @@ void handleGetStatus() {
 void handleStandbyMode() {
   unsigned long currentTime = millis();
   
+  // Clear stale matched ID after 10 seconds if Django fails to poll
+  if (matchedFingerprintID != -1 && (currentTime - detectionStartTime > 10000)) {
+    matchedFingerprintID = -1;
+    attendanceMode = "none";
+    lastErrorMessage = "Ready";
+    lastLCDUpdateTime = 0; // Force LCD update
+  }
+
   // SLOW BLINK logic (1 second):
   if (currentTime - lastRedBlinkTime >= 500) { // Toggle every 500ms for 1s cycle
     lastRedBlinkTime = currentTime;
@@ -1606,9 +1634,73 @@ uint8_t r307Search(uint8_t bufferId, uint16_t* fingerID, uint16_t* score, uint16
   return 0xFF;
 }
 
+// ============= LCD SAFE HELPERS =============
+
+/**
+ * lcdSafeInit() — Reinitializes the HD44780 LCD controller.
+ *
+ * IMPORTANT: This function does NOT call Wire.end() or Wire.begin().
+ * Calling Wire.end() during runtime kills the I2C peripheral and causes
+ * the PCF8574 backpack to lose its output state → backlight turns off → blank screen.
+ * Wire is initialized ONCE at boot in initializeHardware() and stays running forever.
+ *
+ * This function is safe to call from the periodic watchdog in updateLCD().
+ */
+void lcdSafeInit() {
+  // Re-run the full HD44780 4-bit init sequence.
+  // Two calls handle the case where RF/power noise left the controller mid-sequence.
+  lcd.init();
+  delay(5);
+  lcd.init();
+  delay(5);
+
+  lcd.backlight(); // Ensure PCF8574 P3 (backlight) is HIGH
+  lcd.display();   // Ensure display is on (DDRAM data shown on screen)
+  lcd.noCursor();
+  lcd.noBlink();
+
+  // Invalidate text cache — forces a full redraw on next updateLCD() tick
+  lastLCDLine1 = "";
+  lastLCDLine2 = "";
+  lastLCDReinitTime = millis();
+
+  Serial.println("[LCD] Reinit complete.");
+}
+
+/**
+ * lcdSafePrint() — Write two lines to the LCD without using lcd.clear().
+ * Pads each string to exactly 16 characters so leftover characters from
+ * a previous longer message are always overwritten cleanly.
+ */
+void lcdSafePrint(const String& line1, const String& line2) {
+  String p1 = line1.substring(0, 16);
+  String p2 = line2.substring(0, 16);
+  while (p1.length() < 16) p1 += ' ';
+  while (p2.length() < 16) p2 += ' ';
+
+  lcd.setCursor(0, 0);
+  lcd.print(p1);
+  lcd.setCursor(0, 1);
+  lcd.print(p2);
+
+  // Keep cache in sync so updateLCD() won't immediately overwrite with stale values
+  lastLCDLine1 = line1;
+  lastLCDLine2 = line2;
+}
+
 // ============= LCD UPDATE LOGIC =============
 void updateLCD() {
   unsigned long now = millis();
+
+  // ---- Periodic Watchdog Reinit ----
+  // Every 60 seconds, silently reinit the LCD controller to self-heal any
+  // corruption caused by WiFi bursts, UART noise, or power glitches.
+  // Only reinit during STANDBY so we don't interrupt an active scan.
+  if (currentState == STANDBY && (now - lastLCDReinitTime >= 60000)) {
+    lcdSafeInit();
+    // After reinit, fall through to redraw immediately
+  }
+
   // Update LCD every 500ms to avoid flicker but keep time snappy
   if (now - lastLCDUpdateTime < 500) return;
   lastLCDUpdateTime = now;
@@ -1660,7 +1752,7 @@ void updateLCD() {
         line2 = "Place Finger...";
       } else {
         line1 = "LOGIN MODE";
-        line2 = "Place finger to login";
+        line2 = "Place finger...";
       }
       break;
 
@@ -1710,34 +1802,18 @@ void updateLCD() {
       break;
   }
 
-  // Only update if text changed
+  // Only update hardware if text actually changed
   if (line1 != lastLCDLine1 || line2 != lastLCDLine2) {
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print(line1);
-    lcd.setCursor(0, 1);
-    lcd.print(line2);
-    lastLCDLine1 = line1;
-    lastLCDLine2 = line2;
+    lcdSafePrint(line1, line2);
   }
 }
 
-// ============= RESOLVE ORANGE PI IP VIA mDNS =============
+// ============= ORANGE PI IP RESOLUTION =============
+// No-op: Orange Pi is always at 10.42.0.1 on the Barangay_System_WiFi hotspot.
+// IP is hardcoded at declaration — no runtime lookup needed.
 void resolveOrangePiIP() {
-  if (WiFi.status() != WL_CONNECTED) return;
-  Serial.println("[MDNS] Querying Orange Pi (brgysicosico.local)...");
-  IPAddress resolved = MDNS.queryHost("brgysicosico", 1500); // 1.5s timeout
-  if (resolved.toString() != "0.0.0.0") {
-    orangePiIP = resolved;
-    mdnsFailCount = 0;
-    Serial.print("[MDNS] Orange Pi resolved to: ");
-    Serial.println(orangePiIP);
-  } else {
-    mdnsFailCount++;
-    Serial.printf("[MDNS] Orange Pi not found via mDNS. Failure count: %d\n", mdnsFailCount);
-    // Note: We do NOT reset or set a static IP here on failure. 
-    // This allows the ESP32 to keep showing the last IP it learned dynamically from incoming Django requests.
-  }
+  // orangePiIP = IPAddress(10, 42, 0, 1) is set at boot and never changes.
+  Serial.println("[INFO] Orange Pi IP fixed at " ORANGE_PI_IP " (no lookup needed).");
 }
 
 // ============= ANNOUNCE IP TO DJANGO SERVER =============

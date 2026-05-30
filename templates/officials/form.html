@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}{% if editing %}Edit{% else %}Add{% endif %} Official - Barangay Management System{% endblock %}
+{% block title %}{% if editing %}Edit Official{% else %}Appoint Official / Staff{% endif %} - Barangay Management System{% endblock %}
 
 {% block extra_head %}
 <!-- Select2 CSS -->
@@ -83,13 +83,8 @@
 {% include 'components/back_button.html' with back_url=officials_list_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
-    <h1>
-      {% if editing %}Edit Official Record
-      {% elif add_type == 'staff' %}Appoint New Staff Member
-      {% else %}Appoint New Official
-      {% endif %}
-    </h1>
-    <span>{% if add_type == 'staff' %}Assign residents to barangay staff roles (Tanod, BHW, etc.){% else %}Assign residents to barangay positions and manage system access{% endif %}</span>
+    <h1>{% if editing %}Edit Official Record{% else %}Appoint Official / Staff{% endif %}</h1>
+    <span>{% if editing %}Update the record for {{ official.resident.full_name }}{% else %}Assign a resident to any barangay position — official or support staff{% endif %}</span>
   </div>
 </div>
 
@@ -117,19 +112,23 @@
             {% endif %}
           </div>
           <div class="form-group col-6">
-            <label>Official Position*</label>
-            <select name="position" class="form-control" required>
+            <label>Position*</label>
+            <select name="position" id="id_position_select" class="form-control" required>
+              <option value="">— Select a Position —</option>
               {% for code, label in positions %}
               <option value="{{ code }}" {% if official.position == code %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
             </select>
+            <small id="position-hint" class="text-muted" style="font-size:11px; margin-top:4px; display:block;"></small>
           </div>
         </div>
 
         <div class="form-row">
           <div class="form-group col-6">
-            <label>Committee / Assignment</label>
-            <input type="text" name="committee" value="{{ official.committee }}" class="form-control"
+            <label for="id_committee_field">Committee / Assignment
+              <span id="committee-badge" style="display:none; font-size:10px; font-weight:700; color:#94a3b8; background:#f1f5f9; border-radius:4px; padding:1px 6px; margin-left:6px;">N/A for this position</span>
+            </label>
+            <input type="text" name="committee" id="id_committee_field" value="{{ official.committee }}" class="form-control"
               placeholder="e.g. Health, Finance, Infrastructure">
           </div>
           <div class="form-group col-6">
@@ -204,7 +203,30 @@
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function () {
-    // Initialize Select2
+
+    // ── Positions that do NOT have committee / assignment relevance ──
+    const NO_COMMITTEE_POSITIONS = new Set([
+      'tanod', 'bhw', 'nutrition_scholar', 'day_care_worker',
+      'lupon', 'clerk', 'staff', 'captain', 'treasurer'
+    ]);
+
+    const POSITION_HINTS = {
+      'captain':           'Punong Barangay — the chief executive of the barangay.',
+      'kagawad':           'Sangguniang Barangay member. Assign a committee (e.g. Health, Finance).',
+      'secretary':         'Barangay Secretary — responsible for records and minutes.',
+      'treasurer':         'Barangay Treasurer — manages finances.',
+      'sk_chairman':       'SK Chairperson — youth council leader.',
+      'sk_kagawad':        'SK Council member. Assign a committee if applicable.',
+      'tanod':             'Barangay Tanod — peace & order volunteer.',
+      'bhw':               'Barangay Health Worker — community health aide.',
+      'nutrition_scholar': 'Barangay Nutrition Scholar (BNS) — nutrition program implementor.',
+      'day_care_worker':   'Day Care Worker — manages the barangay day care center.',
+      'lupon':             'Lupon member — barangay justice/mediation.',
+      'clerk':             'Barangay Clerk — administrative support.',
+      'staff':             'General Barangay Staff.',
+    };
+
+    // ── Initialize Select2 for resident picker ──
     if (jQuery('#id_resident_select').length) {
       jQuery('#id_resident_select').select2({
         placeholder: "Search resident by name or purok...",
@@ -213,37 +235,67 @@
       });
     }
 
+    // ── Committee field disable/enable logic ──
+    const positionSelect  = document.getElementById('id_position_select');
+    const committeeField  = document.getElementById('id_committee_field');
+    const committeeBadge  = document.getElementById('committee-badge');
+    const positionHint    = document.getElementById('position-hint');
+
+    function updateCommitteeState() {
+      if (!positionSelect) return;
+      const pos = positionSelect.value;
+      const noCommittee = NO_COMMITTEE_POSITIONS.has(pos);
+
+      if (committeeField) {
+        committeeField.disabled = noCommittee;
+        committeeField.style.opacity        = noCommittee ? '0.45' : '1';
+        committeeField.style.cursor         = noCommittee ? 'not-allowed' : '';
+        committeeField.style.backgroundColor = noCommittee ? 'var(--border-light, #f1f5f9)' : '';
+        if (noCommittee) committeeField.value = '';
+      }
+      if (committeeBadge) {
+        committeeBadge.style.display = noCommittee ? 'inline' : 'none';
+      }
+      if (positionHint) {
+        positionHint.textContent = pos ? (POSITION_HINTS[pos] || '') : '';
+      }
+    }
+
+    if (positionSelect) {
+      positionSelect.addEventListener('change', updateCommitteeState);
+      updateCommitteeState(); // run once on load
+    }
+
+    // ── Resident picker → show account-setup section ──
     const residentSelect = jQuery('select[name="resident"]');
-    const setupSection = document.getElementById('account-setup-section');
-    const updateSection = document.getElementById('account-update-section');
+    const setupSection   = document.getElementById('account-setup-section');
 
     {% if not editing %}
     residentSelect.on('change', function () {
       const selectedOption = this.options[this.selectedIndex];
       if (!selectedOption || !selectedOption.value) {
-        setupSection.style.display = 'none';
+        if (setupSection) setupSection.style.display = 'none';
         return;
       }
 
-      // Read from Select2 data or original option
-      const data = jQuery(selectedOption).data() || selectedOption.dataset;
+      const data       = jQuery(selectedOption).data() || selectedOption.dataset;
       const hasAccount = String(data.hasAccount) === 'true' || data.hasAccount === true;
-      const username = data.username || '';
-      
-      setupSection.style.display = 'block';
-      
+      const username   = data.username || '';
+
+      if (setupSection) setupSection.style.display = 'block';
+
       const usernameField = document.getElementById('id_username_field');
-      const existingMsg = document.getElementById('existing-user-msg');
-      const setupNote = document.getElementById('account-setup-note');
-      
+      const existingMsg   = document.getElementById('existing-user-msg');
+      const setupNote     = document.getElementById('account-setup-note');
+
       if (hasAccount) {
         if (usernameField) usernameField.value = username;
-        if (existingMsg) existingMsg.style.display = 'block';
-        if (setupNote) setupNote.innerText = "This resident already has an account. You can update their credentials below if needed.";
+        if (existingMsg)   existingMsg.style.display = 'block';
+        if (setupNote)     setupNote.innerText = "This resident already has an account. You can update their credentials below if needed.";
       } else {
         if (usernameField) usernameField.value = '';
-        if (existingMsg) existingMsg.style.display = 'none';
-        if (setupNote) setupNote.innerText = "Set up the login credentials for this official. These will be used for manual password login.";
+        if (existingMsg)   existingMsg.style.display = 'none';
+        if (setupNote)     setupNote.innerText = "Set up the login credentials for this official. These will be used for manual password login.";
       }
     });
     {% endif %}

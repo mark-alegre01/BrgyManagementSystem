@@ -164,3 +164,58 @@ class SpecialDate(models.Model):
         ordering = ['-date']
         verbose_name = 'Special Date'
         verbose_name_plural = 'Special Dates'
+
+
+class WorkSchedule(models.Model):
+    """Customizable work schedule per official per date."""
+    SHIFT_CHOICES = [
+        ('regular', 'Regular (8 AM - 5 PM)'),
+        ('morning', 'Morning Shift (8 AM - 12 PM)'),
+        ('afternoon', 'Afternoon Shift (1 PM - 5 PM)'),
+        ('night', 'Night Shift (10 PM - 6 AM)'),
+        ('day_off', 'Day Off / Rest Day'),
+        ('leave', 'On Leave'),
+    ]
+
+    official = models.ForeignKey('officials.Official', on_delete=models.CASCADE, related_name='work_schedules')
+    date = models.DateField()
+    shift_type = models.CharField(max_length=20, choices=SHIFT_CHOICES, default='regular')
+    
+    # Optional override times (if a shift needs custom hours)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    
+    notes = models.CharField(max_length=255, blank=True, help_text="Reason for leave, extra info, etc.")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.official} - {self.date} ({self.get_shift_type_display()})"
+
+    def save(self, *args, **kwargs):
+        # Auto-set default times based on shift type if not provided
+        from datetime import time
+        if not self.start_time or not self.end_time:
+            if self.shift_type == 'regular':
+                self.start_time = time(8, 0)
+                self.end_time = time(17, 0)
+            elif self.shift_type == 'morning':
+                self.start_time = time(8, 0)
+                self.end_time = time(12, 0)
+            elif self.shift_type == 'afternoon':
+                self.start_time = time(13, 0)
+                self.end_time = time(17, 0)
+            elif self.shift_type == 'night':
+                self.start_time = time(22, 0)
+                self.end_time = time(6, 0)
+            elif self.shift_type in ['day_off', 'leave']:
+                self.start_time = None
+                self.end_time = None
+        super().save(*args, **kwargs)
+
+    class Meta:
+        ordering = ['date', 'official']
+        unique_together = ['official', 'date']
+        verbose_name = 'Work Schedule'
+        verbose_name_plural = 'Work Schedules'
