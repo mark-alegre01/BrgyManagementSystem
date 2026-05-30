@@ -15,14 +15,6 @@ rm -f "$PROJECT_DIR/.esp32_ip"
 rm -f "$PROJECT_DIR/.esp32_heartbeat_ip"
 echo " ESP32 IP cache cleared."
 
-# --- Free port 8001 if already in use ---
-# This prevents "That port is already in use" errors when the service restarts.
-if fuser 8001/tcp > /dev/null 2>&1; then
-    echo " Port 8001 in use — killing existing process..."
-    fuser -k 8001/tcp
-    sleep 1
-    echo " Port 8001 freed."
-fi
 
 echo "=================================================="
 echo " Starting Barangay Management System "
