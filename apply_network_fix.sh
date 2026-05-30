@@ -59,11 +59,18 @@ iptables -A FORWARD -i $ETH_IFACE -o $WIFI_IFACE -m state --state RELATED,ESTABL
 iptables -A FORWARD -i $WIFI_IFACE -o $ETH_IFACE -j ACCEPT
 log "iptables NAT rules applied."
 
-# 8. Restart hostapd and dnsmasq to ensure hotspot is up
+# 8. Force-release wlan0 from NetworkManager, then restart hostapd and dnsmasq
+log "Releasing wlan0 from NetworkManager..."
+nmcli dev set $WIFI_IFACE managed no 2>/dev/null || true
+sleep 2
+
 systemctl restart dnsmasq
 sleep 1
-systemctl restart hostapd
+# Give hostapd a clean start
+systemctl stop hostapd 2>/dev/null
 sleep 2
+systemctl start hostapd
+sleep 3
 
 HOSTAPD_STATUS=$(systemctl is-active hostapd)
 log "hostapd status: $HOSTAPD_STATUS"

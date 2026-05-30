@@ -1,12 +1,16 @@
 [Unit]
 Description=Barangay System Network Fix (Hotspot + Routing)
-After=network.target NetworkManager.service hostapd.service
-Wants=network.target
+After=network-online.target NetworkManager.service
+Wants=network-online.target
 
 [Service]
 Type=oneshot
+# Wait for network to be fully up before running
+ExecStartPre=/bin/sleep 5
 ExecStart=/bin/bash /home/admin/BrgyManagementSystem/apply_network_fix.sh
 RemainAfterExit=yes
+Restart=on-failure
+RestartSec=10
 StandardOutput=journal
 StandardError=journal
 
