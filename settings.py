@@ -28,13 +28,11 @@ DEBUG = True
 
 ALLOWED_HOSTS = [
     'localhost', '127.0.0.1',
-    '10.42.0.1',         # Orange Pi hotspot IP (fixed — for ESP32 communication)
-    '10.42.0.2',
-    '10.42.0.3',
-    '10.42.0.4',
-    '10.42.0.5',
+    '10.42.0.1',          # Orange Pi hotspot IP (for ESP32 requests)
+    '10.42.0.*',          # All hotspot clients
     'brgysicosico.local', 'barangay.local', 'mhark.local', '.local',
-    '*.ts.net', '*.tailscale.net',  # Tailscale for resident internet access
+    '*.ts.net',           # Tailscale (already there — for resident access)
+    '*.tailscale.net',
 ]
 
 # ESP32 is always on the Orange Pi's private hotspot subnet (10.42.0.x)

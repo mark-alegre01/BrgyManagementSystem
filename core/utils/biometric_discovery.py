@@ -175,33 +175,6 @@ def scan_hotspot_subnet_for_esp32():
     return None
 
 
-def scan_subnet_for_esp32():
-    """
-    Legacy full /24 scan — kept as last resort but hotspot scan is preferred.
-    Only runs if hotspot scan fails (e.g. ESP32 has a non-standard IP).
-    """
-    local_ip = get_local_ip()
-    if local_ip == '127.0.0.1':
-        return None
-
-    parts = local_ip.split('.')
-    if len(parts) != 4:
-        return None
-
-    subnet = ".".join(parts[:3]) + "."
-    # Skip rescanning the hotspot subnet (already done)
-    if subnet == _HOTSPOT_SUBNET:
-        return None
-
-    ips = [f"{subnet}{i}" for i in range(1, 255)]
-    print(f"[Biometric] Full subnet scan {subnet}0/24 for ESP32...")
-    with ThreadPoolExecutor(max_workers=60) as executor:
-        results = executor.map(_test_ip_for_esp32, ips)
-        for r in results:
-            if r:
-                return r
-    return None
-
 
 # ---------------------------------------------------------------------------
 # Main entry point

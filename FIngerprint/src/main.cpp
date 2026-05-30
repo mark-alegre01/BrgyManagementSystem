@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <HardwareSerial.h>
 #include <WiFi.h>
-#include <WiFiManager.h>         // Automatic Wi-Fi portal — no more hardcoded credentials!
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <HTTPClient.h>
@@ -12,13 +11,7 @@
 #include "soc/rtc_cntl_reg.h"
 
 // ============= WiFi CONFIG =============
-// WiFi credentials are now managed automatically via the WiFiManager portal.
-// On first boot (or if Wi-Fi is lost), the ESP32 creates a hotspot:
-//   SSID    : "ESP32-Fingerprint-Portal"
-//   Password: (open / no password)
-// Connect your phone/laptop to that hotspot and a setup page will appear.
-// Select your Wi-Fi, enter the password, and the ESP32 saves it automatically.
-// The saved credentials survive reboots and power cuts via on-chip flash storage.
+// Hardcoded to Barangay_System_WiFi (Plug-and-Play)
 
 // ============= HTTP SERVER CONFIG =============
 WebServer server(80);
@@ -150,7 +143,7 @@ uint8_t fingerprintTemplates[MAX_SCANS][512]; // Store templates for 3 scans
 bool scanCompleted[MAX_SCANS] = {false, false, false};
 
 // ============= ORANGE PI mDNS RESOLVER =============
-IPAddress orangePiIP(0,0,0,0);
+IPAddress orangePiIP(10,42,0,1);
 unsigned long lastMDNSQueryTime = 0;
 const unsigned long MDNS_QUERY_INTERVAL = 30000; // Query every 30 seconds
 int mdnsFailCount = 0;                          // Track consecutive mDNS lookup failures
@@ -161,7 +154,6 @@ unsigned long lastAnnounceAttemptTime = 0;
 // ============= FUNCTION DECLARATIONS =============
 void initializeHardware();
 bool initializeFingerprintModule();
-void configModeCallback(WiFiManager *myWiFiManager);
 void initializeWiFi();
 void initializeWebServer();
 void handleRoot();
@@ -198,7 +190,6 @@ bool r307RefreshFingerprintCapacity();
 void triggerAuthFailed(const String& reason, bool resumeVerifyingSessionAfterBeeps = false);
 void printSystemStatus();
 void setLeds(bool red, bool green, bool blue);
-void resolveOrangePiIP();
 void announceToServer();
 void lcdSafeInit();
 void lcdSafePrint(const String& line1, const String& line2);
@@ -226,16 +217,28 @@ void loop() {
   server.handleClient();
   updateSystemState();
   
-  // Periodically query Orange Pi's IP address every 30 seconds in STANDBY
-  if (currentState == STANDBY && WiFi.status() == WL_CONNECTED) {
-    unsigned long currentMillis = millis();
-    if (orangePiIP.toString() == "0.0.0.0" || currentMillis - lastMDNSQueryTime >= MDNS_QUERY_INTERVAL) {
-      lastMDNSQueryTime = currentMillis;
-      resolveOrangePiIP();
+  // Verify WiFi connection and Reconnect if dropped
+  if (WiFi.status() != WL_CONNECTED) {
+    lcdSafePrint("WiFi Dropped!", "Reconnecting...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    unsigned long startAttemptTime = millis();
+    int retryCount = 1;
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
+      lcdSafePrint("Reconnecting...", String(retryCount));
+      delay(500);
+      retryCount++;
     }
-    // Also periodically verify if we need to announce (e.g. if IP changed or not yet announced)
-    if (orangePiIP.toString() != "0.0.0.0" && (orangePiIP != lastAnnouncedOrangePiIP || WiFi.localIP() != lastAnnouncedLocalIP)) {
-      if (currentMillis - lastAnnounceAttemptTime >= 10000) { // Limit attempts to once every 10 seconds
+    if (WiFi.status() == WL_CONNECTED) {
+      lcdSafePrint("WiFi Restored", WiFi.localIP().toString());
+      delay(1000);
+      announceToServer(); // Re-announce
+    }
+  } else if (currentState == STANDBY) {
+    unsigned long currentMillis = millis();
+    // Periodically verify if we need to announce
+    if (orangePiIP != lastAnnouncedOrangePiIP || WiFi.localIP() != lastAnnouncedLocalIP) {
+      if (currentMillis - lastAnnounceAttemptTime >= 10000) {
         lastAnnounceAttemptTime = currentMillis;
         announceToServer();
       }
@@ -438,67 +441,46 @@ bool initializeFingerprintModule() {
   return false;
 }
 
-// Callback when WiFiManager enters Configuration/AP mode
-void configModeCallback(WiFiManager *myWiFiManager) {
-  Serial.println("[WIFI] Entered configuration portal mode.");
-  Serial.print("[WIFI] SSID: ");
-  Serial.println(myWiFiManager->getConfigPortalSSID());
-  Serial.print("[WIFI] IP: ");
-  Serial.println(WiFi.softAPIP());
-
-  // Safe reinit after WiFi AP mode starts — RF noise can corrupt the LCD controller
-  lcdSafeInit();
-  lcdSafePrint("WiFi Portal Open", "IP: 192.168.4.1");
-}
-
 // ============= WiFi INITIALIZATION =============
 void initializeWiFi() {
-  // Show portal waiting message — use safe print (no lcd.clear)
   lcdSafePrint("Connecting WiFi", "Please wait...");
 
   WiFi.mode(WIFI_STA);
-  WiFi.setTxPower(WIFI_POWER_11dBm); // Reduce TX power to avoid brownout
+  WiFi.setTxPower(WIFI_POWER_11dBm);
 
-  WiFiManager wm;
+  WiFi.begin("Barangay_System_WiFi", "barangay123");
 
-  // Setup configuration portal settings
-  wm.setAPCallback(configModeCallback);
-  wm.setCaptivePortalEnable(true);
-  wm.setConfigPortalTimeout(180); // 3 minutes timeout so it retries connection if unattended
-
-  // Automatically try saved credentials; open portal hotspot if they fail
-  // Portal SSID: "ESP32-Fingerprint-Portal" (open, no password)
-  bool connected = wm.autoConnect("ESP32-Fingerprint-Portal");
-
-  // CRITICAL: WiFi startup generates heavy RF noise on I2C bus.
-  // Always do a full safe reinit with delay before writing ANYTHING to the LCD here.
-  lcdSafeInit();
-
-  if (connected) {
-    Serial.print("[WIFI] Connected! Dynamic IP: ");
-    Serial.println(WiFi.localIP());
-
-    lcdSafePrint("WiFi Connected!", WiFi.localIP().toString());
-    delay(2000);
-
-    // Start mDNS so the ESP32 is reachable as http://esp32-fingerprint.local
-    if (MDNS.begin("esp32-fingerprint")) {
-      Serial.println("[MDNS] Responder started: http://esp32-fingerprint.local");
-      MDNS.addService("http", "tcp", 80);
-    } else {
-      Serial.println("[MDNS] Error setting up MDNS responder!");
+  int retryCount = 1;
+  while (WiFi.status() != WL_CONNECTED) {
+    lcdSafePrint("Connecting...", String(retryCount));
+    delay(1000);
+    Serial.print(".");
+    retryCount++;
+    if (retryCount > 15) {
+      lcdSafePrint("WiFi FAILED", "Restarting...");
+      delay(3000);
+      ESP.restart();
     }
-
-    // Resolve Orange Pi IP immediately on boot
-    resolveOrangePiIP();
-    lastAnnounceAttemptTime = millis();
-    announceToServer();
-  } else {
-    Serial.println("[WIFI] Failed to connect via WiFiManager portal.");
-    lcdSafePrint("WiFi FAILED", "Restarting...");
-    delay(3000);
-    ESP.restart();
   }
+
+  lcdSafeInit();
+  
+  Serial.print("[WIFI] Connected! Dynamic IP: ");
+  Serial.println(WiFi.localIP());
+
+  lcdSafePrint("WiFi Connected!", WiFi.localIP().toString());
+  delay(2000);
+
+  if (MDNS.begin("esp32-fingerprint")) {
+    Serial.println("[MDNS] Responder started: http://esp32-fingerprint.local");
+    MDNS.addService("http", "tcp", 80);
+  } else {
+    Serial.println("[MDNS] Error setting up MDNS responder!");
+  }
+
+  // Announce to server instantly
+  lastAnnounceAttemptTime = millis();
+  announceToServer();
 }
 
 // ============= WEB SERVER INITIALIZATION =============
@@ -1723,14 +1705,9 @@ void updateLCD() {
           line1 = "Barangay System";
           line2 = String(dayNames[timeinfo.tm_wday]) + " " + String(timeStr);
         } else {
-          if (orangePiIP.toString() != "0.0.0.0") {
-            line1 = "Web App IP:";
-            line2 = orangePiIP.toString();
-          } else {
-            line1 = "Web App Address:";
-            line2 = "brgysicosico.loc";
-          }
-        }
+          line1 = "Web App IP:";
+          line2 = orangePiIP.toString();
+      }
       }
       break;
     
@@ -1803,24 +1780,6 @@ void updateLCD() {
   // Only update hardware if text actually changed
   if (line1 != lastLCDLine1 || line2 != lastLCDLine2) {
     lcdSafePrint(line1, line2);
-  }
-}
-
-// ============= RESOLVE ORANGE PI IP VIA mDNS =============
-void resolveOrangePiIP() {
-  if (WiFi.status() != WL_CONNECTED) return;
-  Serial.println("[MDNS] Querying Orange Pi (brgysicosico.local)...");
-  IPAddress resolved = MDNS.queryHost("brgysicosico", 1500); // 1.5s timeout
-  if (resolved.toString() != "0.0.0.0") {
-    orangePiIP = resolved;
-    mdnsFailCount = 0;
-    Serial.print("[MDNS] Orange Pi resolved to: ");
-    Serial.println(orangePiIP);
-  } else {
-    mdnsFailCount++;
-    Serial.printf("[MDNS] Orange Pi not found via mDNS. Failure count: %d\n", mdnsFailCount);
-    // Note: We do NOT reset or set a static IP here on failure. 
-    // This allows the ESP32 to keep showing the last IP it learned dynamically from incoming Django requests.
   }
 }
 

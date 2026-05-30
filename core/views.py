@@ -547,6 +547,9 @@ def _esp32_trigger_start_verification(mode=None):
         except Exception:
             pass
             
+    if not server_ip:
+        server_ip = "10.42.0.1"
+            
     if server_ip:
         payload['server_ip'] = server_ip
 

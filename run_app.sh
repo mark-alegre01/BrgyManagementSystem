@@ -20,6 +20,11 @@ echo "=================================================="
 echo " Starting Barangay Management System "
 echo "=================================================="
 echo "Project Path: $PROJECT_DIR"
+echo "--- Network Information ---"
+echo "Internet IP (end0)  :" $(ip addr show end0 2>/dev/null | grep 'inet ' | awk '{print $2}')
+echo "Hotspot IP (wlan0)  : 10.42.0.1"
+echo "Tailscale Network   :" $(tailscale ip -4 2>/dev/null)
+echo "=================================================="
 
 # Run the Django server (0.0.0.0 = listen on all interfaces, including LAN)
 ./venv/bin/python manage.py runserver 0.0.0.0:8001
