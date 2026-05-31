@@ -446,6 +446,9 @@ void initializeWiFi() {
   lcdSafePrint("Connecting WiFi", "Please wait...");
 
   WiFi.mode(WIFI_STA);
+  WiFi.disconnect(true); // <--- CRITICAL: Clears old WiFiManager credentials from flash memory
+  delay(100);
+  
   WiFi.setTxPower(WIFI_POWER_11dBm);
 
   WiFi.begin("Barangay_System_WiFi", "barangay123");

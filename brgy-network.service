@@ -7,7 +7,7 @@ Wants=network-online.target
 Type=oneshot
 # Wait for network to be fully up before running
 ExecStartPre=/bin/sleep 5
-ExecStart=/bin/bash /home/admin/BrgyManagementSystem/apply_network_fix.sh
+ExecStart=/bin/bash /home/admin/BrgyManagementSystem/fix_hotspot.sh
 RemainAfterExit=yes
 Restart=on-failure
 RestartSec=10
