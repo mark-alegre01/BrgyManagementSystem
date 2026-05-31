@@ -360,9 +360,10 @@ void initializeHardware() {
   setLeds(false, false, true);  delay(300);
   setLeds(false, true, false);
   ledcWriteTone(BUZZER_LEDC_CHANNEL, BUZZER_TONE_HZ);
-  ledcWrite(BUZZER_LEDC_CHANNEL, 150);
+  ledcWrite(BUZZER_LEDC_CHANNEL, 128); // Max 50% duty to prevent power drop
   delay(200);
   ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+  ledcWrite(BUZZER_LEDC_CHANNEL, 0);
   setLeds(false, false, false);
   Serial.println("[BOOT] Hardware test complete.");
   delay(100);
@@ -971,7 +972,7 @@ void handleFailMode() {
     
     // Tone ON
     ledcWriteTone(BUZZER_LEDC_CHANNEL, BUZZER_TONE_HZ);
-    ledcWrite(BUZZER_LEDC_CHANNEL, 220);
+    ledcWrite(BUZZER_LEDC_CHANNEL, 128); // Max 50% duty
     setLeds(true, false, false);
     delay(300); // 300ms Beep
     
@@ -1044,11 +1045,18 @@ void updateSystemState() {
       // --- Buzzer: two short beeps ---
       for (int i = 0; i < 2; i++) {
         ledcWriteTone(BUZZER_LEDC_CHANNEL, 3000);
-        ledcWrite(BUZZER_LEDC_CHANNEL, 160);
+        ledcWrite(BUZZER_LEDC_CHANNEL, 128); // Reduced to prevent brownout
         delay(80);
         ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+        ledcWrite(BUZZER_LEDC_CHANNEL, 0);
         if (i < 1) delay(80);
       }
+      
+      // POWER RECOVERY: The buzzer draws a lot of current and can scramble the I2C LCD
+      // and fingerprint sensor. Give voltage a moment to recover, then fix the LCD.
+      delay(200);
+      lcdSafeInit();
+      clearR307Buffer();
     } else if (outPressed) {
       lastButtonPress = millis();
       attendanceMode = "out";
@@ -1065,11 +1073,18 @@ void updateSystemState() {
       // --- Buzzer: two short beeps ---
       for (int i = 0; i < 2; i++) {
         ledcWriteTone(BUZZER_LEDC_CHANNEL, 3000);
-        ledcWrite(BUZZER_LEDC_CHANNEL, 160);
+        ledcWrite(BUZZER_LEDC_CHANNEL, 128); // Reduced to prevent brownout
         delay(80);
         ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+        ledcWrite(BUZZER_LEDC_CHANNEL, 0);
         if (i < 1) delay(80);
       }
+      
+      // POWER RECOVERY: The buzzer draws a lot of current and can scramble the I2C LCD
+      // and fingerprint sensor. Give voltage a moment to recover, then fix the LCD.
+      delay(200);
+      lcdSafeInit();
+      clearR307Buffer();
     }
   }
 
@@ -1142,7 +1157,7 @@ void triggerFingerprintDetection() {
   // SUCCESS FEEDBACK: Turn on Green LED and Buzzer at the same time
   setLeds(false, true, false);
   ledcWriteTone(BUZZER_LEDC_CHANNEL, BUZZER_TONE_HZ);
-  ledcWrite(BUZZER_LEDC_CHANNEL, 200);
+  ledcWrite(BUZZER_LEDC_CHANNEL, 128); // Max 50% duty
   
   buzzerPulseActive = true;
   buzzerPulseStartTime = millis();
