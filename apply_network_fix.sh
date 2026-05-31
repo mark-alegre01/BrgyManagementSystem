@@ -6,15 +6,16 @@
 
 WIFI_IFACE="wlan0"
 
-# Auto-detect Ethernet interface instead of hardcoding to br0
-ETH_IFACE=$(ip route show default 2>/dev/null | grep -v "wlan0" | awk '{print $5}' | head -n 1)
+# Auto-detect Ethernet interface — NEVER pick a wireless interface!
+ETH_IFACE=""
+for iface in end0 eth0 enp1s0 enp2s0 enp3s0; do
+    if ip link show "$iface" >/dev/null 2>&1; then
+        ETH_IFACE="$iface"
+        break
+    fi
+done
 if [ -z "$ETH_IFACE" ]; then
-    for iface in end0 eth0 enp1s0 enp2s0 br0; do
-        if ip link show "$iface" >/dev/null 2>&1; then
-            ETH_IFACE="$iface"
-            break
-        fi
-    done
+    ETH_IFACE="end0"
 fi
 
 HOTSPOT_IP="10.42.0.1"

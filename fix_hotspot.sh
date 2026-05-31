@@ -143,27 +143,48 @@ else
 fi
 
 # ==============================================================================
-# STEP 6: DETECT ETHERNET INTERFACE
+# STEP 6: DETECT ETHERNET INTERFACE (NEVER pick wlan0!)
 # ==============================================================================
 echo -e "\n${YELLOW}[STEP 6] Detecting Ethernet interface for internet sharing...${NC}"
-ETH_IFACE=$(ip route | grep default | awk '{print $5}' | head -n 1)
+
+# CRITICAL: We must NEVER use wlan0/wlan1 as the ethernet interface.
+# Always detect by checking for physical ethernet ports first.
+ETH_IFACE=""
+for iface in end0 eth0 enp1s0 enp2s0 enp3s0; do
+    if ip link show "$iface" &>/dev/null; then
+        ETH_IFACE="$iface"
+        break
+    fi
+done
 
 if [ -z "$ETH_IFACE" ]; then
-    # Fallback: try common names
-    for iface in end0 eth0 enp1s0 enp2s0; do
-        if ip link show "$iface" &>/dev/null; then
-            ETH_IFACE="$iface"
-            break
-        fi
-    done
+    echo -e "${RED}[ERROR] No physical ethernet interface found (checked end0, eth0, enp1s0, enp2s0).${NC}"
+    echo -e "${YELLOW}        Defaulting to end0. Make sure LAN cable is plugged in.${NC}"
+    ETH_IFACE="end0"
 fi
 
-if [ -z "$ETH_IFACE" ]; then
-    echo -e "${YELLOW}[WARN] No ethernet interface found. Internet sharing will be skipped.${NC}"
-    echo "       Make sure LAN cable is plugged in before running this script."
-    ETH_IFACE="end0"
+echo -e "${GREEN}[OK] Ethernet interface: $ETH_IFACE${NC}"
+
+# STEP 6b: Make sure the ethernet interface has an IP via DHCP
+echo -e "${YELLOW}[STEP 6b] Ensuring $ETH_IFACE has internet (DHCP)...${NC}"
+ip link set dev $ETH_IFACE up
+
+# Check if NetworkManager has a connection for end0, if not create one
+if ! nmcli -t -f NAME con show --active 2>/dev/null | grep -qi "$ETH_IFACE"; then
+    echo -e "${YELLOW}[FIX] $ETH_IFACE is not active. Activating via NetworkManager...${NC}"
+    # Try to bring up any existing connection for this device
+    nmcli dev connect $ETH_IFACE 2>/dev/null || true
+    sleep 3
+fi
+
+# Verify it got an IP
+ETH_IP=$(ip addr show $ETH_IFACE 2>/dev/null | grep 'inet ' | grep -v '127.0.0' | awk '{print $2}' | head -1)
+if [ -n "$ETH_IP" ]; then
+    echo -e "${GREEN}[OK] $ETH_IFACE has IP: $ETH_IP${NC}"
 else
-    echo -e "${GREEN}[OK] Ethernet interface: $ETH_IFACE${NC}"
+    echo -e "${YELLOW}[WARN] $ETH_IFACE has no IP yet. Trying nmcli...${NC}"
+    nmcli dev connect $ETH_IFACE 2>/dev/null || true
+    sleep 5
 fi
 
 # ==============================================================================
@@ -261,21 +282,27 @@ grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf || echo "net.ipv4.ip_forward=1"
 sed -i 's/^#*net.ipv4.ip_forward.*/net.ipv4.ip_forward=1/' /etc/sysctl.conf
 sysctl -p
 
-# iptables NAT rules
-iptables -t nat -F
-iptables -F FORWARD
-iptables -t nat -A POSTROUTING -o $ETH_IFACE -j MASQUERADE
-iptables -A FORWARD -i $ETH_IFACE -o $WIFI_IFACE -m state --state RELATED,ESTABLISHED -j ACCEPT
-iptables -A FORWARD -i $WIFI_IFACE -o $ETH_IFACE -j ACCEPT
+# SAFETY CHECK: Refuse to set up NAT if ETH_IFACE is a wireless interface
+if echo "$ETH_IFACE" | grep -qE '^(wlan|wlp|wlx)'; then
+    echo -e "${RED}[FATAL] ETH_IFACE='$ETH_IFACE' is a WiFi interface! Refusing to set up NAT.${NC}"
+    echo -e "${RED}        This would kill your internet. Skipping NAT setup.${NC}"
+else
+    # iptables NAT rules
+    iptables -t nat -F
+    iptables -F FORWARD
+    iptables -t nat -A POSTROUTING -o $ETH_IFACE -j MASQUERADE
+    iptables -A FORWARD -i $ETH_IFACE -o $WIFI_IFACE -m state --state RELATED,ESTABLISHED -j ACCEPT
+    iptables -A FORWARD -i $WIFI_IFACE -o $ETH_IFACE -j ACCEPT
 
-# Save iptables rules
-if command -v netfilter-persistent &>/dev/null; then
-    netfilter-persistent save
-elif command -v iptables-save &>/dev/null; then
-    iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+    # Save iptables rules
+    if command -v netfilter-persistent &>/dev/null; then
+        netfilter-persistent save
+    elif command -v iptables-save &>/dev/null; then
+        iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+    fi
+
+    echo -e "${GREEN}[OK] NAT routing enabled: $WIFI_IFACE <-> $ETH_IFACE${NC}"
 fi
-
-echo -e "${GREEN}[OK] NAT routing enabled: $WIFI_IFACE <-> $ETH_IFACE${NC}"
 
 # ==============================================================================
 # STEP 11: START SERVICES
