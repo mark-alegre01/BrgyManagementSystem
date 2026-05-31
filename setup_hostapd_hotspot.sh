@@ -69,14 +69,15 @@ driver=nl80211
 ssid=Barangay_System_WiFi
 hw_mode=g
 channel=6
-wmm_enabled=0
+ieee80211n=1
+wmm_enabled=1
 macaddr_acl=0
 auth_algs=1
 ignore_broadcast_ssid=0
 wpa=2
 wpa_passphrase=barangay123
 wpa_key_mgmt=WPA-PSK
-wpa_pairwise=TKIP
+wpa_pairwise=CCMP
 rsn_pairwise=CCMP
 EOF
 
