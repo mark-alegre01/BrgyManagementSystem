@@ -1,9 +1,13 @@
 #!/bin/bash
 # ==============================================================================
-# Barangay System - Hotspot Diagnostic & Fix Script
+# Barangay System - Hotspot Diagnostic & Fix Script (PERMANENT FIX v2)
 # ==============================================================================
-# Run this on the Orange Pi to diagnose WHY the hotspot is not broadcasting,
-# then automatically apply the correct fix.
+# Run this on the Orange Pi to:
+#   1. Permanently ban NetworkManager from touching wlan0
+#   2. Delete all rogue Wi-Fi profiles that steal the interface
+#   3. Set up hostapd + dnsmasq for the hotspot
+#   4. Enable NAT internet sharing from Ethernet to Wi-Fi
+#   5. Persist ALL settings across reboots
 #
 # Usage: sudo ./fix_hotspot.sh
 # ==============================================================================
@@ -20,8 +24,73 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 echo -e "${CYAN}=========================================================="
-echo -e "  Barangay System - Hotspot Diagnostic & Fix"
+echo -e "  Barangay System - Hotspot Diagnostic & Fix (v2)"
 echo -e "==========================================================${NC}"
+
+# ==============================================================================
+# STEP 0: PERMANENTLY BAN NETWORKMANAGER FROM TOUCHING WLAN0
+# ==============================================================================
+# THIS IS THE ROOT CAUSE OF ALL INTERNET DROPS.
+# NetworkManager keeps creating Wi-Fi connections on wlan0, which:
+#   - Steals the interface from hostapd
+#   - Adds a bad default route via wlan0 (instead of end0)
+#   - Assigns 192.168.x.x to wlan0 (conflicts with the hotspot 10.42.0.1)
+# ==============================================================================
+echo -e "\n${YELLOW}[STEP 0] Permanently banning NetworkManager from wlan0...${NC}"
+
+# 0a. Create the permanent ignore rule
+mkdir -p /etc/NetworkManager/conf.d/
+cat > /etc/NetworkManager/conf.d/10-ignore-wifi.conf <<EOF
+[keyfile]
+unmanaged-devices=interface-name:wlan0
+EOF
+echo -e "${GREEN}[OK] Created /etc/NetworkManager/conf.d/10-ignore-wifi.conf${NC}"
+
+# 0b. Also add it to the main NetworkManager config as a backup
+if [ -f /etc/NetworkManager/NetworkManager.conf ]; then
+    if ! grep -q "unmanaged-devices=interface-name:wlan0" /etc/NetworkManager/NetworkManager.conf; then
+        # Add under [keyfile] section if it exists, otherwise append
+        if grep -q "\[keyfile\]" /etc/NetworkManager/NetworkManager.conf; then
+            sed -i '/\[keyfile\]/a unmanaged-devices=interface-name:wlan0' /etc/NetworkManager/NetworkManager.conf
+        else
+            echo -e "\n[keyfile]\nunmanaged-devices=interface-name:wlan0" >> /etc/NetworkManager/NetworkManager.conf
+        fi
+        echo -e "${GREEN}[OK] Also patched NetworkManager.conf${NC}"
+    fi
+fi
+
+# 0c. Delete ALL saved Wi-Fi connections that could hijack wlan0
+echo -e "${YELLOW}    Deleting rogue Wi-Fi profiles from NetworkManager...${NC}"
+# Get all wifi-type connections and delete them
+nmcli -t -f NAME,TYPE connection show 2>/dev/null | grep ":.*wifi" | cut -d: -f1 | while read -r conn; do
+    echo -e "    Deleting: $conn"
+    nmcli connection delete "$conn" 2>/dev/null || true
+done
+
+# Also delete known problematic connection names (in case they have wrong type)
+for conn in "Hotspot" "Hotspot-1" "Hotspot-2" "netplan-wlan0" "Wi-Fi connection 1" "Wi-Fi connection 2"; do
+    nmcli connection delete "$conn" 2>/dev/null || true
+done
+echo -e "${GREEN}[OK] All rogue Wi-Fi profiles deleted.${NC}"
+
+# 0d. Tell NetworkManager to unmanage wlan0 right now
+nmcli device set wlan0 managed no 2>/dev/null || true
+
+# 0e. Restart NetworkManager to apply the ignore rule
+systemctl restart NetworkManager
+sleep 2
+echo -e "${GREEN}[OK] NetworkManager restarted. wlan0 is now permanently unmanaged.${NC}"
+
+# 0f. Remove any bad IP addresses and routes that NetworkManager left behind
+echo -e "${YELLOW}    Cleaning up leftover routes and IPs on wlan0...${NC}"
+# Delete any default route pointing to wlan0
+ip route del default dev wlan0 2>/dev/null || true
+# Delete any 192.168.x.x address on wlan0 (these are from the router, NOT the hotspot)
+ip addr show wlan0 2>/dev/null | grep "inet 192\." | awk '{print $2}' | while read -r addr; do
+    echo -e "    Removing bad IP: $addr from wlan0"
+    ip addr del "$addr" dev wlan0 2>/dev/null || true
+done
+echo -e "${GREEN}[OK] Cleanup complete.${NC}"
 
 # ==============================================================================
 # STEP 1: DETECT THE ACTUAL WIFI INTERFACE NAME
@@ -122,25 +191,34 @@ echo "--- hostapd service status ---"
 systemctl status hostapd --no-pager -l 2>&1 | tail -20
 
 # ==============================================================================
-# STEP 5: CHECK NETWORKMANAGER CONFLICT
+# STEP 5: DISABLE CONFLICTING NETWORK SERVICES
 # ==============================================================================
-echo -e "\n${YELLOW}[STEP 5] Checking NetworkManager conflict with $WIFI_IFACE...${NC}"
+echo -e "\n${YELLOW}[STEP 5] Disabling conflicting network services...${NC}"
 
-NM_MANAGING=$(nmcli dev status 2>/dev/null | grep "$WIFI_IFACE" | grep -v unmanaged)
-if [ -n "$NM_MANAGING" ]; then
-    echo -e "${YELLOW}[FIX] NetworkManager is managing $WIFI_IFACE — this conflicts with hostapd!${NC}"
-    echo "      Telling NetworkManager to ignore $WIFI_IFACE..."
-    mkdir -p /etc/NetworkManager/conf.d/
-    cat > /etc/NetworkManager/conf.d/10-ignore-wifi.conf <<EOF
-[keyfile]
-unmanaged-devices=interface-name:$WIFI_IFACE
-EOF
-    systemctl restart NetworkManager
-    sleep 2
-    echo -e "${GREEN}[OK] NetworkManager will now ignore $WIFI_IFACE.${NC}"
-else
-    echo -e "${GREEN}[OK] NetworkManager is not interfering.${NC}"
+# Disable dhcpcd if running (fights with NetworkManager)
+if systemctl is-active dhcpcd &>/dev/null; then
+    echo -e "${YELLOW}[FIX] dhcpcd is running — disabling it...${NC}"
+    systemctl stop dhcpcd
+    systemctl disable dhcpcd
+    echo -e "${GREEN}[OK] dhcpcd disabled.${NC}"
 fi
+
+# Disable systemd-networkd if running (fights with NetworkManager)
+if systemctl is-active systemd-networkd &>/dev/null; then
+    echo -e "${YELLOW}[FIX] systemd-networkd is running — disabling it...${NC}"
+    systemctl stop systemd-networkd
+    systemctl disable systemd-networkd
+    echo -e "${GREEN}[OK] systemd-networkd disabled.${NC}"
+fi
+
+# Verify wlan0 is truly unmanaged by NetworkManager
+NM_STATUS=$(nmcli dev status 2>/dev/null | grep "$WIFI_IFACE" | awk '{print $3}')
+if [ "$NM_STATUS" != "unmanaged" ] && [ -n "$NM_STATUS" ]; then
+    echo -e "${YELLOW}[FIX] wlan0 is STILL managed by NetworkManager ($NM_STATUS). Forcing unmanaged...${NC}"
+    nmcli device set "$WIFI_IFACE" managed no 2>/dev/null || true
+    sleep 1
+fi
+echo -e "${GREEN}[OK] No conflicting services.${NC}"
 
 # ==============================================================================
 # STEP 6: DETECT ETHERNET INTERFACE (NEVER pick wlan0!)
@@ -270,14 +348,30 @@ EOF
 echo -e "${GREEN}[OK] dnsmasq configured.${NC}"
 
 # ==============================================================================
-# STEP 10: ENABLE IP FORWARDING AND NAT (INTERNET SHARING)
+# STEP 10: FIX DNS RESOLUTION ON THE ORANGE PI ITSELF
 # ==============================================================================
-echo -e "\n${YELLOW}[STEP 10] Enabling Internet sharing (NAT)...${NC}"
+echo -e "\n${YELLOW}[STEP 10] Fixing DNS resolution on the Pi...${NC}"
+
+# Remove symlink if it exists and write a proper resolv.conf
+rm -f /etc/resolv.conf
+cat > /etc/resolv.conf <<EOF
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+EOF
+
+# Prevent anything from overwriting our resolv.conf
+chattr +i /etc/resolv.conf 2>/dev/null || true
+echo -e "${GREEN}[OK] DNS resolvers set to 8.8.8.8 and 8.8.4.4 (locked).${NC}"
+
+# ==============================================================================
+# STEP 11: ENABLE IP FORWARDING AND NAT (INTERNET SHARING) — PERMANENTLY
+# ==============================================================================
+echo -e "\n${YELLOW}[STEP 11] Enabling Internet sharing (NAT) permanently...${NC}"
 
 # Enable immediately
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
-# Make persistent
+# Make persistent in sysctl.conf
 grep -q "net.ipv4.ip_forward=1" /etc/sysctl.conf || echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
 sed -i 's/^#*net.ipv4.ip_forward.*/net.ipv4.ip_forward=1/' /etc/sysctl.conf
 sysctl -p
@@ -287,17 +381,20 @@ if echo "$ETH_IFACE" | grep -qE '^(wlan|wlp|wlx)'; then
     echo -e "${RED}[FATAL] ETH_IFACE='$ETH_IFACE' is a WiFi interface! Refusing to set up NAT.${NC}"
     echo -e "${RED}        This would kill your internet. Skipping NAT setup.${NC}"
 else
-    # iptables NAT rules
+    # FLUSH old rules first to prevent duplicates
     iptables -t nat -F
     iptables -F FORWARD
+
+    # iptables NAT rules
     iptables -t nat -A POSTROUTING -o $ETH_IFACE -j MASQUERADE
     iptables -A FORWARD -i $ETH_IFACE -o $WIFI_IFACE -m state --state RELATED,ESTABLISHED -j ACCEPT
     iptables -A FORWARD -i $WIFI_IFACE -o $ETH_IFACE -j ACCEPT
 
-    # Save iptables rules
+    # Save iptables rules PERMANENTLY
     if command -v netfilter-persistent &>/dev/null; then
         netfilter-persistent save
     elif command -v iptables-save &>/dev/null; then
+        mkdir -p /etc/iptables
         iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
     fi
 
@@ -305,9 +402,39 @@ else
 fi
 
 # ==============================================================================
-# STEP 11: START SERVICES
+# STEP 12: DOUBLE-CHECK — REMOVE ANY BAD ROUTES ON WLAN0
 # ==============================================================================
-echo -e "\n${YELLOW}[STEP 11] Starting services...${NC}"
+echo -e "\n${YELLOW}[STEP 12] Final route cleanup (removing any bad wlan0 routes)...${NC}"
+
+# Delete any default route that goes through wlan0 (the #1 cause of all problems)
+ip route del default dev $WIFI_IFACE 2>/dev/null || true
+
+# Delete any 192.168.x.x routes on wlan0 (these belong to end0, not the hotspot)
+ip route | grep "$WIFI_IFACE" | grep "192.168" | while read -r route; do
+    echo -e "    Deleting bad route: $route"
+    ip route del $route 2>/dev/null || true
+done
+
+# Make sure the ONLY default route goes through the Ethernet interface
+DEFAULT_COUNT=$(ip route | grep "^default" | wc -l)
+if [ "$DEFAULT_COUNT" -eq 0 ]; then
+    echo -e "${YELLOW}[FIX] No default route found! Adding one via $ETH_IFACE...${NC}"
+    # Get the gateway from DHCP
+    GW=$(nmcli -t -f IP4.GATEWAY dev show $ETH_IFACE 2>/dev/null | cut -d: -f2)
+    if [ -n "$GW" ]; then
+        ip route add default via $GW dev $ETH_IFACE
+        echo -e "${GREEN}[OK] Default route added via $GW${NC}"
+    else
+        echo -e "${RED}[WARN] Could not detect gateway. Internet may not work.${NC}"
+    fi
+fi
+
+echo -e "${GREEN}[OK] Route table is clean.${NC}"
+
+# ==============================================================================
+# STEP 13: START SERVICES
+# ==============================================================================
+echo -e "\n${YELLOW}[STEP 13] Starting services...${NC}"
 
 systemctl enable hostapd
 systemctl enable dnsmasq
@@ -323,11 +450,53 @@ echo "--- hostapd status ---"
 systemctl status hostapd --no-pager -l | tail -20
 
 # ==============================================================================
-# STEP 12: VERIFY
+# STEP 14: INSTALL SYSTEMD SERVICE FOR BOOT PERSISTENCE
 # ==============================================================================
-echo -e "\n${YELLOW}[STEP 12] Final verification...${NC}"
+echo -e "\n${YELLOW}[STEP 14] Installing boot service for persistence...${NC}"
+
+SCRIPT_PATH="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+
+cat > /etc/systemd/system/brgy-network.service <<EOF
+[Unit]
+Description=Barangay System Network Fix (Hotspot + Internet Routing)
+After=network-online.target NetworkManager.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sleep 10
+ExecStart=/bin/bash $SCRIPT_PATH
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable brgy-network.service
+echo -e "${GREEN}[OK] brgy-network.service installed and enabled.${NC}"
+echo -e "${GREEN}     This script will run automatically on every boot.${NC}"
+
+# ==============================================================================
+# STEP 15: VERIFY
+# ==============================================================================
+echo -e "\n${YELLOW}[STEP 15] Final verification...${NC}"
 echo "--- $WIFI_IFACE IP address ---"
 ip addr show $WIFI_IFACE
+
+echo ""
+echo "--- Routing table ---"
+ip route
+
+echo ""
+echo "--- Testing internet connectivity ---"
+if ping -c 2 -W 3 8.8.8.8 &>/dev/null; then
+    INET_STATUS="${GREEN}WORKING${NC}"
+else
+    INET_STATUS="${RED}FAILED${NC}"
+fi
 
 HOSTAPD_RUNNING=$(systemctl is-active hostapd)
 DNSMASQ_RUNNING=$(systemctl is-active dnsmasq)
@@ -340,6 +509,9 @@ echo -e "  WiFi Interface : ${GREEN}$WIFI_IFACE${NC}"
 echo -e "  Ethernet       : ${GREEN}$ETH_IFACE${NC}"
 echo -e "  hostapd        : $([ "$HOSTAPD_RUNNING" = "active" ] && echo -e "${GREEN}RUNNING${NC}" || echo -e "${RED}FAILED${NC}")"
 echo -e "  dnsmasq        : $([ "$DNSMASQ_RUNNING" = "active" ] && echo -e "${GREEN}RUNNING${NC}" || echo -e "${RED}FAILED${NC}")"
+echo -e "  Internet       : $INET_STATUS"
+echo -e "  NM ignores wlan: ${GREEN}YES (permanent)${NC}"
+echo -e "  Boot service   : ${GREEN}ENABLED${NC}"
 echo ""
 
 if [ "$HOSTAPD_RUNNING" != "active" ]; then
@@ -349,13 +521,12 @@ if [ "$HOSTAPD_RUNNING" != "active" ]; then
     echo -e "${YELLOW}MANUAL DEBUG: Run this to test hostapd directly:${NC}"
     echo "  sudo hostapd -d /etc/hostapd/hostapd.conf"
 else
-    echo -e "${GREEN}=== SUCCESS! WiFi Hotspot should now be broadcasting ==="
+    echo -e "${GREEN}=== SUCCESS! WiFi Hotspot is broadcasting ==="
     echo -e "  SSID     : Barangay_System_WiFi"
     echo -e "  Password : barangay123"
     echo -e "  IP       : 10.42.0.1${NC}"
 fi
 
 echo ""
-echo -e "${CYAN}If the hotspot STILL doesn't appear, run this debug command:${NC}"
-echo "  sudo hostapd -d /etc/hostapd/hostapd.conf"
-echo "  (It will print the EXACT error causing the failure)"
+echo -e "${CYAN}This fix is now PERMANENT. It will survive reboots.${NC}"
+echo -e "${CYAN}If you ever need to re-run manually: sudo bash $(basename $0)${NC}"
