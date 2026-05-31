@@ -8,7 +8,7 @@ from django.core.paginator import Paginator
 from django.core.cache import cache
 from datetime import date, datetime, time, timedelta
 from django.utils import timezone
-from .models import AttendanceLog, FaceEncoding, ShiftConfiguration, SpecialDate
+from .models import AttendanceLog, FaceEncoding, ShiftConfiguration, SpecialDate, WorkSchedule
 from officials.models import Official
 import json
 from biometrics.utils import get_biometric_provider
