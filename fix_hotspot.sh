@@ -198,17 +198,25 @@ echo -e "\n${YELLOW}[STEP 5] Disabling conflicting network services...${NC}"
 # Disable dhcpcd if running (fights with NetworkManager)
 if systemctl is-active dhcpcd &>/dev/null; then
     echo -e "${YELLOW}[FIX] dhcpcd is running — disabling it...${NC}"
-    systemctl stop dhcpcd
-    systemctl disable dhcpcd
+    systemctl stop dhcpcd 2>/dev/null
+    systemctl disable dhcpcd 2>/dev/null
     echo -e "${GREEN}[OK] dhcpcd disabled.${NC}"
 fi
 
-# Disable systemd-networkd if running (fights with NetworkManager)
-if systemctl is-active systemd-networkd &>/dev/null; then
-    echo -e "${YELLOW}[FIX] systemd-networkd is running — disabling it...${NC}"
-    systemctl stop systemd-networkd
-    systemctl disable systemd-networkd
-    echo -e "${GREEN}[OK] systemd-networkd disabled.${NC}"
+# MASK systemd-networkd (it aggressively re-assigns IPs via socket activation)
+echo -e "${YELLOW}[FIX] Nuking systemd-networkd and its sockets to prevent interference...${NC}"
+systemctl stop systemd-networkd.socket 2>/dev/null || true
+systemctl disable systemd-networkd.socket 2>/dev/null || true
+systemctl stop systemd-networkd.service 2>/dev/null || true
+systemctl disable systemd-networkd.service 2>/dev/null || true
+systemctl mask systemd-networkd.service 2>/dev/null || true
+echo -e "${GREEN}[OK] systemd-networkd completely masked.${NC}"
+
+# Delete any rogue systemd-networkd configuration files specifically targeting wlan0
+if ls /etc/systemd/network/*wlan0* 1> /dev/null 2>&1; then
+    echo -e "${YELLOW}[FIX] Found rogue systemd-networkd wlan0 configs. Deleting them...${NC}"
+    rm -f /etc/systemd/network/*wlan0*
+    echo -e "${GREEN}[OK] Rogue configs deleted.${NC}"
 fi
 
 # Verify wlan0 is truly unmanaged by NetworkManager
