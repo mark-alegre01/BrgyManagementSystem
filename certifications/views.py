@@ -467,6 +467,9 @@ def request_certificate(request):
                 child_birth_place=request.POST.get('child_birth_place', ''),
                 father_name=request.POST.get('father_name', ''),
                 mother_name=request.POST.get('mother_name', ''),
+
+                # Waiver flags
+                is_first_time_jobseeker=(request.POST.get('is_first_time_jobseeker') == 'on'),
             )
             messages.success(request, f"Your request for a {cert_type} has been submitted! Tracking Code: {cert_req.tracking_code}")
             return redirect('payments:choose_payment', request_id=cert_req.id)

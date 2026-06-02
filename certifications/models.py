@@ -248,6 +248,7 @@ class CertificateRequest(models.Model):
     cert_type = models.CharField(max_length=30, choices=Certificate.TYPE_CHOICES)
     purpose = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    is_first_time_jobseeker = models.BooleanField(default=False)
 
     # Payment integration
     payment = models.OneToOneField(

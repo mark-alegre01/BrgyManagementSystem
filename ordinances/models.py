@@ -32,6 +32,10 @@ class Ordinance(models.Model):
     # File attachment
     document_file = models.FileField(upload_to='ordinances/', blank=True, null=True)
 
+    # Parsed Content
+    body_content = models.TextField(blank=True, help_text="Full text of the ordinance")
+    signatories = models.TextField(blank=True, help_text="Signatories of the ordinance")
+
     sponsor = models.CharField(max_length=200, blank=True)
     remarks = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

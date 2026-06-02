@@ -2,6 +2,30 @@
 
 {% block title %}Household #{{ household.household_no }} - Details{% endblock %}
 
+{% block extra_head %}
+{% if household.latitude and household.longitude %}
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" />
+<style>
+  /* Custom mini marker */
+  .pin-marker-view {
+    width: 26px;
+    height: 26px;
+    background: linear-gradient(135deg, var(--primary), #3da667);
+    border: 2px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 2px 8px rgba(44,110,73,0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+  }
+  .pin-marker-view i {
+    font-size: 10px;
+  }
+</style>
+{% endif %}
+{% endblock %}
+
 {% block breadcrumb %}
 <span><a href="{% url 'residents:household_list' %}">Households</a> / #{{ household.household_no }}</span>
 {% endblock %}
@@ -14,6 +38,16 @@
     <h1>Household Details</h1>
     <span>Information for Household #{{ household.household_no }}</span>
   </div>
+  {% if request.user.is_superuser or request.user.profile.role == 'captain' or request.user.profile.role == 'secretary' or request.user.profile.role == 'treasurer' or request.user.profile.role == 'admin' %}
+  <div class="header-actions" style="display: flex; gap: 10px;">
+    <button type="button" class="btn btn-primary" style="background: var(--primary); border: none; border-radius: 0.75rem;" data-toggle="modal" data-target="#addMemberModal">
+      <i class="fas fa-user-plus mr-1"></i> Add Member
+    </button>
+    <a href="{% url 'residents:household_edit' household.pk %}" class="btn btn-outline-primary" style="border-radius: 0.75rem; border-color: var(--primary); color: var(--primary);">
+      <i class="fas fa-edit mr-1"></i> Edit Household
+    </a>
+  </div>
+  {% endif %}
 </div>
 
 <div class="profile-grid">
@@ -33,6 +67,7 @@
       </div>
     </div>
 
+    <!-- Family Structure Card -->
     <div class="card mt-4">
       <div class="card-header">
         <h3>Family Structure</h3>
@@ -55,6 +90,36 @@
               <i class="fas fa-users" style="color: var(--primary); margin-right: 5px;"></i> {{ members.count }} 
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pinned Location Card -->
+    <div class="card mt-4">
+      <div class="card-header">
+        <h3><i class="fas fa-map-marker-alt text-primary" style="margin-right: 5px;"></i> Pinned Location</h3>
+      </div>
+      <div class="card-body">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          {% if household.latitude and household.longitude %}
+          <div>
+            <span class="text-muted" style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Coordinates</span>
+            <div style="font-weight: 600; font-size: 14px; margin-top: 2px; font-family: monospace;">
+              {{ household.latitude|floatformat:6 }}, {{ household.longitude|floatformat:6 }}
+            </div>
+          </div>
+          <div id="mini-household-map" style="height: 180px; width: 100%; border-radius: 8px; border: 1px solid var(--border-light); background: #f8fafc;"></div>
+          {% else %}
+          <div class="text-center py-3">
+            <i class="fas fa-map-marked-alt text-muted fa-2x mb-2"></i>
+            <p class="text-muted small mb-0">No location pinned for this household.</p>
+            {% if request.user.is_superuser or request.user.profile.role == 'captain' or request.user.profile.role == 'secretary' or request.user.profile.role == 'treasurer' or request.user.profile.role == 'admin' %}
+            <a href="{% url 'residents:household_edit' household.pk %}" class="btn btn-outline-primary btn-sm mt-2" style="border-radius: 0.5rem; border-color: var(--primary); color: var(--primary);">
+              <i class="fas fa-map-pin mr-1"></i> Pin on Map
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -108,15 +173,103 @@
         </table>
       </div>
     </div>
+
+    <!-- Family Tree Diagram -->
+    <div class="card mt-4 ft-card">
+      <div class="card-header ft-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h3><i class="fas fa-sitemap ft-icon"></i> Family Tree</h3>
+          <span class="ft-subtitle">Hierarchical Overview</span>
+        </div>
+        {% if request.user.is_superuser or request.user.profile.role == 'captain' or request.user.profile.role == 'secretary' or request.user.profile.role == 'treasurer' or request.user.profile.role == 'admin' %}
+        <div class="ft-actions">
+            <button id="editTreeBtn" class="btn btn-sm" style="background: var(--primary); color: white; border-radius: 0.5rem; border: none;">
+                <i class="fas fa-project-diagram mr-1"></i> Edit Structure
+            </button>
+            <button id="saveTreeBtn" class="btn btn-sm btn-success" style="border-radius: 0.5rem; display: none;">
+                <i class="fas fa-save mr-1"></i> Save Layout
+            </button>
+            <button id="cancelTreeBtn" class="btn btn-sm btn-light" style="border-radius: 0.5rem; display: none;">
+                Cancel
+            </button>
+        </div>
+        {% endif %}
+      </div>
+      <div class="card-body ft-body">
+        {% if members %}
+        <div class="family-tree-container" id="tree-container">
+            <!-- Rendered by JS -->
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+            <i class="fas fa-tree fa-3x mb-3" style="opacity: 0.2;"></i>
+            <p>No members in this household yet.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Member Modal -->
+<div class="modal fade" id="addMemberModal" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 1.5rem;">
+      <div class="modal-header border-0 pt-4 px-4">
+        <h5 class="modal-title font-weight-bold">Add Member to Household</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form method="POST" action="{% url 'residents:household_add_member' household.pk %}">
+        {% csrf_token %}
+        <div class="modal-body px-4 pb-4">
+          <div class="form-group">
+            <label class="form-label font-weight-bold">Select Resident</label>
+            <select name="resident_id" class="form-control custom-select" required style="border-radius: 0.75rem; height: 45px;">
+              <option value="">-- Choose Resident --</option>
+              {% for res in available_residents %}
+              <option value="{{ res.pk }}">{{ res.full_name }} ({{ res.age }} yrs)</option>
+              {% endfor %}
+            </select>
+            <small class="form-text text-muted mt-2">Only unassigned residents are listed here.</small>
+          </div>
+          <div class="form-group mt-3">
+            <label class="form-label font-weight-bold">Relationship to Head</label>
+            <select name="relationship" class="form-control custom-select" required style="border-radius: 0.75rem; height: 45px;">
+              <option value="">-- Select Relationship --</option>
+              <option value="head">Head</option>
+              <option value="spouse">Spouse</option>
+              <option value="child">Child</option>
+              <option value="parent">Parent</option>
+              <option value="sibling">Sibling</option>
+              <option value="grandchild">Grandchild</option>
+              <option value="grandparent">Grandparent</option>
+              <option value="other">Other Relative</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer border-0 px-4 pb-4">
+          <button type="button" class="btn btn-light" data-dismiss="modal" style="border-radius: 0.75rem; font-weight: 600; padding: 10px 20px;">Cancel</button>
+          <button type="submit" class="btn btn-primary shadow-sm" style="background: var(--primary); border: none; border-radius: 0.75rem; font-weight: 600; padding: 10px 20px;">Add Member</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 
 <style>
-  /* Reuse styles from view.html */
+  /* Styles matching core layout */
   .profile-grid {
     display: grid;
     grid-template-columns: 350px 1fr;
     gap: 25px;
+  }
+
+  @media (max-width: 992px) {
+    .profile-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   .profile-card {
@@ -149,5 +302,492 @@
     background: rgba(var(--primary-rgb), 0.1);
     color: var(--primary);
   }
+
+  /* Family Tree Distinctive Aesthetics */
+  .ft-card {
+    border: none;
+    background: linear-gradient(145deg, #ffffff, #f3f8f5);
+    box-shadow: 0 10px 30px rgba(44, 110, 73, 0.08);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  .ft-header {
+    background: transparent;
+    border-bottom: 1px solid rgba(44, 110, 73, 0.1);
+    padding: 25px 30px 15px;
+  }
+  .ft-header h3 {
+    margin: 0;
+    font-weight: 800;
+    color: #1a3c28;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ft-icon {
+    color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.1);
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 18px;
+  }
+  .ft-subtitle {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #6c8a7b;
+    font-weight: 600;
+    display: block;
+    margin-top: 5px;
+  }
+  
+  /* Tree CSS Hierarchy */
+  .family-tree-container {
+      width: 100%;
+      overflow-x: auto;
+      padding: 30px 10px 50px;
+      display: flex;
+      justify-content: center;
+  }
+  .tree ul {
+      padding-top: 20px; position: relative;
+      transition: all 0.5s;
+      -webkit-transition: all 0.5s;
+      -moz-transition: all 0.5s;
+      display: flex;
+      justify-content: center;
+      padding-left: 0;
+  }
+  .tree li {
+      float: left; text-align: center;
+      list-style-type: none;
+      position: relative;
+      padding: 20px 10px 0 10px;
+      transition: all 0.5s;
+      -webkit-transition: all 0.5s;
+      -moz-transition: all 0.5s;
+  }
+  .tree li::before, .tree li::after {
+      content: '';
+      position: absolute; top: 0; right: 50%;
+      border-top: 2px solid #a6d1b7;
+      width: 50%; height: 20px;
+  }
+  .tree li::after {
+      right: auto; left: 50%;
+      border-left: 2px solid #a6d1b7;
+  }
+  .tree li:only-child::after, .tree li:only-child::before {
+      display: none;
+  }
+  .tree li:only-child { padding-top: 0; }
+  .tree li:first-child::before, .tree li:last-child::after {
+      border: 0 none;
+  }
+  .tree li:last-child::before {
+      border-right: 2px solid #a6d1b7;
+      border-radius: 0 5px 0 0;
+      -webkit-border-radius: 0 5px 0 0;
+      -moz-border-radius: 0 5px 0 0;
+  }
+  .tree li:first-child::after {
+      border-radius: 5px 0 0 0;
+      -webkit-border-radius: 5px 0 0 0;
+      -moz-border-radius: 5px 0 0 0;
+  }
+  .tree ul ul::before {
+      content: '';
+      position: absolute; top: 0; left: 50%;
+      border-left: 2px solid #a6d1b7;
+      width: 0; height: 20px;
+  }
+  .tree-node {
+      border: 1px solid rgba(44, 110, 73, 0.15);
+      padding: 15px 20px;
+      text-decoration: none;
+      color: #1a3c28;
+      font-family: inherit;
+      font-size: 13px;
+      display: inline-block;
+      border-radius: 12px;
+      background: white;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+      position: relative;
+      min-width: 130px;
+  }
+  .tree-node:hover {
+      background: var(--primary);
+      color: white;
+      border: 1px solid var(--primary);
+      transform: translateY(-5px);
+      box-shadow: 0 10px 25px rgba(44, 110, 73, 0.3);
+  }
+  .tree-node:hover .node-name, .tree-node:hover .node-role {
+      color: white;
+  }
+  .node-info {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+  }
+  .node-name {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.2px;
+  }
+  .node-role {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6c8a7b;
+      font-weight: 600;
+  }
+  
+  .head-node {
+      border: 2px solid var(--primary);
+      background: rgba(var(--primary-rgb), 0.05);
+  }
+  .head-node .node-role { color: var(--primary); }
+  
+  .spouse-node {
+      border-color: #f59e0b;
+  }
+  .child-node {
+      border-color: #3b82f6;
+  }
+  .other-node {
+      border-color: #8b5cf6;
+  }
+  
+  /* Drag and Drop Interactivity Styles */
+  .draggable-node {
+      cursor: grab;
+      user-select: none;
+  }
+  .draggable-node:active {
+      cursor: grabbing;
+  }
+  .drag-over {
+      border: 2px dashed #10b981 !important;
+      background: rgba(16, 185, 129, 0.1) !important;
+      transform: scale(1.05);
+      box-shadow: 0 10px 25px rgba(16, 185, 129, 0.2);
+  }
+  .edit-hint {
+      display: none;
+      font-size: 10px;
+      color: #6b7280;
+      margin-top: 8px;
+      background: rgba(0,0,0,0.05);
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+  }
+  .edit-mode-active .edit-hint {
+      display: inline-block;
+  }
+  .edit-mode-active .tree-node {
+      border: 1px dashed rgba(44, 110, 73, 0.4);
+  }
+  .edit-mode-active .head-node {
+      border: 2px dashed var(--primary);
+  }
+  .edit-mode-active .tree-node:hover {
+      border-style: solid;
+  }
+  .dragging {
+      opacity: 0.5;
+      transform: scale(0.95);
+  }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    {% if members %}
+    const membersData = [
+      {% for member in members %}
+      {
+        id: {{ member.pk }},
+        name: "{{ member.full_name|escapejs }}",
+        role: "{{ member.get_household_relationship_display|default:'Member'|escapejs }}",
+        relationship: "{{ member.household_relationship|default:''|escapejs }}",
+        isHead: {{ member.is_household_head|yesno:"true,false" }},
+        parentId: {% if member.parent_member %}{{ member.parent_member.pk }}{% else %}null{% endif %}
+      },
+      {% endfor %}
+    ];
+
+    let isEditMode = false;
+    let currentTreeData = JSON.parse(JSON.stringify(membersData));
+
+    function buildTreeData(data) {
+        let head = data.find(m => m.isHead);
+        let rootNodes = [];
+        
+        let map = {};
+        data.forEach(m => {
+            m.children = [];
+            map[m.id] = m;
+        });
+
+        data.forEach(m => {
+            if (!m.isHead) {
+                let pId = m.parentId;
+                // If no parent and there is a head, link to head by default for display
+                if (!pId && head) pId = head.id; 
+                
+                if (pId && map[pId]) {
+                    map[pId].children.push(m);
+                } else {
+                    rootNodes.push(m);
+                }
+            }
+        });
+
+        if (head) {
+            return [head, ...rootNodes];
+        }
+        return rootNodes;
+    }
+
+    function getNodeClass(m) {
+        if (m.isHead) return 'head-node';
+        if (m.relationship === 'spouse') return 'spouse-node';
+        if (m.relationship === 'child') return 'child-node';
+        return 'other-node';
+    }
+
+    function renderTree(data) {
+        const container = document.getElementById('tree-container');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        const treeData = buildTreeData(data);
+        if (treeData.length === 0) return;
+
+        const ul = document.createElement('ul');
+        treeData.forEach(rootNode => {
+            ul.appendChild(createNodeElement(rootNode));
+        });
+
+        const div = document.createElement('div');
+        div.className = 'tree';
+        div.appendChild(ul);
+        container.appendChild(div);
+    }
+
+    function createNodeElement(node) {
+        const li = document.createElement('li');
+        
+        const nodeDiv = document.createElement('div');
+        nodeDiv.className = `tree-node ${getNodeClass(node)}`;
+        nodeDiv.dataset.id = node.id;
+        
+        if (isEditMode) {
+            nodeDiv.draggable = true;
+            nodeDiv.classList.add('draggable-node');
+            
+            nodeDiv.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', node.id);
+                setTimeout(() => nodeDiv.classList.add('dragging'), 0);
+            });
+            
+            nodeDiv.addEventListener('dragend', () => {
+                nodeDiv.classList.remove('dragging');
+                document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            });
+            
+            nodeDiv.addEventListener('dragover', (e) => {
+                e.preventDefault(); // allow drop
+                if (!nodeDiv.classList.contains('dragging')) {
+                    nodeDiv.classList.add('drag-over');
+                }
+            });
+            
+            nodeDiv.addEventListener('dragleave', () => {
+                nodeDiv.classList.remove('drag-over');
+            });
+            
+            nodeDiv.addEventListener('drop', (e) => {
+                e.preventDefault();
+                nodeDiv.classList.remove('drag-over');
+                const draggedId = parseInt(e.dataTransfer.getData('text/plain'));
+                const targetId = node.id;
+                
+                if (draggedId && draggedId !== targetId) {
+                    if (!isDescendant(targetId, draggedId)) {
+                        updateParent(draggedId, targetId);
+                    } else {
+                        alert("Invalid move! You cannot place a parent inside its own descendant.");
+                    }
+                }
+            });
+        }
+
+        const info = document.createElement('div');
+        info.className = 'node-info';
+        info.innerHTML = `<span class="node-name">${node.name}</span><span class="node-role">${node.role}</span>`;
+        if (isEditMode) {
+            info.innerHTML += `<div class="edit-hint"><i class="fas fa-arrows-alt"></i> Drag & Drop</div>`;
+        }
+        
+        nodeDiv.appendChild(info);
+        li.appendChild(nodeDiv);
+
+        if (node.children && node.children.length > 0) {
+            const ul = document.createElement('ul');
+            node.children.forEach(child => {
+                ul.appendChild(createNodeElement(child));
+            });
+            li.appendChild(ul);
+        }
+        
+        return li;
+    }
+
+    function isDescendant(nodeIdToCheck, potentialAncestorId) {
+        let node = currentTreeData.find(n => n.id === nodeIdToCheck);
+        while (node) {
+            let pId = node.parentId;
+            if (!pId && !node.isHead) {
+                const head = currentTreeData.find(n => n.isHead);
+                pId = head ? head.id : null;
+            }
+            if (pId === potentialAncestorId) return true;
+            if (!pId) break;
+            node = currentTreeData.find(n => n.id === pId);
+        }
+        return false;
+    }
+
+    function updateParent(childId, parentId) {
+        const child = currentTreeData.find(n => n.id === childId);
+        if (child) {
+            child.parentId = parentId;
+            renderTree(currentTreeData);
+        }
+    }
+
+    renderTree(currentTreeData);
+    
+    const editBtn = document.getElementById('editTreeBtn');
+    const saveBtn = document.getElementById('saveTreeBtn');
+    const cancelBtn = document.getElementById('cancelTreeBtn');
+    
+    if (editBtn) {
+        editBtn.addEventListener('click', () => {
+            isEditMode = true;
+            document.querySelector('.ft-card').classList.add('edit-mode-active');
+            editBtn.style.display = 'none';
+            saveBtn.style.display = 'inline-block';
+            cancelBtn.style.display = 'inline-block';
+            renderTree(currentTreeData);
+        });
+        
+        cancelBtn.addEventListener('click', () => {
+            isEditMode = false;
+            document.querySelector('.ft-card').classList.remove('edit-mode-active');
+            currentTreeData = JSON.parse(JSON.stringify(membersData)); 
+            editBtn.style.display = 'inline-block';
+            saveBtn.style.display = 'none';
+            cancelBtn.style.display = 'none';
+            renderTree(currentTreeData);
+        });
+        
+        saveBtn.addEventListener('click', () => {
+            const connections = currentTreeData.map(m => ({
+                child_id: m.id,
+                parent_id: m.parentId
+            }));
+            
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Saving...';
+            
+            fetch("{% url 'residents:household_update_tree' household.pk %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ connections })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = '<i class="fas fa-save mr-1"></i> Save Layout';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('An error occurred.');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-save mr-1"></i> Save Layout';
+            });
+        });
+    }
+    {% endif %}
+});
+</script>
+{% if household.latitude and household.longitude %}
+<script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const lat = parseFloat("{{ household.latitude }}");
+    const lng = parseFloat("{{ household.longitude }}");
+    
+    const TILE_STREETS = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const streetsStyle = {
+      version: 8,
+      sources: {
+        'raster-tiles': {
+          type: 'raster',
+          tiles: [TILE_STREETS],
+          tileSize: 256,
+          attribution: '&copy; OpenStreetMap'
+        }
+      },
+      layers: [{
+        id: 'raster-layer',
+        type: 'raster',
+        source: 'raster-tiles',
+        minzoom: 0,
+        maxzoom: 19
+      }]
+    };
+
+    const map = new maplibregl.Map({
+      container: 'mini-household-map',
+      style: streetsStyle,
+      center: [lng, lat],
+      zoom: 16,
+      maxZoom: 19,
+      attributionControl: false
+    });
+
+    map.on('load', function() {
+        const el = document.createElement('div');
+        el.className = 'pin-marker-view';
+        el.innerHTML = '<i class="fas fa-home"></i>';
+
+        new maplibregl.Marker({
+            element: el,
+            anchor: 'center'
+        })
+        .setLngLat([lng, lat])
+        .addTo(map);
+    });
+});
+</script>
+{% endif %}
 {% endblock %}

@@ -12,8 +12,13 @@ urlpatterns = [
     path('<int:pk>/change-password/', views.resident_change_password, name='change_password'),
     path('<int:pk>/reset-password/', views.resident_reset_password, name='reset_password'),
     path('households/', views.household_list, name='household_list'),
+    path('api/puroks/', views.purok_map_api, name='purok_map_api'),
+    path('api/households/', views.household_map_api, name='household_map_api'),
     path('households/add/', views.household_add, name='household_add'),
     path('households/<int:pk>/', views.household_view, name='household_view'),
+    path('households/<int:pk>/edit/', views.household_edit, name='household_edit'),
+    path('households/<int:pk>/add-member/', views.household_add_member, name='household_add_member'),
+    path('households/<int:pk>/update-tree/', views.household_update_tree, name='household_update_tree'),
     path('<int:pk>/capture/', views.resident_capture_fingerprint, name='capture_fingerprint'),
     path('<int:pk>/fingerprint/', views.resident_update_fingerprint, name='update_fingerprint'),
     # Registration Verification

@@ -61,8 +61,8 @@ def generate_certificate_pdf(certificate, is_resident=False):
                                fontName='Helvetica-Bold', leading=14))
     styles.add(ParagraphStyle(name='CertOffice', fontSize=16, alignment=TA_CENTER,
                                spaceBefore=20, spaceAfter=10, fontName='Times-Bold'))
-    styles.add(ParagraphStyle(name='CertTitleLarge', fontSize=24, alignment=TA_CENTER,
-                               spaceAfter=25, fontName='Helvetica-Bold'))
+    styles.add(ParagraphStyle(name='CertTitleLarge', fontSize=22, alignment=TA_CENTER,
+                               spaceAfter=25, fontName='Helvetica-Bold', leading=26))
     styles.add(ParagraphStyle(name='CertToWhom', fontSize=14, alignment=TA_LEFT,
                                spaceAfter=15, fontName='Helvetica-Bold'))
     styles.add(ParagraphStyle(name='CertBody', fontSize=12, alignment=TA_JUSTIFY,
@@ -87,7 +87,7 @@ def generate_certificate_pdf(certificate, is_resident=False):
 
     # Header Components
     img_sico = Image(sico_logo_path, width=logo_w, height=logo_h, kind='proportional') if os.path.exists(sico_logo_path) else Spacer(logo_w, logo_h)
-    img_bagong = Image(bagong_pilipinas_path, width=logo_w, height=logo_h, kind='proportional') if os.path.exists(bagong_pilipinas_path) else Spacer(logo_w, logo_h)
+    img_bagong = Image(bagong_pilipinas_path, width=1.3*inch, height=0.85*inch, kind='proportional') if os.path.exists(bagong_pilipinas_path) else Spacer(1.3*inch, logo_h)
     img_gigaquit = Image(gigaquit_logo_path, width=logo_w, height=logo_h, kind='proportional') if os.path.exists(gigaquit_logo_path) else Spacer(logo_w, logo_h)
 
     brgy_name = getattr(settings, 'BARANGAY_NAME', 'Sico-Sico')
@@ -141,27 +141,34 @@ def generate_certificate_pdf(certificate, is_resident=False):
     month = date.today().strftime('%B')
     year = date.today().year
     
+    display_brgy = brgy_name if "BARANGAY" in brgy_name.upper() else f"Barangay {brgy_name}"
+    
     # Body text based on certificate type
     if certificate.cert_type == 'clearance':
-        body_text = f"This Clearance is hereby granted to <b>{resident.full_name.upper()}</b>, with residence at Barangay {brgy_name}, {municipality}, Surigao del Norte, in connection with this application for <b>{certificate.purpose}</b>."
-        conclusion_text = f"It is understood that the issuance of this clearance shall not exempt the applicant/s from other requirements prescribed under the existing barangay ordinance of Barangay {brgy_name}, {municipality}, Surigao del Norte."
+        body_text = f"This Clearance is hereby granted to <b>{resident.full_name.upper()}</b>, with residence at {display_brgy}, {municipality}, Surigao del Norte, in connection with this application for <b>{certificate.purpose}</b>."
+        conclusion_text = f"It is understood that the issuance of this clearance shall not exempt the applicant/s from other requirements prescribed under the existing barangay ordinance of {display_brgy}, {municipality}, Surigao del Norte."
     elif certificate.cert_type == 'residency':
-        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, is a bonafide resident of Barangay {brgy_name}, {municipality}, {province}."
+        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, is a bonafide resident of {display_brgy}, {municipality}, {province}."
         conclusion_text = f"This certification is issued upon the request of the above-named person for <b>{certificate.purpose}</b>."
     elif certificate.cert_type == 'indigency':
-        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, a resident of Barangay {brgy_name}, {municipality}, {province}, belongs to an indigent family in this barangay."
+        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, a resident of {display_brgy}, {municipality}, {province}, belongs to an indigent family in this barangay."
         conclusion_text = f"This certification is issued upon the request of the above-named person for <b>{certificate.purpose}</b>."
     elif certificate.cert_type == 'good_moral':
-        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, a resident of Barangay {brgy_name}, {municipality}, {province}, is known to me to be a person of good moral character and has no derogatory or criminal record in this barangay."
+        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, a resident of {display_brgy}, {municipality}, {province}, is known to me to be a person of good moral character and has no derogatory or criminal record in this barangay."
         conclusion_text = f"This certification is issued upon the request of the above-named person for <b>{certificate.purpose}</b>."
     elif certificate.cert_type == 'business_permit':
-        body_text = f"This is to certify that <b>{certificate.business_name.upper()}</b> owned/managed by <b>{resident.full_name.upper()}</b>, located at {certificate.business_address or resident.address}, Barangay {brgy_name}, {municipality}, {province}, is hereby granted clearance to operate within the jurisdiction of this barangay.<br/><br/>Type of Business: <b>{certificate.business_type}</b>"
+        body_text = f"This is to certify that <b>{certificate.business_name.upper()}</b> owned/managed by <b>{resident.full_name.upper()}</b>, located at {certificate.business_address or resident.address}, {display_brgy}, {municipality}, {province}, is hereby granted clearance to operate within the jurisdiction of this barangay.<br/><br/>Type of Business: <b>{certificate.business_type}</b>"
         conclusion_text = f"This certification is issued for <b>{certificate.purpose}</b>."
     else:
-        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, a resident of Barangay {brgy_name}, {municipality}, {province}."
+        body_text = f"This is to certify that <b>{resident.full_name.upper()}</b>, {resident.age} years old, {resident.get_civil_status_display()}, Filipino, a resident of {display_brgy}, {municipality}, {province}."
         conclusion_text = f"This certification is issued for <b>{certificate.purpose}</b>."
 
-    issued_date_text = f"Given this <b>{day}th</b> day of <b>{month}, {year}</b>, at the Office of Punong Barangay of Barangay {brgy_name}, {municipality}, Surigao del Norte."
+    def get_ordinal(n):
+        if 11 <= (n % 100) <= 13:
+            return f"{n}th"
+        return f"{n}{['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]}"
+
+    issued_date_text = f"Given this <b>{get_ordinal(day)}</b> day of <b>{month}, {year}</b>, at the Office of Punong Barangay of {display_brgy}, {municipality}, Surigao del Norte."
 
     elements.append(Paragraph('TO WHOM IT MAY CONCERN;', styles['CertToWhom']))
     elements.append(Paragraph(body_text, styles['CertBody']))

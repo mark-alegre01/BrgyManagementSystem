@@ -10,4 +10,5 @@ urlpatterns = [
     path('<int:pk>/edit/', views.ordinance_edit, name='edit'),
     path('<int:pk>/delete/', views.ordinance_delete, name='delete'),
     path('<int:pk>/download/', views.ordinance_download, name='download'),
+    path('upload-parse/', views.ordinance_upload_parse, name='upload_parse'),
 ]

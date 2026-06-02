@@ -98,6 +98,7 @@
                     <th>Certificate Type</th>
                     <th>Purpose</th>
                     <th>Date Requested</th>
+                    <th>Payment</th>
                     <th>Status</th>
                     <th class="text-center">Action</th>
                 </tr>
@@ -111,6 +112,34 @@
                     <td>{{ req.purpose|truncatechars:50 }}</td>
                     <td>{{ req.created_at|date:"M d, Y" }}</td>
                     <td>
+                        {% if req.payment %}
+                            <div style="font-size: 0.8rem; font-weight: 700; color: #475569; text-transform: uppercase;">
+                                {% if req.payment.method == 'gcash' %}GCash
+                                {% elif req.payment.method == 'cash' %}On Site
+                                {% elif req.payment.method == 'waived' %}Waived
+                                {% else %}{{ req.payment.method }}{% endif %}
+                            </div>
+                            <div style="margin-top: 4px;">
+                                {% if req.payment.status == 'paid' %}
+                                    <span class="status-badge badge-issued">Paid</span>
+                                {% elif req.payment.status == 'waived' %}
+                                    <span class="status-badge badge-issued" style="background:#ede9fe; color:#7c3aed;">Waived</span>
+                                {% elif req.payment.status == 'pending' %}
+                                    <span class="status-badge badge-pending">Pending Proof</span>
+                                {% else %}
+                                    <span class="status-badge badge-cancelled">Unpaid</span>
+                                {% endif %}
+                            </div>
+                            {% if req.payment.method == 'gcash' and req.payment.proof_screenshot %}
+                                <button type="button" class="btn btn-sm btn-outline" style="padding: 2px 8px; font-size: 0.7rem; margin-top: 6px;" onclick="viewProof('{{ req.payment.proof_screenshot.url }}')">
+                                    <i class="fas fa-image"></i> View Proof
+                                </button>
+                            {% endif %}
+                        {% else %}
+                            <span class="status-badge badge-cancelled">Not Set</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         {% if req.status == 'pending' %}
                         <span class="status-badge badge-pending">Pending</span>
                         {% elif req.status == 'issued' %}
@@ -122,15 +151,29 @@
                     <td>
                         <div style="display:flex; gap:6px; justify-content:center;">
                             {% if req.status == 'pending' %}
-                            <a href="{% url 'certifications:fulfill_request' req.pk %}" class="btn-icon-sm btn-icon-view" title="View & Process">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                            <a href="{% url 'certifications:fulfill_request' req.pk %}" class="btn-icon-sm btn-icon-approve" title="Issue Now">
-                                <i class="fas fa-check-circle"></i>
-                            </a>
-                            <button type="button" class="btn-icon-sm btn-icon-reject" onclick="openRejectModal({{ req.pk }})" title="Reject">
-                                <i class="fas fa-times-circle"></i>
-                            </button>
+                                
+                                <!-- Payment Approvals -->
+                                {% if req.payment and req.payment.status != 'paid' and req.payment.status != 'waived' %}
+                                    {% if req.payment.method == 'cash' %}
+                                        <form method="POST" action="{% url 'payments:mark_paid' req.payment.id %}" style="display:inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn-icon-sm btn-icon-approve" title="Approve Payment (On Site)">
+                                                <i class="fas fa-money-bill-wave"></i>
+                                            </button>
+                                        </form>
+                                    {% elif req.payment.method == 'gcash' and req.payment.proof_screenshot %}
+                                        <button type="button" class="btn-icon-sm btn-icon-approve" onclick="openGcashModal({{ req.payment.id }})" title="Approve GCash Payment">
+                                            <i class="fas fa-mobile-alt"></i>
+                                        </button>
+                                    {% endif %}
+                                {% endif %}
+
+                                <a href="{% url 'certifications:fulfill_request' req.pk %}" class="btn-icon-sm btn-icon-view" title="Process & Issue Certificate">
+                                    <i class="fas fa-file-signature"></i>
+                                </a>
+                                <button type="button" class="btn-icon-sm btn-icon-reject" onclick="openRejectModal({{ req.pk }})" title="Reject Request">
+                                    <i class="fas fa-times-circle"></i>
+                                </button>
                             {% elif req.status == 'issued' and req.certificate %}
                             <a href="{% url 'certifications:view' req.certificate.pk %}" class="btn-icon-sm btn-icon-view" title="View Certificate">
                                 <i class="fas fa-eye"></i>
@@ -181,9 +224,35 @@
                 style="width:100%;padding:10px 14px;border:1.5px solid var(--border,#e2e8f0);border-radius:8px;min-height:80px;resize:vertical;font-size:.9rem;box-sizing:border-box;margin-bottom:16px;"></textarea>
             <div id="rejectGrammarFeedback"></div>
             <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:10px;">
-                <button type="button" onclick="closeRejectModal()" class="btn btn-outline">Cancel</button>
+                <button type="button" onclick="closeModal('rejectModal')" class="btn btn-outline">Cancel</button>
                 <button type="submit" class="btn btn-primary" style="background:#dc2626;border-color:#dc2626;">Reject
                     Request</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Proof Modal -->
+<div id="proofModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:12px;padding:20px;max-width:600px;width:90%;position:relative;">
+        <button type="button" onclick="closeModal('proofModal')" style="position:absolute;top:15px;right:15px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#64748b;">&times;</button>
+        <h3 style="margin:0 0 16px;">GCash Payment Proof</h3>
+        <img id="proofImage" src="" alt="Proof of Payment" style="width:100%;border-radius:8px;max-height:70vh;object-fit:contain;background:#f1f5f9;">
+    </div>
+</div>
+
+<!-- GCash Approve Modal -->
+<div id="gcashModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:28px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);">
+        <h3 style="margin:0 0 8px;"><i class="fas fa-mobile-alt" style="color:#2563eb;"></i> Approve GCash</h3>
+        <p style="color:#64748b;margin: 0 0 16px;font-size:.9rem;">Enter the GCash Reference Number to confirm this payment.</p>
+        <form method="POST" id="gcashForm" action="">
+            {% csrf_token %}
+            <input type="text" name="gcash_ref_number" placeholder="Enter Reference No." required
+                style="width:100%;padding:10px 14px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.9rem;box-sizing:border-box;margin-bottom:16px;">
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" onclick="closeModal('gcashModal')" class="btn btn-outline">Cancel</button>
+                <button type="submit" class="btn btn-primary" style="background:#2563eb;border-color:#2563eb;">Approve</button>
             </div>
         </form>
     </div>
@@ -194,16 +263,29 @@
     document.addEventListener('DOMContentLoaded', () => {
         GrammarChecker.init('rejectNotes', 'rejectGrammarFeedback');
     });
+
     function openRejectModal(pk) {
         document.getElementById('rejectForm').action = '/certifications/requests/' + pk + '/reject/';
-        const m = document.getElementById('rejectModal');
-        m.style.display = 'flex';
+        document.getElementById('rejectModal').style.display = 'flex';
     }
-    function closeRejectModal() {
-        document.getElementById('rejectModal').style.display = 'none';
+
+    function openGcashModal(paymentId) {
+        document.getElementById('gcashForm').action = '/payments/' + paymentId + '/confirm-gcash/';
+        document.getElementById('gcashModal').style.display = 'flex';
     }
-    document.getElementById('rejectModal').addEventListener('click', function (e) {
-        if (e.target === this) closeRejectModal();
-    });
+
+    function viewProof(url) {
+        document.getElementById('proofImage').src = url;
+        document.getElementById('proofModal').style.display = 'flex';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    // Close on backdrop click
+    document.getElementById('rejectModal').addEventListener('click', function (e) { if (e.target === this) closeModal('rejectModal'); });
+    document.getElementById('proofModal').addEventListener('click', function (e) { if (e.target === this) closeModal('proofModal'); });
+    document.getElementById('gcashModal').addEventListener('click', function (e) { if (e.target === this) closeModal('gcashModal'); });
 </script>
 {% endblock %}

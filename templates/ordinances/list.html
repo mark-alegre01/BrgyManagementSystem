@@ -8,10 +8,15 @@
     <h1>Barangay Ordinances & Resolutions</h1>
     <span>Official records and legislative documents</span>
   </div>
-  <div class="header-actions">
+  <div class="header-actions" style="display: flex; gap: 10px;">
+    {% if request.user.get_permission_level <= 2 %}
+    <a href="{% url 'ordinances:upload_parse' %}" class="btn btn-secondary" style="border-radius: 0.75rem; background: #dc2626; border: none; color: #fff; font-weight: 600;">
+      <i class="fas fa-file-pdf mr-1"></i> Upload Ordinance PDF
+    </a>
     <a href="{% url 'ordinances:add' %}" class="btn btn-primary">
       <i class="fas fa-plus"></i> New Ordinance
     </a>
+    {% endif %}
   </div>
 </div>
 
@@ -74,9 +79,12 @@
             <div class="btn-group">
               <a href="{% url 'ordinances:view' ord.pk %}" class="btn-icon btn-view" title="View"><i class="fas fa-eye"></i></a>
               {% if ord.document_file %}
+              <a href="{{ ord.document_file.url }}" target="_blank" class="btn btn-outline btn-icon" title="View PDF" style="color: #dc2626; border-color: #dc2626;"><i class="fas fa-file-pdf"></i></a>
               <a href="{% url 'ordinances:download' ord.pk %}" class="btn btn-outline btn-icon" title="Download"><i class="fas fa-download"></i></a>
               {% endif %}
+              {% if request.user.get_permission_level <= 2 %}
               <a href="{% url 'ordinances:edit' ord.pk %}" class="btn-icon btn-edit" title="Edit"><i class="fas fa-edit"></i></a>
+              {% endif %}
             </div>
           </td>
         </tr>

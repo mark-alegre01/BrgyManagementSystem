@@ -8,6 +8,7 @@ urlpatterns = [
     path('login/', views.login_view, name='login'),
     path('signup/', views.signup_view, name='signup'),
     path('logout/', views.logout_view, name='logout'),
+    path('map/', views.barangay_map, name='barangay_map'),
 
     # Biometric APIs
     path('biometric-templates/', views.biometric_templates, name='biometric_templates'),

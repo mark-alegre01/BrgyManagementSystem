@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Review Parsed Ordinance - Barangay Management System{% endblock %}
+
+{% block content %}
+<div class="page-header mb-4">
+  <div class="page-title">
+    <h1>Review & Finalize Ordinance</h1>
+    <span>Please verify the auto-extracted information before saving</span>
+  </div>
+</div>
+
+<div class="split-container">
+  <!-- Left Side: PDF Viewer -->
+  <div class="pdf-viewer-panel">
+    <div class="panel-header">
+      <h4><i class="fas fa-file-pdf text-danger mr-2"></i> Original Document</h4>
+    </div>
+    <div class="panel-body p-0">
+      <iframe src="{{ file_url }}" type="application/pdf" width="100%" height="100%" style="border: none;">
+        This browser does not support PDFs. Please download the PDF to view it.
+      </iframe>
+    </div>
+  </div>
+
+  <!-- Right Side: Edit Form -->
+  <div class="form-panel">
+    <div class="panel-header">
+      <h4><i class="fas fa-edit text-primary mr-2"></i> Extracted Data</h4>
+    </div>
+    <div class="panel-body" style="overflow-y: auto;">
+      <form method="POST" action="{% url 'ordinances:upload_parse' %}">
+        {% csrf_token %}
+        <input type="hidden" name="temp_filename" value="{{ temp_filename }}">
+        <input type="hidden" name="save_ordinance" value="1">
+        
+        <div class="alert alert-info" style="border-radius: 10px; border-left: 4px solid #3b82f6; background: #eff6ff; color: #1e3a8a;">
+          <i class="fas fa-info-circle mr-1"></i> Data was automatically extracted. Please correct any inaccuracies.
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="font-weight-bold">Ordinance Number*</label>
+          <input type="text" name="ordinance_number" value="{{ parsed_data.ordinance_number }}" class="form-control form-control-lg input-modern" required>
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="font-weight-bold">Title*</label>
+          <textarea name="title" class="form-control input-modern" rows="3" required>{{ parsed_data.title }}</textarea>
+        </div>
+
+        <div class="row">
+          <div class="form-group col-md-6 mb-3">
+            <label class="font-weight-bold">Date Enacted*</label>
+            <input type="date" name="date_enacted" value="{{ parsed_data.date_enacted }}" class="form-control input-modern" required>
+          </div>
+          <div class="form-group col-md-6 mb-3">
+            <label class="font-weight-bold">Category*</label>
+            <select name="category" class="form-control input-modern" required>
+              {% for code, label in categories %}
+              <option value="{{ code }}" {% if parsed_data.category == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        
+        <div class="row">
+          <div class="form-group col-md-6 mb-3">
+            <label class="font-weight-bold">Author / Proponent*</label>
+            <input type="text" name="author" class="form-control input-modern" value="{{ parsed_data.author }}" required>
+          </div>
+          <div class="form-group col-md-6 mb-3">
+            <label class="font-weight-bold">Status*</label>
+            <select name="status" class="form-control input-modern" required>
+              {% for code, label in statuses %}
+              <option value="{{ code }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="font-weight-bold">Signatories</label>
+          <textarea name="signatories" class="form-control input-modern" rows="3">{{ parsed_data.signatories }}</textarea>
+        </div>
+
+        <div class="form-group mb-4">
+          <label class="font-weight-bold">Full Body Content</label>
+          <textarea name="body_content" class="form-control input-modern" rows="10" style="font-family: monospace; font-size: 13px;">{{ parsed_data.body_content }}</textarea>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-4 pt-3 border-top">
+          <a href="{% url 'ordinances:list' %}" class="btn btn-light btn-lg" style="border-radius: 10px; font-weight: 600;">Cancel</a>
+          <button type="submit" class="btn btn-primary btn-lg" style="border-radius: 10px; font-weight: 600; padding: 10px 30px; box-shadow: 0 4px 15px rgba(44, 110, 73, 0.3);">
+            <i class="fas fa-save mr-2"></i> Save Ordinance
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<style>
+  .split-container {
+    display: flex;
+    height: calc(100vh - 200px);
+    min-height: 700px;
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+
+  .pdf-viewer-panel, .form-panel {
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border-light);
+  }
+
+  .pdf-viewer-panel {
+    flex: 1;
+  }
+
+  .form-panel {
+    flex: 1;
+    max-width: 600px;
+  }
+
+  .panel-header {
+    background: #f8fafc;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .panel-header h4 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .panel-body {
+    flex: 1;
+    padding: 25px;
+  }
+
+  .input-modern {
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 15px;
+    transition: all 0.3s ease;
+    background-color: #f8fafc;
+  }
+
+  .input-modern:focus {
+    border-color: var(--primary);
+    background-color: #fff;
+    box-shadow: 0 0 0 4px rgba(44, 110, 73, 0.1);
+  }
+</style>
+{% endblock %}

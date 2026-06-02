@@ -1,9 +1,60 @@
 {% extends 'base.html' %}
 
-{% block title %}Manage Household - Barangay Management System{% endblock %}
+{% block title %}{% if editing %}Edit Household #{{ household.household_no }}{% else %}Add Household{% endif %} - Barangay Management System{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" />
+<style>
+  .household-form-container {
+    display: grid;
+    grid-template-columns: 1.1fr 1.3fr;
+    gap: 30px;
+  }
+  
+  @media (max-width: 992px) {
+    .household-form-container {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .modern-form {
+    padding: 24px;
+  }
+
+  /* Custom marker */
+  .pin-marker {
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(135deg, #ef4444, #b91c1c); /* Red/Orange for pinning */
+    border: 3px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.45);
+    cursor: move;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    transition: transform 0.15s;
+  }
+  
+  .pin-marker:hover {
+    transform: scale(1.15);
+  }
+
+  .pin-marker i {
+    font-size: 13px;
+  }
+
+  .form-control[readonly] {
+    background-color: var(--bg-main) !important;
+    color: var(--text-muted) !important;
+    border-color: var(--border-light) !important;
+  }
+</style>
+{% endblock %}
 
 {% block breadcrumb %}
-<span><a href="{% url 'residents:household_list' %}">Households</a> / {% if editing %}Edit{% else %}Add{% endif %}</span>
+<span><a href="{% url 'residents:household_list' %}">Households</a> / {% if editing %}Edit #{{ household.household_no }}{% else %}Add{% endif %}</span>
 {% endblock %}
 
 {% block content %}
@@ -11,47 +62,91 @@
 {% include 'components/back_button.html' with back_url=household_list_url back_label='Back' %}
 <div class="page-header">
   <div class="page-title">
-    <h1>{% if editing %}Edit Household{% else %}Create New Household{% endif %}</h1>
-    <span>Fill in the household details below</span>
+    <h1>{% if editing %}Edit Household #{{ household.household_no }}{% else %}Create New Household{% endif %}</h1>
+    <span>Fill in the details and locate the household on the map</span>
   </div>
 </div>
 
-<div class="card" style="max-width: 800px; margin: 0 auto;">
+<div class="card" style="max-width: 1000px; margin: 0 auto; border-radius: 1.25rem; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
   <form method="POST" class="modern-form">
     {% csrf_token %}
-    <div class="form-section">
-      <div class="form-row">
-        <div class="form-group col-12">
-          <label>Household Number*</label>
-          <input type="text" name="household_no" value="{{ household.household_no }}" class="form-control" required
-            placeholder="e.g. HH-2024-001">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group col-12">
-          <label>Purok / Zone*</label>
-          <div class="d-flex align-items-center" style="gap: 10px;">
-            <select name="purok" id="id_purok" class="form-control" required>
-              <option value="">-- Select Purok --</option>
-              {% for p in puroks %}
-              <option value="{{ p.id }}" {% if household.purok_id == p.id %}selected{% endif %}>{{ p.name }}</option>
-              {% endfor %}
-            </select>
-            {% if request.user.is_superuser or request.user.profile.role == 'captain' or request.user.profile.role == 'secretary' or request.user.profile.role == 'treasurer' or request.user.profile.role == 'admin' %}
-            <button type="button" class="btn btn-primary d-flex align-items-center justify-content-center" data-toggle="modal" data-target="#addPurokModal" style="width: 45px; height: 45px; min-width: 45px; border-radius: 0.75rem;">
-              <i class="fas fa-plus"></i>
-            </button>
-            {% endif %}
+    <div class="household-form-container">
+      
+      <!-- Left Column: Fields & Inputs -->
+      <div class="form-inputs-column d-flex flex-column justify-content-between">
+        <div class="form-section pt-0">
+          <div class="form-row">
+            <div class="form-group col-12">
+              <label class="font-weight-bold mb-2" style="color: var(--text-main);">Household Number*</label>
+              <input type="text" name="household_no" value="{{ household.household_no|default:'' }}" class="form-control py-3" required
+                placeholder="e.g. HH-2024-001" style="border-radius: 0.75rem;">
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group col-12">
+              <label class="font-weight-bold mb-2" style="color: var(--text-main);">Purok / Zone*</label>
+              <div class="d-flex align-items-center" style="gap: 10px;">
+                <select name="purok" id="id_purok" class="form-control" required style="border-radius: 0.75rem; height: 45px;">
+                  <option value="">-- Select Purok --</option>
+                  {% for p in puroks %}
+                  <option value="{{ p.id }}" data-lat="{{ p.latitude|default:'' }}" data-lng="{{ p.longitude|default:'' }}" {% if household.purok_id == p.id %}selected{% endif %}>{{ p.name }}</option>
+                  {% endfor %}
+                </select>
+                {% if request.user.is_superuser or request.user.profile.role == 'captain' or request.user.profile.role == 'secretary' or request.user.profile.role == 'treasurer' or request.user.profile.role == 'admin' %}
+                <button type="button" class="btn btn-primary d-flex align-items-center justify-content-center" data-toggle="modal" data-target="#addPurokModal" style="width: 45px; height: 45px; min-width: 45px; border-radius: 0.75rem; background: var(--primary); border: none;">
+                  <i class="fas fa-plus"></i>
+                </button>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group col-12">
+              <label class="font-weight-bold mb-2" style="color: var(--text-main);">Street Address / Location Details*</label>
+              <textarea name="address" class="form-control" rows="3" placeholder="e.g. House No., Street name" required style="border-radius: 0.75rem; resize: none;">{{ household.address|default:'Barangay Sico-sico, Gigaquit, Surigao Del Norte' }}</textarea>
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group col-md-6 mb-3">
+              <label class="font-weight-bold mb-2" style="color: var(--text-main);">Latitude</label>
+              <input type="number" step="any" name="latitude" id="id_latitude" value="{{ household.latitude|default:'' }}" class="form-control py-3" readonly placeholder="Pin on map" style="border-radius: 0.75rem; cursor: not-allowed;">
+            </div>
+            <div class="form-group col-md-6 mb-3">
+              <label class="font-weight-bold mb-2" style="color: var(--text-main);">Longitude</label>
+              <input type="number" step="any" name="longitude" id="id_longitude" value="{{ household.longitude|default:'' }}" class="form-control py-3" readonly placeholder="Pin on map" style="border-radius: 0.75rem; cursor: not-allowed;">
+            </div>
+          </div>
+          
+          <div class="form-row" id="clear-coords-row" style="display: {% if household.latitude %}block{% else %}none{% endif %};">
+            <div class="form-group col-12 text-right">
+              <button type="button" id="btn-clear-coords" class="btn btn-outline-danger btn-sm px-3 py-2" style="border-radius: 0.5rem; font-weight: 500;">
+                <i class="fas fa-trash-alt mr-1"></i> Clear Pin Location
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-      <input type="hidden" name="address" value="{{ household.address|default:'Barangay Sico-sico, Gigaquit, Surigao Del Norte' }}">
-    </div>
 
-    <div class="form-footer">
-      <button type="submit" class="btn btn-primary btn-lg">
-        <i class="fas fa-save"></i> Save Household
-      </button>
+        <div class="form-footer pt-3 pb-0" style="border-top: none;">
+          <button type="submit" class="btn btn-primary btn-lg btn-block py-3 font-weight-bold" style="border-radius: 0.75rem; background: var(--primary); border: none;">
+            <i class="fas fa-save mr-2"></i> Save Household Record
+          </button>
+        </div>
+      </div>
+      
+      <!-- Right Column: Interactive Map Pinning -->
+      <div class="form-map-column d-flex flex-column">
+        <label class="font-weight-bold mb-1" style="color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-map-marked-alt text-primary" style="font-size: 18px;"></i> Map Pin Locator
+        </label>
+        <span class="text-muted d-block mb-3" style="font-size: 13px; line-height: 1.4;">
+          Select a location on the map to pin the household. Drag the red marker to fine-tune the coordinates. Selecting a Purok on the dropdown will automatically center the map on that area.
+        </span>
+        <div id="household-map" style="height: 410px; width: 100%; border-radius: 1rem; border: 1px solid var(--border-light); box-shadow: inset 0 2px 8px rgba(0,0,0,0.05); position: relative; overflow: hidden; background: #f8fafc;"></div>
+      </div>
+      
     </div>
   </form>
 </div>
@@ -71,29 +166,155 @@
                     <label class="text-muted small font-weight-bold text-uppercase">Purok Name</label>
                     <input type="text" id="new_purok_name" class="form-control py-3" placeholder="Enter purok name (e.g. Purok 1)" style="border-radius: 0.75rem;">
                 </div>
-                <button type="button" id="btn-save-purok" class="btn btn-primary btn-block py-3 font-weight-bold" style="border-radius: 1rem;">
+                <button type="button" id="btn-save-purok" class="btn btn-primary btn-block py-3 font-weight-bold" style="border-radius: 1rem; background: var(--primary); border: none;">
                     Save Purok
                 </button>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
-<style>
-  .modern-form {
-    padding: 30px;
-  }
-
-  .col-12 {
-    flex: 0 0 100%;
-  }
-</style>
-
+{% block extra_js %}
+<script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // --- Map Configuration ---
+    const BRGY_CENTER = [125.7222, 9.4898]; // [lng, lat]
+    const defaultLat = parseFloat("{{ household.latitude|default:'' }}");
+    const defaultLng = parseFloat("{{ household.longitude|default:'' }}");
+    const hasCoords = !isNaN(defaultLat) && !isNaN(defaultLng);
+    
+    const mapCenter = hasCoords ? [defaultLng, defaultLat] : BRGY_CENTER;
+    const mapZoom = hasCoords ? 17 : 15;
+
+    const TILE_STREETS = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const TILE_SATELLITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+    function makeStyle(tileUrl) {
+      return {
+        version: 8,
+        sources: {
+          'raster-tiles': {
+            type: 'raster',
+            tiles: [tileUrl],
+            tileSize: 256,
+            attribution: '&copy; OpenStreetMap contributors'
+          }
+        },
+        layers: [{
+          id: 'raster-layer',
+          type: 'raster',
+          source: 'raster-tiles',
+          minzoom: 0,
+          maxzoom: 19
+        }]
+      };
+    }
+
+    const streetsStyle = makeStyle(TILE_STREETS);
+
+    const map = new maplibregl.Map({
+      container: 'household-map',
+      style: streetsStyle,
+      center: mapCenter,
+      zoom: mapZoom,
+      maxZoom: 19,
+      attributionControl: false
+    });
+
+    // Add navigation controls (Zoom)
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+
+    let marker = null;
+    const latInput = document.getElementById('id_latitude');
+    const lngInput = document.getElementById('id_longitude');
+    const clearRow = document.getElementById('clear-coords-row');
+    const btnClearCoords = document.getElementById('btn-clear-coords');
+
+    function updateInputs(lat, lng) {
+        latInput.value = lat.toFixed(6);
+        lngInput.value = lng.toFixed(6);
+        clearRow.style.display = 'block';
+    }
+
+    function removeMarker() {
+        if (marker) {
+            marker.remove();
+            marker = null;
+        }
+        latInput.value = '';
+        lngInput.value = '';
+        clearRow.style.display = 'none';
+    }
+
+    function createMarker(lngLat) {
+        if (marker) {
+            marker.setLngLat(lngLat);
+        } else {
+            const el = document.createElement('div');
+            el.className = 'pin-marker';
+            el.innerHTML = '<i class="fas fa-thumbtack"></i>';
+
+            marker = new maplibregl.Marker({
+                element: el,
+                draggable: true,
+                anchor: 'center'
+            })
+            .setLngLat(lngLat)
+            .addTo(map);
+
+            marker.on('dragend', function() {
+                const newLngLat = marker.getLngLat();
+                updateInputs(newLngLat.lat, newLngLat.lng);
+            });
+        }
+        updateInputs(lngLat.lat, lngLat.lng);
+    }
+
+    // Load existing marker if coords exist
+    map.on('load', function() {
+        if (hasCoords) {
+            createMarker({ lat: defaultLat, lng: defaultLng });
+        }
+    });
+
+    // Click on map to place/move pin
+    map.on('click', function(e) {
+        createMarker(e.lngLat);
+    });
+
+    // Clear coordinates handler
+    if (btnClearCoords) {
+        btnClearCoords.addEventListener('click', function() {
+            removeMarker();
+        });
+    }
+
+    // Purok Selection Change: pan/zoom map to Purok coordinates
+    const purokSelect = document.getElementById('id_purok');
+    if (purokSelect) {
+        purokSelect.addEventListener('change', function() {
+            const selectedOpt = purokSelect.options[purokSelect.selectedIndex];
+            if (selectedOpt) {
+                const pLat = parseFloat(selectedOpt.dataset.lat);
+                const pLng = parseFloat(selectedOpt.dataset.lng);
+                
+                // Only fly to purok location if we don't already have coordinates pinned
+                if (!isNaN(pLat) && !isNaN(pLng) && !latInput.value) {
+                    map.flyTo({
+                        center: [pLng, pLat],
+                        zoom: 17,
+                        duration: 1200
+                    });
+                }
+            }
+        });
+    }
+
+    // --- Purok Add Modal Save Hook ---
     const btnSavePurok = document.getElementById('btn-save-purok');
     const newPurokInput = document.getElementById('new_purok_name');
-    const purokSelect = document.getElementById('id_purok');
 
     if (btnSavePurok) {
         btnSavePurok.addEventListener('click', function() {

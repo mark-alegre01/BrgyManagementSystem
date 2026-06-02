@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Sum
-from residents.models import Resident
+from residents.models import Resident, Household
 from certifications.models import Certificate
 from attendance.models import AttendanceLog
 from officials.models import Official
@@ -18,9 +18,13 @@ def reports_dashboard(request):
     context = {
         # Population
         'total_population': Resident.objects.filter(is_active=True).count(),
+        'total_households': Household.objects.count(),
         'male_count': Resident.objects.filter(is_active=True, gender='M').count(),
         'female_count': Resident.objects.filter(is_active=True, gender='F').count(),
         'voters': Resident.objects.filter(is_registered_voter=True).count(),
+        'pwd': Resident.objects.filter(is_pwd=True).count(),
+        'senior': Resident.objects.filter(is_senior_citizen=True).count(),
+        'fourps': Resident.objects.filter(is_4ps_member=True).count(),
 
         # Certificates this month
         'certs_this_month': Certificate.objects.filter(date_issued__gte=month_start).count(),

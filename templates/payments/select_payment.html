@@ -1,189 +1,781 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Certificate Payment Options - SICO-SICO{% endblock %}
+{% block title %}Payment — {{ cert_request.get_cert_type_display }}{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <div class="page-title">
-        <h1>Payment for {{ cert_request.get_cert_type_display }}</h1>
-        <span>Tracking Code: <strong>{{ cert_request.tracking_code }}</strong></span>
-    </div>
-</div>
-
-<div class="grid" style="display: grid; grid-template-columns: 1fr 350px; gap: 24px;">
-
-    <div class="card">
-        <div class="card-header">
-            <h3>Choose Payment Method</h3>
-        </div>
-        <div class="card-body">
-            {% if is_waived %}
-            <div class="alert alert-success"
-                style="background: #ecfdf5; border: 1px solid #10b981; color: #065f46; padding: 20px; border-radius: 12px; margin-bottom: 24px;">
-                <h4 style="margin-top:0"><i class="fas fa-check-circle"></i> Your fee is WAIVED</h4>
-                <p style="margin-bottom:0">Based on your resident profile (Indigent/Senior/PWD/4Ps), you are exempt from
-                    certificate fees. Click below to proceed.</p>
-            </div>
-
-            <form method="POST">
-                {% csrf_token %}
-                <input type="hidden" name="method" value="waived">
-                <button type="submit" class="btn btn-primary btn-lg w-100">Activate Request (Free)</button>
-            </form>
-            {% else %}
-            {% if cert_request.cert_type == 'cedula' %}
-                <p>Fee: <strong style="font-size: 20px; color: var(--primary);">To be determined</strong></p>
-                <p class="text-muted">The final amount will be calculated based on your income and property details during processing.</p>
-            {% else %}
-                <p>Standard Fee: <strong style="font-size: 20px; color: var(--primary);">₱{{ amount|floatformat:2 }}</strong></p>
-            {% endif %}
-            <p class="text-muted">Please select how you would like to settle this amount:</p>
-
-            <div class="payment-methods" style="margin-top: 20px;">
-                <div class="method-option" onclick="toggleMethod('cash')" id="opt-cash">
-                    <div class="icon"><i class="fas fa-university"></i></div>
-                    <div class="details">
-                        <strong>Cash at Hall</strong>
-                        <span>Pay directly at the barangay counter</span>
-                    </div>
-                    <div class="radio"><i class="fas fa-circle-check"></i></div>
-                </div>
-
-                <div class="method-option" onclick="toggleMethod('gcash')" id="opt-gcash">
-                    <div class="icon" style="color: #007DFE;"><i class="fas fa-qrcode"></i></div>
-                    <div class="details">
-                        <strong>GCash Payment</strong>
-                        <span>Pay online and upload screenshot</span>
-                    </div>
-                    <div class="radio"><i class="fas fa-circle-check"></i></div>
-                </div>
-            </div>
-
-            <form method="POST" enctype="multipart/form-data" id="paymentForm" style="display: none; margin-top: 24px;">
-                {% csrf_token %}
-                <input type="hidden" name="method" id="selected_method">
-
-                <div id="gcash-details"
-                    style="display: none; background: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px dashed #cbd5e1;">
-                    <h4 style="margin-top:0;">Scan to Pay via GCash</h4>
-                    <div style="text-align: center; margin: 15px 0;">
-                        <!-- Replace with actual GCash QR path in production -->
-                        <img src="/static/images/gcash_qr_placeholder.png" alt="GCash QR"
-                            style="max-width: 200px; border-radius: 10px;">
-                        <p style="font-size: 13px; color: #64748b; margin-top: 10px;">Reference: {{
-                            cert_request.tracking_code }}</p>
-                    </div>
-                    <div class="form-group pb-3">
-                        <label><strong>Upload Screenshot of Payment Proof*</strong></label>
-                        <input type="file" name="proof" class="form-control" id="proof_file">
-                    </div>
-                </div>
-
-                <div id="cash-details" style="display: none; margin-bottom: 20px;">
-                    <p class="alert alert-info">Present your tracking code <strong>{{ cert_request.tracking_code
-                            }}</strong>
-                        to the barangay secretary during payment.</p>
-                </div>
-
-                <button type="submit" class="btn btn-primary btn-lg w-100">Submit Selection</button>
-            </form>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="card" style="height: fit-content;">
-        <div class="card-header">
-            <h3>Summary</h3>
-        </div>
-        <div class="card-body">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                <span>Certificate:</span>
-                <strong>{{ cert_request.get_cert_type_display }}</strong>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                <span>Base Amount:</span>
-                <strong>₱{{ amount|floatformat:2 }}</strong>
-            </div>
-            <hr>
-            <div style="display: flex; justify-content: space-between; font-size: 18px;">
-                <strong>TOTAL:</strong>
-                <strong style="color: var(--primary);">₱{{ amount|floatformat:2 }}</strong>
-            </div>
-        </div>
-    </div>
-
-</div>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-    .method-option {
-        display: flex;
-        align-items: center;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 15px;
-        margin-bottom: 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
+  /* ───── CSS Tokens ───── */
+  :root {
+    --pay-bg:       #f0f4f8;
+    --pay-surface:  #ffffff;
+    --pay-green:    #166534;
+    --pay-green-md: #16a34a;
+    --pay-green-lt: #dcfce7;
+    --pay-blue:     #1d4ed8;
+    --pay-blue-lt:  #dbeafe;
+    --pay-orange:   #c2410c;
+    --pay-orange-lt:#fed7aa;
+    --pay-amber:    #92400e;
+    --pay-amber-lt: #fef3c7;
+    --pay-muted:    #64748b;
+    --pay-border:   #e2e8f0;
+    --pay-text:     #0f172a;
+    --pay-card-r:   20px;
+    --pay-shadow:   0 4px 24px rgba(0,0,0,.08);
+  }
 
-    .method-option:hover {
-        border-color: var(--primary);
-        background: #f0fdf4;
-    }
+  .pay-wrapper {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--pay-text);
+  }
 
-    .method-option.selected {
-        border-color: var(--primary);
-        background: #f0fdf4;
-        box-shadow: 0 0 0 2px rgba(44, 110, 73, 0.1);
-    }
+  /* ── Page Header ── */
+  .pay-page-header {
+    margin-bottom: 32px;
+  }
+  .pay-page-header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    font-weight: 400;
+    color: var(--pay-text);
+    margin: 0 0 6px;
+    line-height: 1.2;
+  }
+  .pay-page-header .tracking {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--pay-green-lt);
+    color: var(--pay-green);
+    padding: 5px 12px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
 
-    .method-option .icon {
-        font-size: 24px;
-        margin-right: 15px;
-        color: var(--primary);
-    }
+  /* ── Grid Layout ── */
+  .pay-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 24px;
+    align-items: start;
+  }
+  @media (max-width: 768px) {
+    .pay-grid { grid-template-columns: 1fr; }
+    .pay-sidebar { order: -1; }
+  }
 
-    .method-option .details {
-        flex-grow: 1;
-        display: flex;
-        flex-direction: column;
-    }
+  /* ── Cards ── */
+  .pay-card {
+    background: var(--pay-surface);
+    border-radius: var(--pay-card-r);
+    box-shadow: var(--pay-shadow);
+    overflow: hidden;
+  }
+  .pay-card-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--pay-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .pay-card-header h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--pay-text);
+  }
+  .pay-card-header .icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .pay-card-body {
+    padding: 24px;
+  }
 
-    .method-option .details span {
-        font-size: 12px;
-        color: #64748b;
-    }
+  /* ── Fee Transparency Box ── */
+  .fee-box {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border: 2px solid var(--pay-green-md);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .fee-box::before {
+    content: '';
+    position: absolute;
+    top: -20px; right: -20px;
+    width: 100px; height: 100px;
+    background: rgba(22, 163, 74, 0.08);
+    border-radius: 50%;
+  }
+  .fee-box-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--pay-green);
+    margin-bottom: 8px;
+  }
+  .fee-box-amount {
+    font-family: 'DM Serif Display', serif;
+    font-size: 3rem;
+    font-weight: 400;
+    color: var(--pay-green);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .fee-box-sub {
+    font-size: 12px;
+    color: #4ade80;
+    font-weight: 500;
+  }
 
-    .method-option .radio {
-        color: #e2e8f0;
-        font-size: 20px;
-    }
+  /* Waived badge */
+  .waived-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--pay-green-lt);
+    border: 2px solid #4ade80;
+    border-radius: 12px;
+    padding: 16px 24px;
+    font-weight: 700;
+    color: var(--pay-green);
+    font-size: 1rem;
+    margin-bottom: 20px;
+    width: 100%;
+    justify-content: center;
+  }
 
-    .method-option.selected .radio {
-        color: var(--primary);
-    }
+  /* ── Steps Section ── */
+  .steps-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--pay-muted);
+    margin: 0 0 16px;
+  }
 
-    .w-100 {
-        width: 100%;
-    }
+  /* ── Method Cards ── */
+  .method-grid { display: flex; flex-direction: column; gap: 12px; }
+
+  .method-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+    border: 2px solid var(--pay-border);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--pay-surface);
+    position: relative;
+    user-select: none;
+  }
+  .method-card:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,.06);
+  }
+  .method-card.selected {
+    border-color: var(--pay-green-md);
+    background: var(--pay-green-lt);
+    box-shadow: 0 0 0 4px rgba(22,163,74,.08), 0 4px 12px rgba(0,0,0,.06);
+    transform: translateY(-1px);
+  }
+  .method-card.selected-gcash {
+    border-color: #2563eb;
+    background: var(--pay-blue-lt);
+    box-shadow: 0 0 0 4px rgba(37,99,235,.08), 0 4px 12px rgba(0,0,0,.06);
+  }
+  .method-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .method-icon.cash { background: #f0fdf4; color: var(--pay-green); }
+  .method-icon.gcash { background: #dbeafe; color: #1d4ed8; }
+  .method-content { flex: 1; }
+  .method-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--pay-text);
+    margin-bottom: 2px;
+  }
+  .method-desc {
+    font-size: 12px;
+    color: var(--pay-muted);
+    line-height: 1.4;
+  }
+  .method-check {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--pay-border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    font-size: 11px;
+    color: transparent;
+  }
+  .method-card.selected .method-check,
+  .method-card.selected-gcash .method-check {
+    background: var(--pay-green-md);
+    border-color: var(--pay-green-md);
+    color: #fff;
+  }
+  .method-card.selected-gcash .method-check {
+    background: var(--pay-blue);
+    border-color: var(--pay-blue);
+  }
+
+  /* ── Instruction Panels ── */
+  .instruction-panel {
+    display: none;
+    margin-top: 20px;
+    animation: slideIn 0.25s ease;
+  }
+  .instruction-panel.active { display: block; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .cash-instruction {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .cash-instruction .step {
+    display: flex; align-items: flex-start; gap: 12px;
+    margin-bottom: 14px;
+  }
+  .cash-instruction .step:last-child { margin-bottom: 0; }
+  .step-num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--pay-green);
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-text { font-size: 13px; line-height: 1.5; color: #166534; }
+  .step-text strong { color: #14532d; }
+
+  .tracking-chip {
+    display: inline-block;
+    background: #16a34a;
+    color: #fff;
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+  }
+
+  /* GCash panel */
+  .gcash-instruction {
+    background: var(--pay-blue-lt);
+    border: 1px solid #93c5fd;
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .gcash-instruction .step-text { color: #1e40af; }
+  .gcash-instruction .step-num { background: var(--pay-blue); }
+
+  .upload-zone {
+    border: 2px dashed #93c5fd;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    margin-top: 14px;
+    background: rgba(255,255,255,0.6);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .upload-zone:hover { border-color: var(--pay-blue); background: rgba(255,255,255,0.9); }
+  .upload-zone input { display: none; }
+  .upload-zone-label {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    cursor: pointer;
+  }
+  .upload-icon { font-size: 28px; color: var(--pay-blue); margin-bottom: 4px; }
+  .upload-text { font-size: 13px; font-weight: 600; color: #1d4ed8; }
+  .upload-sub { font-size: 11px; color: #64748b; }
+  #preview-img { max-width: 100%; border-radius: 8px; margin-top: 10px; display: none; }
+
+  /* ── Submit Button ── */
+  .submit-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--pay-green) 0%, var(--pay-green-md) 100%);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    margin-top: 24px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: all 0.22s;
+    letter-spacing: 0.3px;
+    box-shadow: 0 4px 14px rgba(22,163,74,.3);
+  }
+  .submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(22,163,74,.4);
+  }
+  .submit-btn:disabled {
+    background: #94a3b8;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ── Sidebar Summary ── */
+  .summary-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--pay-border);
+    font-size: 14px;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-label { color: var(--pay-muted); }
+  .summary-value { font-weight: 600; color: var(--pay-text); }
+  .summary-total-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 0 0;
+    margin-top: 4px;
+    border-top: 2px solid var(--pay-green-md);
+  }
+  .summary-total-label { font-weight: 700; font-size: 15px; color: var(--pay-text); }
+  .summary-total-amount {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.8rem;
+    color: var(--pay-green);
+  }
+
+  .exempt-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--pay-green-lt);
+    border: 1px solid #86efac;
+    color: var(--pay-green);
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── What happens next ── */
+  .next-steps-card {
+    margin-top: 16px;
+    background: var(--pay-surface);
+    border-radius: var(--pay-card-r);
+    box-shadow: var(--pay-shadow);
+    overflow: hidden;
+  }
+  .next-step-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--pay-border);
+    font-size: 13px;
+  }
+  .next-step-item:last-child { border-bottom: none; }
+  .next-step-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--pay-green-md);
+    flex-shrink: 0;
+    margin-top: 5px;
+  }
+  .next-step-text { color: #334155; line-height: 1.5; }
+  .next-step-text strong { color: var(--pay-text); }
+
+  /* ── Status Bar for existing payment ── */
+  .status-bar {
+    background: var(--pay-amber-lt);
+    border: 1px solid #fcd34d;
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: var(--pay-amber);
+    font-weight: 600;
+  }
 </style>
 
-<script>
-    function toggleMethod(method) {
-        document.querySelectorAll('.method-option').forEach(opt => opt.classList.remove('selected'));
-        document.getElementById('opt-' + method).classList.add('selected');
-        document.getElementById('selected_method').value = method;
-        document.getElementById('paymentForm').style.display = 'block';
+<div class="pay-wrapper">
 
-        if (method === 'gcash') {
-            document.getElementById('gcash-details').style.display = 'block';
-            document.getElementById('cash-details').style.display = 'none';
-            document.getElementById('proof_file').required = true;
-        } else {
-            document.getElementById('gcash-details').style.display = 'none';
-            document.getElementById('cash-details').style.display = 'block';
-            document.getElementById('proof_file').required = false;
-        }
+  <!-- Page Header -->
+  <div class="pay-page-header">
+    {% url 'certifications:my_requests' as back_url %}
+    {% include 'components/back_button.html' with back_url=back_url back_label='My Requests' %}
+    <h1 style="margin-top: 16px;">Payment Setup</h1>
+    <div class="tracking">
+      <i class="fas fa-hashtag"></i>
+      {{ cert_request.tracking_code }}
+    </div>
+  </div>
+
+  <div class="pay-grid">
+    <!-- ── LEFT: Payment Form ── -->
+    <div>
+      <!-- Existing payment status bar -->
+      {% if cert_request.payment and cert_request.payment.status != 'unpaid' %}
+      <div class="status-bar">
+        <i class="fas fa-info-circle" style="font-size: 16px;"></i>
+        <span>
+          Your current payment status is
+          <strong>{{ cert_request.payment.get_status_display }}</strong>.
+          You can update your payment method below.
+        </span>
+      </div>
+      {% endif %}
+
+      <!-- Fee Display Card -->
+      <div class="pay-card" style="margin-bottom: 20px;">
+        <div class="pay-card-header">
+          <div class="icon" style="background: #fef3c7; color: #92400e;">
+            <i class="fas fa-receipt"></i>
+          </div>
+          <h2>Your Certificate Fee</h2>
+        </div>
+        <div class="pay-card-body">
+          {% if is_waived %}
+          <div class="waived-badge">
+            <i class="fas fa-check-circle" style="font-size: 20px;"></i>
+            Your fee is WAIVED — ₱0.00
+          </div>
+          <p style="font-size: 13px; color: var(--pay-muted); text-align: center; margin: 0;">
+            You are 100% exempt from paying for your certification under the national First Time Jobseekers Assistance Act (RA 11261).
+          </p>
+          {% else %}
+          <div class="fee-box">
+            <div class="fee-box-label">Amount to Pay</div>
+            <div class="fee-box-amount">₱{{ amount|floatformat:2 }}</div>
+            {% if cert_request.cert_type == 'cedula' %}
+            <div class="fee-box-sub">Computed from your declared taxable amounts</div>
+            {% else %}
+            <div class="fee-box-sub">Standard barangay rate for {{ cert_request.get_cert_type_display }}</div>
+            {% endif %}
+          </div>
+
+          <!-- Fee Breakdown for non-waived -->
+          {% if cert_request.cert_type != 'cedula' %}
+          <div style="background: #f8fafc; border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #475569; margin-bottom: 4px;">
+            <i class="fas fa-info-circle" style="color: var(--pay-green-md); margin-right: 6px;"></i>
+            This is the <strong>official barangay fee</strong> set by the local government for a 
+            <strong>{{ cert_request.get_cert_type_display }}</strong>. 
+            The secretary will collect exactly this amount when processing your request.
+          </div>
+          {% else %}
+          <div style="background: #f8fafc; border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #475569; margin-bottom: 4px;">
+            <i class="fas fa-calculator" style="color: var(--pay-green-md); margin-right: 6px;"></i>
+            This amount was computed from the taxable amounts you declared. 
+            The secretary will verify and may adjust the final amount at the hall.
+          </div>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Payment Method Selection -->
+      <div class="pay-card">
+        <div class="pay-card-header">
+          <div class="icon" style="background: #ede9fe; color: #7c3aed;">
+            <i class="fas fa-credit-card"></i>
+          </div>
+          <h2>How Would You Like to Pay?</h2>
+        </div>
+        <div class="pay-card-body">
+          {% if is_waived %}
+          <p style="font-size: 14px; color: var(--pay-muted); margin-bottom: 20px;">
+            No payment is required. Simply confirm to submit your request for processing.
+          </p>
+          <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="method" value="waived">
+            <button type="submit" class="submit-btn">
+              <i class="fas fa-check-circle"></i>
+              Confirm & Submit Request (Free)
+            </button>
+          </form>
+          {% else %}
+          <p class="steps-title">Select a payment method</p>
+
+          <div class="method-grid" id="methodGrid">
+            <!-- Cash -->
+            <div class="method-card" id="opt-cash" onclick="selectMethod('cash')">
+              <div class="method-icon cash">
+                <i class="fas fa-university"></i>
+              </div>
+              <div class="method-content">
+                <div class="method-name">Pay at the Barangay Hall</div>
+                <div class="method-desc">Bring your tracking code and pay cash directly to the secretary.</div>
+              </div>
+              <div class="method-check" id="check-cash">
+                <i class="fas fa-check"></i>
+              </div>
+            </div>
+
+            <!-- GCash -->
+            <div class="method-card" id="opt-gcash" onclick="selectMethod('gcash')">
+              <div class="method-icon gcash">
+                <i class="fas fa-mobile-alt"></i>
+              </div>
+              <div class="method-content">
+                <div class="method-name">Pay via GCash</div>
+                <div class="method-desc">Send payment online and upload your proof of payment screenshot.</div>
+              </div>
+              <div class="method-check" id="check-gcash">
+                <i class="fas fa-check"></i>
+              </div>
+            </div>
+          </div>
+
+          <!-- Cash Instructions -->
+          <div class="instruction-panel" id="panel-cash">
+            <div class="cash-instruction">
+              <p class="steps-title" style="color: var(--pay-green); margin-bottom: 12px;">
+                <i class="fas fa-shoe-prints" style="margin-right: 6px;"></i>Steps to Pay at Hall
+              </p>
+              <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-text">Click <strong>"Confirm"</strong> below to save your payment method.</div>
+              </div>
+              <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-text">Visit the <strong>Barangay Hall</strong> during office hours.</div>
+              </div>
+              <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-text">Present your <strong>tracking code</strong> to the secretary: <span class="tracking-chip">{{ cert_request.tracking_code }}</span></div>
+              </div>
+              <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-text">Pay exactly <strong>₱{{ amount|floatformat:2 }}</strong>. You will receive an official receipt (OR).</div>
+              </div>
+              <div class="step">
+                <div class="step-num">5</div>
+                <div class="step-text">Your certificate will be processed and you'll receive a notification when it's ready.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- GCash Instructions -->
+          <div class="instruction-panel" id="panel-gcash">
+            <div class="gcash-instruction">
+              <p class="steps-title" style="color: var(--pay-blue); margin-bottom: 12px;">
+                <i class="fas fa-mobile-alt" style="margin-right: 6px;"></i>Steps to Pay via GCash
+              </p>
+              <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-text">Open GCash and send <strong>₱{{ amount|floatformat:2 }}</strong> to the barangay's official GCash number.</div>
+              </div>
+              <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-text">Use your tracking code <span class="tracking-chip" style="background: var(--pay-blue);">{{ cert_request.tracking_code }}</span> as your payment note/reference.</div>
+              </div>
+              <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-text">Take a <strong>screenshot</strong> of the GCash confirmation screen.</div>
+              </div>
+              <div class="step">
+                <div class="step-num">4</div>
+                <div class="step-text">Upload the screenshot below and click <strong>"Submit"</strong>. The secretary will verify your payment.</div>
+              </div>
+
+              <form method="POST" enctype="multipart/form-data" id="paymentForm">
+                {% csrf_token %}
+                <input type="hidden" name="method" value="gcash" id="gcash_method">
+
+                <div class="upload-zone" id="uploadZone">
+                  <label class="upload-zone-label" for="proof_file">
+                    <div class="upload-icon"><i class="fas fa-cloud-upload-alt"></i></div>
+                    <div class="upload-text">Click to upload payment screenshot</div>
+                    <div class="upload-sub">PNG, JPG, JPEG accepted</div>
+                  </label>
+                  <input type="file" name="proof" id="proof_file" accept="image/*" required>
+                  <img id="preview-img" alt="Payment proof preview">
+                </div>
+
+                <button type="submit" class="submit-btn" id="gcash-submit-btn" style="margin-top: 16px; background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); box-shadow: 0 4px 14px rgba(29,78,216,.3);">
+                  <i class="fas fa-paper-plane"></i>
+                  Submit GCash Payment Proof
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Cash Submit Form -->
+          <form method="POST" id="cashForm" style="display: none;">
+            {% csrf_token %}
+            <input type="hidden" name="method" value="cash">
+            <button type="submit" class="submit-btn" id="cash-submit-btn">
+              <i class="fas fa-check-circle"></i>
+              Confirm — I Will Pay at the Hall
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RIGHT: Sidebar ── -->
+    <div class="pay-sidebar">
+      <!-- Summary -->
+      <div class="pay-card">
+        <div class="pay-card-header">
+          <div class="icon" style="background: #f0fdf4; color: var(--pay-green);">
+            <i class="fas fa-file-alt"></i>
+          </div>
+          <h2>Request Summary</h2>
+        </div>
+        <div class="pay-card-body" style="padding: 20px 24px;">
+          <div class="summary-row">
+            <span class="summary-label">Document</span>
+            <span class="summary-value" style="text-align: right; max-width: 160px;">{{ cert_request.get_cert_type_display }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Purpose</span>
+            <span class="summary-value" style="text-align: right; max-width: 160px; font-size: 12px;">{{ cert_request.purpose|truncatechars:50 }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Submitted</span>
+            <span class="summary-value">{{ cert_request.created_at|date:"M d, Y" }}</span>
+          </div>
+          <div class="summary-row">
+            <span class="summary-label">Resident</span>
+            <span class="summary-value">{{ cert_request.resident.full_name }}</span>
+          </div>
+          {% if not is_waived %}
+          <div class="summary-row">
+            <span class="summary-label">Official Rate</span>
+            <span class="summary-value">₱{{ standard_rate|floatformat:2 }}</span>
+          </div>
+          {% endif %}
+
+          {% if is_waived %}
+          <div class="summary-total-row">
+            <span class="summary-total-label">Total Due</span>
+            <div>
+              <span class="exempt-badge"><i class="fas fa-check"></i> WAIVED</span>
+            </div>
+          </div>
+          {% else %}
+          <div class="summary-total-row">
+            <span class="summary-total-label">Total Due</span>
+            <span class="summary-total-amount">₱{{ amount|floatformat:2 }}</span>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- What Happens Next -->
+      <div class="next-steps-card">
+        <div class="pay-card-header" style="padding: 16px 20px;">
+          <div class="icon" style="background: #fef3c7; color: #92400e;">
+            <i class="fas fa-map-signs"></i>
+          </div>
+          <h2 style="font-size: 13px;">What Happens Next?</h2>
+        </div>
+        <div class="next-step-item">
+          <div class="next-step-dot"></div>
+          <div class="next-step-text">You select a payment method and confirm below.</div>
+        </div>
+        <div class="next-step-item">
+          <div class="next-step-dot" style="background: #60a5fa;"></div>
+          <div class="next-step-text">The <strong>Barangay Secretary</strong> reviews your request and payment.</div>
+        </div>
+        <div class="next-step-item">
+          <div class="next-step-dot" style="background: #f59e0b;"></div>
+          <div class="next-step-text">Once payment is confirmed, your certificate is <strong>issued</strong>.</div>
+        </div>
+        <div class="next-step-item">
+          <div class="next-step-dot" style="background: #a78bfa;"></div>
+          <div class="next-step-text">You receive a <strong>notification</strong> and can download your certificate.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let selectedMethod = null;
+
+  function selectMethod(method) {
+    selectedMethod = method;
+
+    // Reset all cards
+    document.querySelectorAll('.method-card').forEach(c => {
+      c.classList.remove('selected', 'selected-gcash');
+    });
+
+    // Highlight chosen card
+    if (method === 'cash') {
+      document.getElementById('opt-cash').classList.add('selected');
+    } else {
+      document.getElementById('opt-gcash').classList.add('selected-gcash');
     }
+
+    // Show correct panel
+    document.getElementById('panel-cash').classList.remove('active');
+    document.getElementById('panel-gcash').classList.remove('active');
+    document.getElementById('cashForm').style.display = 'none';
+
+    if (method === 'cash') {
+      document.getElementById('panel-cash').classList.add('active');
+      document.getElementById('cashForm').style.display = 'block';
+    } else {
+      document.getElementById('panel-gcash').classList.add('active');
+    }
+  }
+
+  // File upload preview
+  const proofInput = document.getElementById('proof_file');
+  if (proofInput) {
+    proofInput.addEventListener('change', function () {
+      const file = this.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = document.getElementById('preview-img');
+          img.src = e.target.result;
+          img.style.display = 'block';
+          document.querySelector('.upload-zone-label .upload-text').textContent = file.name;
+          document.querySelector('.upload-zone-label .upload-sub').textContent = `${(file.size / 1024).toFixed(1)} KB`;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
 </script>
+
 {% endblock %}

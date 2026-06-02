@@ -6,211 +6,434 @@
 {% endblock %}
 
 {% block content %}
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
 <style>
-    .page-container {
-        padding: 20px 0;
-    }
+  :root {
+    --req-green:    #166534;
+    --req-green-md: #16a34a;
+    --req-green-lt: #dcfce7;
+    --req-blue:     #1d4ed8;
+    --req-blue-lt:  #dbeafe;
+    --req-amber:    #92400e;
+    --req-amber-lt: #fef3c7;
+    --req-red:      #991b1b;
+    --req-red-lt:   #fee2e2;
+    --req-muted:    #64748b;
+    --req-border:   #e2e8f0;
+    --req-text:     #0f172a;
+    --req-surface:  #ffffff;
+    --req-bg:       #f8fafc;
+  }
 
-    .glass-panel {
-        background: rgba(255, 255, 255, 0.7);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        border-radius: 20px;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
-        overflow: hidden;
-    }
+  body { font-family: 'DM Sans', sans-serif; }
 
-    .table-modern {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-    }
+  /* ── Page Header ── */
+  .req-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    flex-wrap: wrap; gap: 16px;
+    margin-bottom: 28px;
+  }
+  .req-header h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.9rem;
+    font-weight: 400;
+    margin: 0 0 4px;
+    color: var(--req-text);
+    line-height: 1.2;
+  }
+  .req-header .subtitle { font-size: 14px; color: var(--req-muted); margin: 0; }
 
-    .table-modern th {
-        background: rgba(248, 250, 252, 0.5);
-        padding: 16px 24px;
-        font-size: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: #64748b;
-        border-bottom: 1px solid #e2e8f0;
-    }
+  .btn-new-req {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, var(--req-green) 0%, var(--req-green-md) 100%);
+    color: #fff; border: none; padding: 12px 22px;
+    border-radius: 12px; font-size: 14px; font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    text-decoration: none; cursor: pointer;
+    transition: all 0.22s; box-shadow: 0 4px 12px rgba(22,163,74,.25);
+    white-space: nowrap;
+  }
+  .btn-new-req:hover {
+    transform: translateY(-2px); box-shadow: 0 8px 20px rgba(22,163,74,.35);
+    color: #fff; text-decoration: none;
+  }
 
-    .table-modern td {
-        padding: 20px 24px;
-        font-size: 14px;
-        color: #1e293b;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-    }
+  /* ── Stats Strip ── */
+  .stats-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--req-surface);
+    border-radius: 14px;
+    padding: 16px 18px;
+    display: flex; align-items: center; gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+    border: 1px solid var(--req-border);
+  }
+  .stat-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .stat-num { font-size: 1.4rem; font-weight: 800; line-height: 1; color: var(--req-text); }
+  .stat-label { font-size: 11px; color: var(--req-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 
-    .table-modern tr:last-child td {
-        border-bottom: none;
-    }
+  /* ── Request Cards ── */
+  .req-list { display: flex; flex-direction: column; gap: 16px; }
 
-    .table-modern tr:hover td {
-        background: rgba(255, 255, 255, 0.4);
-    }
+  .req-card {
+    background: var(--req-surface);
+    border-radius: 18px;
+    border: 1px solid var(--req-border);
+    box-shadow: 0 2px 12px rgba(0,0,0,.05);
+    overflow: hidden;
+    transition: box-shadow 0.2s, transform 0.2s;
+  }
+  .req-card:hover {
+    box-shadow: 0 6px 24px rgba(0,0,0,.1);
+    transform: translateY(-1px);
+  }
 
-    .status-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: 99px;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.3px;
-    }
+  .req-card-main {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 0;
+    align-items: stretch;
+  }
+  @media(max-width: 700px) {
+    .req-card-main { grid-template-columns: 1fr; }
+  }
 
-    .status-pending {
-        background: #fef9c3;
-        color: #854d0e;
-    }
+  /* Left accent strip */
+  .req-accent {
+    width: 6px;
+    flex-shrink: 0;
+  }
+  .accent-pending { background: linear-gradient(180deg, #f59e0b, #fbbf24); }
+  .accent-issued  { background: linear-gradient(180deg, var(--req-green), var(--req-green-md)); }
+  .accent-rejected{ background: linear-gradient(180deg, #ef4444, #f87171); }
 
-    .status-issued {
-        background: #dcfce7;
-        color: #166534;
-    }
+  .req-card-body { padding: 20px 22px; flex: 1; }
+  .req-card-body-top {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 12px; margin-bottom: 10px;
+  }
 
-    .status-rejected {
-        background: #fee2e2;
-        color: #991b1b;
-    }
+  .cert-type-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--req-bg); border: 1px solid var(--req-border);
+    padding: 4px 10px; border-radius: 8px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px; color: #475569;
+  }
 
-    .control-link {
-        color: var(--primary, #2d7a50);
-        font-weight: 700;
-        text-decoration: none;
-        padding: 6px 10px;
-        background: rgba(45, 122, 80, 0.08);
-        border-radius: 8px;
-        transition: all 0.2s;
-    }
+  .req-tracking {
+    font-family: monospace; font-size: 12px; font-weight: 700;
+    color: var(--req-green); background: var(--req-green-lt);
+    padding: 2px 8px; border-radius: 6px; letter-spacing: 0.5px;
+  }
 
-    .control-link:hover {
-        background: rgba(45, 122, 80, 0.15);
-        transform: translateY(-1px);
-    }
+  .req-title { font-size: 15px; font-weight: 700; color: var(--req-text); margin-bottom: 4px; }
+  .req-purpose { font-size: 13px; color: var(--req-muted); }
+  .req-meta { font-size: 12px; color: #94a3b8; margin-top: 8px; }
 
-    .empty-state {
-        padding: 60px 20px;
-        text-align: center;
-    }
+  /* Payment section */
+  .req-payment-col {
+    padding: 16px 20px;
+    border-left: 1px solid var(--req-border);
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    min-width: 140px; text-align: center;
+    gap: 6px;
+    background: #fafafa;
+  }
+  .pay-amount {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.5rem;
+    font-weight: 400;
+    line-height: 1;
+  }
+  .pay-amount.paid   { color: var(--req-green); }
+  .pay-amount.waived { color: #7c3aed; }
+  .pay-amount.pending{ color: #d97706; }
+  .pay-amount.unpaid { color: var(--req-red); }
 
-    .empty-icon {
-        font-size: 48px;
-        color: #cbd5e1;
-        margin-bottom: 16px;
-    }
+  .pay-status-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 99px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .pill-paid    { background: var(--req-green-lt); color: var(--req-green); }
+  .pill-waived  { background: #ede9fe; color: #7c3aed; }
+  .pill-pending { background: var(--req-amber-lt); color: var(--req-amber); }
+  .pill-unpaid  { background: var(--req-red-lt); color: var(--req-red); }
+
+  .pay-cta {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--req-green);
+    color: #fff; font-size: 11px; font-weight: 700;
+    padding: 5px 12px; border-radius: 8px;
+    text-decoration: none; margin-top: 4px;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .pay-cta:hover { background: #14532d; color: #fff; text-decoration: none; }
+
+  /* Actions column */
+  .req-actions-col {
+    padding: 16px;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: flex-end;
+    gap: 8px; min-width: 120px;
+    border-left: 1px solid var(--req-border);
+  }
+
+  .action-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 10px;
+    font-size: 12px; font-weight: 700;
+    text-decoration: none; white-space: nowrap;
+    transition: all 0.18s; border: 1.5px solid transparent;
+  }
+  .action-btn-view {
+    background: var(--req-green-lt);
+    color: var(--req-green);
+    border-color: #86efac;
+  }
+  .action-btn-view:hover { background: var(--req-green); color: #fff; text-decoration: none; }
+  .action-btn-receipt {
+    background: var(--req-blue-lt);
+    color: var(--req-blue);
+    border-color: #93c5fd;
+  }
+  .action-btn-receipt:hover { background: var(--req-blue); color: #fff; text-decoration: none; }
+
+  .req-status-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 99px;
+    font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px;
+  }
+  .status-pending  { background: var(--req-amber-lt); color: var(--req-amber); }
+  .status-issued   { background: var(--req-green-lt); color: var(--req-green); }
+  .status-rejected { background: var(--req-red-lt);   color: var(--req-red); }
+
+  /* ── Empty State ── */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    background: var(--req-surface);
+    border-radius: 18px;
+    border: 1px dashed var(--req-border);
+  }
+  .empty-icon { font-size: 52px; color: #cbd5e1; margin-bottom: 16px; }
+  .empty-title { font-size: 1.2rem; font-weight: 700; color: #475569; margin-bottom: 8px; }
+  .empty-sub { font-size: 14px; color: var(--req-muted); margin-bottom: 24px; }
+
+  /* ── Rejected Note ── */
+  .rejected-note {
+    background: var(--req-red-lt);
+    border-top: 1px solid #fca5a5;
+    padding: 10px 22px;
+    font-size: 12px;
+    color: var(--req-red);
+    display: flex; align-items: flex-start; gap: 8px;
+  }
 </style>
 
-<div class="page-header">
-    <div class="page-title">
-        <h1>My Certificate Requests</h1>
-        <span>Track and manage your submitted document requests</span>
-    </div>
-    <div class="header-actions">
-        <a href="{% url 'certifications:request_certificate' %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> New Request
-        </a>
-    </div>
+<div class="req-header">
+  <div>
+    <h1>My Certificate Requests</h1>
+    <p class="subtitle">Track all your submitted barangay document requests and payment status</p>
+  </div>
+  <a href="{% url 'certifications:request_certificate' %}" class="btn-new-req">
+    <i class="fas fa-plus"></i> New Request
+  </a>
 </div>
 
-<div class="page-container">
-    {% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-{{ message.tags }}" style="margin-bottom:24px;">{{ message }}</div>
-    {% endfor %}
-    {% endif %}
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }}" style="margin-bottom: 20px; border-radius: 12px;">
+  {{ message }}
+</div>
+{% endfor %}
+{% endif %}
 
-    <div class="glass-panel">
-        <div class="table-responsive">
-            <table class="table-modern">
-                <thead>
-                    <tr>
-                        <th>Tracking ID</th>
-                        <th>Document Type</th>
-                        <th>Payment Status</th>
-                        <th>Current Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for req in requests %}
-                    <tr>
-                        <td style="color:#2d7a50; font-family: monospace; font-weight: 700;">
-                            {{ req.tracking_code }}
-                        </td>
-                        <td>
-                            <div style="font-weight: 700; color: #0f172a;">{{ req.get_cert_type_display }}</div>
-                            <small class="text-muted">{{ req.created_at|date:"M d, Y" }}</small>
-                        </td>
-                        <td>
-                            {% if req.payment %}
-                            <span
-                                class="badge badge-{% if req.payment.status == 'paid' %}success{% elif req.payment.status == 'waived' %}info{% elif req.payment.status == 'pending' %}warning{% else %}secondary{% endif %}"
-                                style="padding: 4px 8px; border-radius: 4px; font-size: 11px;">
-                                {{ req.payment.get_status_display }}
-                            </span>
-                            {% if req.payment.status == 'unpaid' %}
-                            <br><a href="{% url 'payments:choose_payment' req.id %}"
-                                style="font-size: 11px; color: var(--primary);">Pay Now</a>
-                            {% endif %}
-                            {% else %}
-                            <a href="{% url 'payments:choose_payment' req.id %}" class="btn btn-primary btn-sm"
-                                style="font-size: 10px; padding: 2px 6px;">Set Payment</a>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if req.status == 'pending' %}
-                            <span class="status-pill status-pending"><i class="fas fa-clock"></i> Pending</span>
-                            {% elif req.status == 'issued' %}
-                            <span class="status-pill status-issued"><i class="fas fa-check-circle"></i> Issued</span>
-                            {% else %}
-                            <span class="status-pill status-rejected"><i class="fas fa-times-circle"></i>
-                                Rejected</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if req.status == 'issued' and req.certificate %}
-                                <div style="display:flex; gap:6px;">
-                                    <a href="{% url 'certifications:virtual_certificate' req.certificate.pk %}" 
-                                       class="btn btn-primary btn-sm" style="font-size: 11px;">
-                                        <i class="fas fa-eye"></i> View
-                                    </a>
-                                    {% if req.payment.status == 'paid' or req.payment.status == 'waived' %}
-                                    <a href="{% url 'payments:download_receipt' req.payment.id %}"
-                                        class="btn btn-secondary btn-sm" style="font-size: 11px;">
-                                        <i class="fas fa-download"></i> Receipt
-                                    </a>
-                                    {% endif %}
-                                </div>
-                            {% else %}
-                                <span style="font-size: 11px; color: #64748b;">{{ req.notes|default:"No notes yet" }}</span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="7">
-                            <div class="empty-state">
-                                <div class="empty-icon"><i class="fas fa-folder-open"></i></div>
-                                <h3 style="color: #475569; margin-bottom: 8px;">No requests found</h3>
-                                <p style="color: #94a3b8; font-size: 14px; margin-bottom: 24px;">You haven't submitted
-                                    any certificate requests yet.</p>
-                                <a href="{% url 'certifications:request_certificate' %}" class="btn btn-primary btn-sm">
-                                    Submit Request Now
-                                </a>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+{% if requests %}
+<!-- Stats Strip -->
+<div class="stats-strip">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fef3c7; color:#92400e;">
+      <i class="fas fa-clock"></i>
+    </div>
+    <div>
+      <div class="stat-num">{{ requests|length }}</div>
+      <div class="stat-label">Total</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--req-amber-lt); color:var(--req-amber);">
+      <i class="fas fa-hourglass-half"></i>
+    </div>
+    <div>
+      <div class="stat-num">
+        {% with pending_count=0 %}
+        {% for r in requests %}{% if r.status == 'pending' %}{% with pending_count=pending_count|add:1 %}{% endwith %}{% endif %}{% endfor %}
+        {% for r in requests %}{% if r.status == 'pending' %}1{% endif %}{% endfor %}
+        {% endwith %}
+      </div>
+      <div class="stat-label">Pending</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:var(--req-green-lt); color:var(--req-green);">
+      <i class="fas fa-check-circle"></i>
+    </div>
+    <div>
+      <div class="stat-num">{% for r in requests %}{% if r.status == 'issued' %}✓{% endif %}{% endfor %}</div>
+      <div class="stat-label">Issued</div>
+    </div>
+  </div>
+</div>
+
+<div class="req-list">
+  {% for req in requests %}
+  <div class="req-card">
+    <div class="req-card-main">
+
+      <!-- Left accent -->
+      <div class="req-accent {% if req.status == 'pending' %}accent-pending{% elif req.status == 'issued' %}accent-issued{% else %}accent-rejected{% endif %}"></div>
+
+      <!-- Main content -->
+      <div class="req-card-body">
+        <div class="req-card-body-top">
+          <div>
+            <span class="cert-type-badge">
+              <i class="fas fa-file-alt"></i>
+              {{ req.get_cert_type_display }}
+            </span>
+          </div>
+          <div style="display:flex; align-items:center; gap: 8px; flex-wrap: wrap;">
+            <span class="req-tracking">{{ req.tracking_code }}</span>
+            <span class="req-status-pill {% if req.status == 'pending' %}status-pending{% elif req.status == 'issued' %}status-issued{% else %}status-rejected{% endif %}">
+              {% if req.status == 'pending' %}<i class="fas fa-clock"></i> Pending
+              {% elif req.status == 'issued' %}<i class="fas fa-check-circle"></i> Issued
+              {% else %}<i class="fas fa-times-circle"></i> Rejected{% endif %}
+            </span>
+          </div>
         </div>
+
+        <div class="req-purpose">
+          <strong style="color: #334155;">Purpose:</strong> {{ req.purpose|truncatechars:80 }}
+        </div>
+        <div class="req-meta">
+          <i class="fas fa-calendar-alt" style="margin-right: 4px;"></i>
+          Submitted on {{ req.created_at|date:"F d, Y \a\t g:i A" }}
+        </div>
+      </div>
+
+      <!-- Payment Column -->
+      <div class="req-payment-col">
+        <div style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--req-muted); margin-bottom: 4px;">
+          Payment
+        </div>
+
+        {% if req.payment %}
+          {% if req.payment.amount %}
+          <div class="pay-amount
+            {% if req.payment.status == 'paid' %}paid
+            {% elif req.payment.status == 'waived' %}waived
+            {% elif req.payment.status == 'pending' %}pending
+            {% else %}unpaid{% endif %}">
+            {% if req.payment.status == 'waived' %}
+              FREE
+            {% else %}
+              ₱{{ req.payment.amount|floatformat:2 }}
+            {% endif %}
+          </div>
+          {% endif %}
+
+          <div class="pay-status-pill
+            {% if req.payment.status == 'paid' %}pill-paid
+            {% elif req.payment.status == 'waived' %}pill-waived
+            {% elif req.payment.status == 'pending' %}pill-pending
+            {% else %}pill-unpaid{% endif %}">
+            <i class="fas
+              {% if req.payment.status == 'paid' %}fa-check
+              {% elif req.payment.status == 'waived' %}fa-gift
+              {% elif req.payment.status == 'pending' %}fa-spinner fa-spin
+              {% else %}fa-exclamation{% endif %}"></i>
+            {{ req.payment.get_status_display }}
+          </div>
+
+          {% if req.payment.status == 'unpaid' %}
+          <a href="{% url 'payments:choose_payment' req.id %}" class="pay-cta">
+            <i class="fas fa-credit-card"></i> Pay Now
+          </a>
+          {% elif req.payment.status == 'pending' %}
+          <div style="font-size: 10px; color: var(--req-amber); font-weight: 600; margin-top: 2px;">
+            Awaiting verification
+          </div>
+          {% endif %}
+
+        {% else %}
+          <div style="font-size: 11px; color: var(--req-muted); margin-bottom: 6px;">Not set</div>
+          <a href="{% url 'payments:choose_payment' req.id %}" class="pay-cta">
+            <i class="fas fa-credit-card"></i> Set Payment
+          </a>
+        {% endif %}
+      </div>
+
+      <!-- Actions Column -->
+      <div class="req-actions-col">
+        {% if req.status == 'issued' and req.issued_certificate %}
+          <a href="{% url 'certifications:virtual_certificate' req.issued_certificate.pk %}"
+             class="action-btn action-btn-view">
+            <i class="fas fa-eye"></i> View
+          </a>
+          {% if req.payment.status == 'paid' or req.payment.status == 'waived' %}
+          <a href="{% url 'payments:download_receipt' req.payment.id %}"
+             class="action-btn action-btn-receipt">
+            <i class="fas fa-download"></i> Receipt
+          </a>
+          {% endif %}
+        {% elif req.status == 'pending' %}
+          <div style="text-align: center;">
+            <div style="font-size: 11px; color: var(--req-amber); font-weight: 700; margin-bottom: 4px;">
+              <i class="fas fa-hourglass-half"></i>
+            </div>
+            <div style="font-size: 10px; color: var(--req-muted);">Processing...</div>
+          </div>
+        {% endif %}
+      </div>
+
     </div>
+
+    <!-- Rejected reason -->
+    {% if req.status == 'rejected' and req.notes %}
+    <div class="rejected-note">
+      <i class="fas fa-exclamation-circle" style="flex-shrink:0; margin-top:2px;"></i>
+      <span><strong>Reason:</strong> {{ req.notes }}</span>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
 </div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon"><i class="fas fa-folder-open"></i></div>
+  <h3 class="empty-title">No requests yet</h3>
+  <p class="empty-sub">You haven't submitted any certificate requests. It only takes a minute!</p>
+  <a href="{% url 'certifications:request_certificate' %}" class="btn-new-req">
+    <i class="fas fa-plus"></i> Submit Your First Request
+  </a>
+</div>
+{% endif %}
+
 {% endblock %}

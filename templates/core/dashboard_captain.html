@@ -7,61 +7,59 @@
 <div class="page-header">
   <div class="page-title">
     <h1>Dashboard</h1>
-    <span>Welcome, {{ request.user.get_full_name|default:request.user.username }} &mdash; <strong>Punong Barangay /
-        Admin</strong></span>
+    <span>Welcome, <strong>{{ request.user.get_full_name|default:request.user.username }}</strong> &mdash; Punong Barangay / Admin</span>
   </div>
   <div class="header-actions">
-
   </div>
 </div>
 
 <!-- Stats Grid -->
 <div class="stats-grid">
-  <div class="stat-card">
+  <div class="stat-card blue">
     <div class="stat-icon icon-blue"><i class="fas fa-users"></i></div>
     <div class="stat-info">
       <span class="value">{{ total_residents }}</span>
       <span class="label">Total Residents</span>
     </div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card green">
     <div class="stat-icon icon-green"><i class="fas fa-user-tie"></i></div>
     <div class="stat-info">
       <span class="value">{{ total_officials }}</span>
       <span class="label">Active Officials</span>
     </div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card yellow">
     <div class="stat-icon icon-yellow"><i class="fas fa-certificate"></i></div>
     <div class="stat-info">
       <span class="value">{{ certificates_today }}</span>
       <span class="label">Certificates Issued Today</span>
     </div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card red">
     <div class="stat-icon icon-red"><i class="fas fa-gavel"></i></div>
     <div class="stat-info">
       <span class="value">{{ total_ordinances }}</span>
       <span class="label">Active Ordinances</span>
     </div>
   </div>
-  <div class="stat-card">
+  <div class="stat-card purple">
     <div class="stat-icon icon-purple"><i class="fas fa-home"></i></div>
     <div class="stat-info">
       <span class="value">{{ total_households }}</span>
       <span class="label">Households</span>
     </div>
   </div>
-  <div class="stat-card clickable" onclick="location.href='{% url 'residents:registration_list' %}'"
+  <div class="stat-card orange clickable" onclick="location.href='{% url 'residents:registration_list' %}'"
     style="cursor: pointer;">
-    <div class="stat-icon" style="background: rgba(255, 152, 0, 0.1); color: #ff9800;">
+    <div class="stat-icon icon-orange">
       <i class="fas fa-user-clock"></i>
     </div>
     <div class="stat-info">
       <span class="value">{{ pending_registrations_count }}</span>
       <span class="label">Pending Registrations</span>
       {% if pending_registrations_today > 0 %}
-      <small class="text-success" style="font-size: 10px;">+{{ pending_registrations_today }} new today</small>
+      <small class="text-success" style="font-size: 11px; margin-top: 4px; font-weight: 600;">+{{ pending_registrations_today }} new today</small>
       {% endif %}
     </div>
   </div>

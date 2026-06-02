@@ -13,10 +13,15 @@
     <span>Information for Ordinance #: {{ ordinance.ordinance_number }}</span>
   </div>
   <div class="header-actions">
+    {% if request.user.get_permission_level <= 2 %}
     <a href="{% url 'ordinances:edit' ordinance.pk %}" class="btn btn-primary">
       <i class="fas fa-edit"></i> Edit Ordinance
     </a>
+    {% endif %}
     {% if ordinance.document_file %}
+    <a href="{{ ordinance.document_file.url }}" target="_blank" class="btn btn-danger" style="background: #dc2626; border: none; border-radius: 0.75rem; font-weight: 600;">
+      <i class="fas fa-file-pdf"></i> View PDF
+    </a>
     <a href="{% url 'ordinances:download' ordinance.pk %}" class="btn btn-secondary">
       <i class="fas fa-download"></i> Download Document
     </a>
@@ -42,6 +47,20 @@
           <p class="lead text-muted">{{ ordinance.description|linebreaks|default:"No description provided." }}
           </p>
         </div>
+
+        {% if ordinance.body_content %}
+        <div class="detail-section mb-4">
+          <h3><i class="fas fa-file-alt text-primary mr-1"></i> Full Body Content</h3>
+          <div style="background: #f8fafc; border-radius: 10px; padding: 20px; border: 1px solid var(--border-light); font-size: 14px; line-height: 1.8; white-space: pre-wrap; max-height: 500px; overflow-y: auto;">{{ ordinance.body_content }}</div>
+        </div>
+        {% endif %}
+
+        {% if ordinance.signatories %}
+        <div class="detail-section mb-4">
+          <h3><i class="fas fa-signature text-primary mr-1"></i> Signatories</h3>
+          <div style="background: #f8fafc; border-radius: 10px; padding: 20px; border: 1px solid var(--border-light); white-space: pre-wrap;">{{ ordinance.signatories }}</div>
+        </div>
+        {% endif %}
 
         <div class="detail-section mb-4">
           <h3>Remarks</h3>
@@ -81,11 +100,13 @@
           {% endif %}
         </div>
 
+        {% if request.user.get_permission_level <= 2 %}
         <div class="mt-4">
           <a href="{% url 'ordinances:delete' ordinance.pk %}" class="btn btn-outline-danger btn-block">
             <i class="fas fa-trash"></i> Delete Ordinance Record
           </a>
         </div>
+        {% endif %}
       </div>
     </div>
   </div>

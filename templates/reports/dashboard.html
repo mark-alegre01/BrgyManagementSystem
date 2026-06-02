@@ -3,61 +3,272 @@
 {% block title %}Reports - Barangay Management System{% endblock %}
 
 {% block content %}
+<style>
+  /* Premium Dashboard Styling */
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+  .page-title h1 {
+    font-weight: 700;
+    font-size: 2rem;
+    color: var(--text-dark, #1e293b);
+    margin-bottom: 0.25rem;
+  }
+  .page-title span {
+    color: var(--text-muted, #64748b);
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .btn-print {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+  }
+  .btn-print:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 10px -1px rgba(59, 130, 246, 0.4);
+  }
+
+  /* Metric Cards */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .metric-card {
+    background: #fff;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    border-top: 4px solid var(--accent, #3b82f6);
+  }
+  
+  .metric-card.primary { border-top-color: #3b82f6; }
+  .metric-card.success { border-top-color: #10b981; }
+  .metric-card.warning { border-top-color: #f59e0b; }
+  .metric-card.purple { border-top-color: #8b5cf6; }
+
+  .metric-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  
+  .metric-title {
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  
+  .metric-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+  }
+  
+  .metric-card.primary .metric-icon { background: #eff6ff; color: #3b82f6; }
+  .metric-card.success .metric-icon { background: #ecfdf5; color: #10b981; }
+  .metric-card.warning .metric-icon { background: #fffbeb; color: #f59e0b; }
+  .metric-card.purple .metric-icon { background: #f5f3ff; color: #8b5cf6; }
+
+  .metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+
+  /* Content Grid */
+  .content-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 992px) {
+    .content-grid { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  
+  .panel-header h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .panel-body {
+    padding: 1.5rem;
+  }
+
+  /* Table styling */
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .report-table th {
+    text-align: left;
+    padding: 1rem 1.5rem;
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .report-table td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    font-weight: 500;
+  }
+  .report-table tr:hover td {
+    background-color: #f8fafc;
+  }
+
+  /* List Items */
+  .info-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .info-list li {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem 0;
+    border-bottom: 1px dashed #e2e8f0;
+  }
+  .info-list li:last-child {
+    border-bottom: none;
+  }
+  .info-list .info-label {
+    color: #64748b;
+    font-weight: 500;
+  }
+  .info-list .info-val {
+    color: #1e293b;
+    font-weight: 700;
+  }
+
+  /* Print Styles */
+  @media print {
+    body { background: white !important; }
+    .sidebar, .top-navbar, .btn-print { display: none !important; }
+    .main-content { margin-left: 0 !important; padding: 0 !important; }
+    .metric-card, .panel { box-shadow: none !important; border: 1px solid #e2e8f0 !important; page-break-inside: avoid; }
+    .page-header { margin-top: 0; }
+  }
+</style>
+
 <div class="page-header">
   <div class="page-title">
     <h1>Monthly Reports Summary</h1>
-    <span>Overview for {% now "F Y" %}</span>
+    <span><i class="far fa-calendar-alt"></i> Report for {% now "F Y" %}</span>
   </div>
-  <div class="header-actions">
-    <button class="btn btn-outline" onclick="window.print()">
-      <i class="fas fa-print"></i> Print Report
-    </button>
+  <button class="btn-print" onclick="window.print()">
+    <i class="fas fa-print"></i> Print Report
+  </button>
+</div>
+
+<div class="metrics-grid">
+  <div class="metric-card primary">
+    <div class="metric-header">
+      <span class="metric-title">Total Population</span>
+      <div class="metric-icon"><i class="fas fa-users"></i></div>
+    </div>
+    <div class="metric-value">{{ total_population }}</div>
+  </div>
+  
+  <div class="metric-card purple">
+    <div class="metric-header">
+      <span class="metric-title">Total Households</span>
+      <div class="metric-icon"><i class="fas fa-home"></i></div>
+    </div>
+    <div class="metric-value">{{ total_households }}</div>
+  </div>
+
+  <div class="metric-card warning">
+    <div class="metric-header">
+      <span class="metric-title">Certificates Issued</span>
+      <div class="metric-icon"><i class="fas fa-file-alt"></i></div>
+    </div>
+    <div class="metric-value">{{ certs_this_month }}</div>
+  </div>
+
+  <div class="metric-card success">
+    <div class="metric-header">
+      <span class="metric-title">Fees Collected</span>
+      <div class="metric-icon"><i class="fas fa-coins"></i></div>
+    </div>
+    <div class="metric-value">₱{{ total_revenue|floatformat:2 }}</div>
   </div>
 </div>
 
-<div class="stats-grid">
-  <div class="stat-card">
-    <div class="stat-info">
-      <span class="label">Total Population</span>
-      <span class="value">{{ total_population }}</span>
+<div class="content-grid">
+  <div class="panel">
+    <div class="panel-header">
+      <i class="fas fa-chart-bar" style="color: #3b82f6;"></i>
+      <h3>Certificate Issuance Breakdown</h3>
     </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-info">
-      <span class="label">Certificates Issued (Month)</span>
-      <span class="value">{{ certs_this_month }}</span>
-    </div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-info">
-      <span class="label">Total Fees Collected</span>
-      <span class="value">₱{{ total_revenue|floatformat:2 }}</span>
-    </div>
-  </div>
-</div>
-
-<div class="charts-grid">
-  <div class="card">
-    <div class="card-header">
-      <h3>Certificate Breakdown</h3>
-    </div>
-    <div class="table-responsive">
-      <table>
+    <div style="overflow-x: auto;">
+      <table class="report-table">
         <thead>
           <tr>
-            <th>Type</th>
-            <th>Count</th>
+            <th>Certificate Type</th>
+            <th style="text-align: right;">Total Issued</th>
           </tr>
         </thead>
         <tbody>
           {% for item in cert_breakdown %}
           <tr>
             <td>{{ item.type }}</td>
-            <td>{{ item.count }}</td>
+            <td style="text-align: right;">
+              <span style="background: #eff6ff; color: #1d4ed8; padding: 0.25rem 0.75rem; border-radius: 999px; font-weight: 600;">
+                {{ item.count }}
+              </span>
+            </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="2" class="text-center">No certificates issued this month.</td>
+            <td colspan="2" style="text-align: center; color: #64748b; padding: 2rem;">No certificates issued this month.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -65,68 +276,39 @@
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-header">
-      <h3>Legislative & Staff Summary</h3>
+  <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+    <div class="panel">
+      <div class="panel-header">
+        <i class="fas fa-users-cog" style="color: #8b5cf6;"></i>
+        <h3>Demographic Snapshot</h3>
+      </div>
+      <div class="panel-body">
+        <ul class="info-list">
+          <li><span class="info-label">Male</span> <span class="info-val">{{ male_count }}</span></li>
+          <li><span class="info-label">Female</span> <span class="info-val">{{ female_count }}</span></li>
+          <li><span class="info-label">Registered Voters</span> <span class="info-val">{{ voters }}</span></li>
+          <li><span class="info-label">Senior Citizens</span> <span class="info-val">{{ senior }}</span></li>
+          <li><span class="info-label">PWDs</span> <span class="info-val">{{ pwd }}</span></li>
+          <li><span class="info-label">4Ps Members</span> <span class="info-val">{{ fourps }}</span></li>
+        </ul>
+      </div>
     </div>
-    <div class="card-body" style="padding: 20px;">
-      <p><strong>Active Ordinances:</strong> {{ active_ordinances }}</p>
-      <p><strong>Total Ordinances:</strong> {{ total_ordinances }}</p>
-      <p style="margin-top: 15px;"><strong>Active Officials:</strong> {{ active_officials }}</p>
-      <p><strong>Attendance Recorded Today:</strong> {{ attendance_today }} entries</p>
+
+    <div class="panel">
+      <div class="panel-header">
+        <i class="fas fa-landmark" style="color: #10b981;"></i>
+        <h3>Legislative & Staff</h3>
+      </div>
+      <div class="panel-body">
+        <ul class="info-list">
+          <li><span class="info-label">Total Ordinances</span> <span class="info-val">{{ total_ordinances }}</span></li>
+          <li><span class="info-label">Active Ordinances</span> <span class="info-val" style="color: #10b981;">{{ active_ordinances }}</span></li>
+          <li><span class="info-label">Active Officials</span> <span class="info-val">{{ active_officials }}</span></li>
+          <li><span class="info-label">Attendance Today</span> <span class="info-val">{{ attendance_today }} entries</span></li>
+        </ul>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="card" style="margin-top: 30px;">
-  <div class="card-header">
-    <h3>Demographic Distribution</h3>
-  </div>
-  <div class="card-body" style="display: flex; gap: 40px; padding: 20px;">
-    <div class="demo-item">
-      <span class="label">Male:</span>
-      <strong>{{ male_count }}</strong>
-    </div>
-    <div class="demo-item">
-      <span class="label">Female:</span>
-      <strong>{{ female_count }}</strong>
-    </div>
-    <div class="demo-item">
-      <span class="label">Registered Voters:</span>
-      <strong>{{ voters }}</strong>
-    </div>
-  </div>
-</div>
-
-<style>
-  .demo-item {
-    font-size: 16px;
-  }
-
-  .demo-item .label {
-    color: var(--text-muted);
-    margin-right: 10px;
-  }
-
-  @media print {
-
-    .sidebar,
-    .top-navbar,
-    .header-actions {
-      display: none;
-    }
-
-    .main-content {
-      margin-left: 0;
-    }
-
-    .page-content {
-      padding: 0;
-    }
-
-    .card {
-      border: none;
-    }
-  }
-</style>
 {% endblock %}

@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Q
-from residents.models import Resident
+from residents.models import Resident, Household
 from datetime import date
 
 
@@ -10,6 +10,9 @@ def census_dashboard(request):
     """Census overview with population stats."""
     residents = Resident.objects.filter(is_active=True)
     total = residents.count()
+    
+    total_households = Household.objects.count()
+    avg_household_size = round(total / total_households, 1) if total_households > 0 else 0
 
     # Age groups
     today = date.today()
@@ -58,6 +61,8 @@ def census_dashboard(request):
 
     context = {
         'total_population': total,
+        'total_households': total_households,
+        'avg_household_size': avg_household_size,
         'age_groups': age_groups,
         'male_count': male_count,
         'female_count': female_count,

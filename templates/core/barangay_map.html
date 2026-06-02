@@ -1,0 +1,502 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Barangay Map - Household Locator{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<style>
+  /* ── Page layout ───────────────────────────────── */
+  .map-page { position: relative; height: calc(100vh - 74px); }
+  #brgy-map { width: 100%; height: 100%; border-radius: 0; }
+
+  /* ── Shared control card style ─────────────────── */
+  .map-ctrl {
+    font-family: 'DM Sans', sans-serif;
+    background: rgba(255,255,255,.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 24px rgba(0,0,0,.08);
+    color: var(--text-main);
+    z-index: 5;
+    pointer-events: auto;
+  }
+
+  /* ── Info Card (bottom-left) ───────────────────── */
+  .info-card {
+    position: absolute; bottom: 34px; left: 16px;
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .info-card .brgy-badge {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--primary), #3da667);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 18px;
+    flex-shrink: 0;
+  }
+  .info-card h4 { margin: 0 0 2px; font-size: 14px; font-weight: 700; letter-spacing: -.01em; }
+  .info-card .info-stats {
+    display: flex; gap: 12px; margin-top: 4px; font-size: 12px; color: var(--text-muted);
+  }
+  .info-card .info-stats span { display: flex; align-items: center; gap: 4px; }
+  .info-card .info-stats i { font-size: 10px; color: var(--primary); }
+
+  /* ── Layer toggle (top-right) ──────────────────── */
+  .layer-toggle {
+    position: absolute; top: 16px; right: 16px;
+    display: flex; padding: 4px; gap: 2px;
+  }
+  .layer-toggle button {
+    border: none; background: transparent;
+    padding: 8px 14px; border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 600;
+    color: var(--text-muted); cursor: pointer;
+    transition: var(--transition);
+  }
+  .layer-toggle button.active {
+    background: var(--primary); color: #fff;
+    box-shadow: 0 2px 8px rgba(44,110,73,.25);
+  }
+  .layer-toggle button:hover:not(.active) { background: var(--bg-main); }
+
+  /* ── Search bar (top-left) ─────────────────────── */
+  .map-search {
+    position: absolute; top: 16px; left: 16px;
+    display: flex; align-items: center;
+    padding: 0 14px; width: 320px; max-width: calc(100vw - 240px);
+  }
+  .map-search i { color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
+  .map-search input {
+    border: none; background: transparent;
+    padding: 10px 12px; width: 100%;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px; color: var(--text-main);
+    outline: none;
+  }
+  .map-search input::placeholder { color: var(--text-muted); }
+  .search-results {
+    position: absolute; top: 100%; left: 0; right: 0;
+    margin-top: 4px; max-height: 240px; overflow-y: auto;
+    display: none;
+  }
+  .search-results.show { display: block; }
+  .search-result-item {
+    padding: 10px 16px; cursor: pointer;
+    font-size: 13px; border-bottom: 1px solid var(--border-light);
+    transition: background .15s;
+  }
+  .search-result-item:last-child { border-bottom: none; }
+  .search-result-item:hover { background: var(--primary-light); }
+  .search-result-item .result-type {
+    font-size: 11px; color: var(--text-muted); margin-top: 2px;
+  }
+
+  /* ── Custom buttons (Locate / Fullscreen) ──────── */
+  .map-custom-btns {
+    position: absolute; bottom: 34px; right: 16px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .map-btn {
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer;
+    font-size: 16px; color: var(--text-main);
+    transition: var(--transition);
+  }
+  .map-btn:hover { background: var(--primary-light); color: var(--primary); }
+
+  /* ── MapLibre default control overrides ─────────── */
+  .maplibregl-ctrl-group {
+    background: rgba(255,255,255,.92) !important;
+    backdrop-filter: blur(14px) !important;
+    border: 1px solid var(--border-light) !important;
+    border-radius: var(--radius-md) !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,.08) !important;
+    overflow: hidden;
+  }
+  .maplibregl-ctrl-group button {
+    width: 36px !important; height: 36px !important;
+  }
+  .maplibregl-ctrl-attrib { font-size: 11px !important; }
+
+  /* ── Popup styling ─────────────────────────────── */
+  .maplibregl-popup-content {
+    border-radius: var(--radius-md) !important;
+    padding: 0 !important;
+    box-shadow: 0 8px 30px rgba(0,0,0,.12) !important;
+    overflow: hidden;
+    font-family: 'DM Sans', sans-serif;
+    min-width: 220px;
+  }
+  .popup-inner { padding: 0; }
+  .popup-header {
+    background: linear-gradient(135deg, var(--primary), #3da667);
+    color: #fff; padding: 14px 18px;
+  }
+  .popup-header h3 { margin: 0; font-size: 15px; font-weight: 700; }
+  .popup-body { padding: 14px 18px; }
+  .popup-stat {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; font-size: 13px;
+  }
+  .popup-stat i {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+  }
+  .popup-stat .icon-residents { background: rgba(37,99,235,.1); color: #2563EB; }
+  .popup-stat .icon-households { background: rgba(245,158,11,.1); color: #F59E0B; }
+  .popup-stat .icon-head { background: rgba(16,185,129,.1); color: #10B981; }
+  .popup-stat-label { color: var(--text-muted); font-size: 11px; }
+  .popup-stat-value { font-weight: 700; font-size: 15px; }
+
+  .maplibregl-popup-close-button {
+    color: rgba(255,255,255,.7) !important;
+    font-size: 18px !important;
+    padding: 4px 8px !important;
+  }
+  .maplibregl-popup-close-button:hover { color: #fff !important; }
+
+  /* ── Marker styling (Households) ────────────────── */
+  .household-marker {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--primary), #3da667);
+    border: 3px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 3px 12px rgba(44,110,73,.35);
+    cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; color: #fff;
+  }
+  .household-marker:hover {
+    transform: scale(1.2);
+    box-shadow: 0 6px 20px rgba(44,110,73,.45);
+  }
+  .household-marker i { font-size: 14px; }
+
+  /* ── Loading overlay ───────────────────────────── */
+  .map-loading {
+    position: absolute; inset: 0;
+    background: var(--bg-main);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 10;
+    transition: opacity .5s;
+  }
+  .map-loading.hidden { opacity: 0; pointer-events: none; }
+  .map-loading .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  .map-loading p { margin-top: 14px; font-size: 14px; color: var(--text-muted); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Responsive ────────────────────────────────── */
+  @media (max-width: 768px) {
+    .map-search { width: calc(100% - 32px); }
+    .info-card { left: 10px; right: 10px; bottom: 24px; }
+    .layer-toggle { top: 66px; }
+  }
+
+  /* Remove page-content padding for map */
+  .page-content { padding: 0 !important; overflow: hidden; }
+</style>
+{% endblock %}
+
+{% block breadcrumb %}
+<span>Brgy. Sico Sico Management System / Household Map</span>
+{% endblock %}
+
+{% block content %}
+<div class="map-page">
+  <!-- Loading Overlay -->
+  <div class="map-loading" id="mapLoading">
+    <div class="spinner"></div>
+    <p>Loading Household Map…</p>
+  </div>
+
+  <!-- Map Container -->
+  <div id="brgy-map"></div>
+
+  <!-- Search Bar -->
+  <div class="map-ctrl map-search" id="mapSearch">
+    <i class="fas fa-search"></i>
+    <input type="text" id="searchInput" placeholder="Search household by number or family head…" autocomplete="off" />
+    <div class="map-ctrl search-results" id="searchResults"></div>
+  </div>
+
+  <!-- Layer Toggle -->
+  <div class="map-ctrl layer-toggle" id="layerToggle">
+    <button class="active" data-layer="streets"><i class="fas fa-road"></i>&nbsp; Standard</button>
+    <button data-layer="satellite"><i class="fas fa-satellite"></i>&nbsp; Satellite</button>
+  </div>
+
+  <!-- Custom Buttons -->
+  <div class="map-custom-btns">
+    <button class="map-ctrl map-btn" id="btnLocate" title="Locate Me">
+      <i class="fas fa-crosshairs"></i>
+    </button>
+    <button class="map-ctrl map-btn" id="btnFullscreen" title="Toggle Fullscreen">
+      <i class="fas fa-expand"></i>
+    </button>
+  </div>
+
+  <!-- Info Card -->
+  <div class="map-ctrl info-card">
+    <div class="brgy-badge"><i class="fas fa-house-user"></i></div>
+    <div>
+      <h4>Household Locator</h4>
+      <div class="info-stats">
+        <span><i class="fas fa-circle"></i> Brgy. Sico Sico</span>
+        <span><i class="fas fa-circle"></i> Pop. 828</span>
+        <span><i class="fas fa-circle"></i> 35.1 m</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MapLibre GL JS -->
+<script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  // ── Map initialization ──────────────────────────
+  const BRGY_CENTER = [125.7222, 9.4898]; // [lng, lat]
+  const ZOOM = 15;
+
+  const TILE_STREETS = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const TILE_SATELLITE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+  function makeStyle(tileUrl, attr) {
+    return {
+      version: 8,
+      sources: {
+        'raster-tiles': {
+          type: 'raster',
+          tiles: [tileUrl],
+          tileSize: 256,
+          attribution: attr
+        }
+      },
+      layers: [{
+        id: 'raster-layer',
+        type: 'raster',
+        source: 'raster-tiles',
+        minzoom: 0,
+        maxzoom: 19
+      }]
+    };
+  }
+
+  const streetsStyle = makeStyle(TILE_STREETS, '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>');
+  const satelliteStyle = makeStyle(TILE_SATELLITE, 'Tiles &copy; Esri');
+
+  const map = new maplibregl.Map({
+    container: 'brgy-map',
+    style: streetsStyle,
+    center: BRGY_CENTER,
+    zoom: ZOOM,
+    maxZoom: 19,
+    attributionControl: true
+  });
+
+  // Navigation (zoom) controls
+  map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
+
+  // Hide loader once the map is ready
+  map.on('load', () => {
+    document.getElementById('mapLoading').classList.add('hidden');
+    loadHouseholds();
+  });
+
+  // ── Layer toggle ────────────────────────────────
+  let currentLayer = 'streets';
+  document.getElementById('layerToggle').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn || btn.classList.contains('active')) return;
+    const layer = btn.dataset.layer;
+
+    document.querySelectorAll('#layerToggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const oldMarkers = [...activeMarkers];
+
+    if (layer === 'satellite') {
+      map.setStyle(satelliteStyle);
+    } else {
+      map.setStyle(streetsStyle);
+    }
+    currentLayer = layer;
+
+    // MapLibre removes markers on style change — re-add them after style loads
+    map.once('styledata', () => {
+      oldMarkers.forEach(m => m.addTo(map));
+    });
+  });
+
+  // ── Fullscreen ──────────────────────────────────
+  const btnFs = document.getElementById('btnFullscreen');
+  btnFs.addEventListener('click', () => {
+    const el = document.querySelector('.map-page');
+    if (!document.fullscreenElement) {
+      el.requestFullscreen().catch(() => {});
+      btnFs.innerHTML = '<i class="fas fa-compress"></i>';
+    } else {
+      document.exitFullscreen();
+      btnFs.innerHTML = '<i class="fas fa-expand"></i>';
+    }
+  });
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) btnFs.innerHTML = '<i class="fas fa-expand"></i>';
+    setTimeout(() => map.resize(), 200);
+  });
+
+  // ── Locate Me ───────────────────────────────────
+  document.getElementById('btnLocate').addEventListener('click', () => {
+    if (!navigator.geolocation) return alert('Geolocation is not supported by your browser.');
+    const btn = document.getElementById('btnLocate');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        map.flyTo({ center: [longitude, latitude], zoom: 17, duration: 1500 });
+
+        // Add a blue dot for "my location"
+        if (window._locMarker) window._locMarker.remove();
+        const dot = document.createElement('div');
+        dot.style.cssText = 'width:16px;height:16px;background:#2563EB;border:3px solid #fff;border-radius:50%;box-shadow:0 0 10px rgba(37,99,235,.4)';
+        window._locMarker = new maplibregl.Marker({ element: dot }).setLngLat([longitude, latitude]).addTo(map);
+        btn.innerHTML = '<i class="fas fa-crosshairs"></i>';
+      },
+      () => {
+        alert('Unable to retrieve your location.');
+        btn.innerHTML = '<i class="fas fa-crosshairs"></i>';
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+
+  // ── Load Household markers ──────────────────────
+  let activeMarkers = [];
+  let householdData = [];
+
+  function loadHouseholds() {
+    fetch("{% url 'residents:household_map_api' %}")
+      .then(r => r.json())
+      .then(geojson => {
+        householdData = geojson.features || [];
+        householdData.forEach(f => addHouseholdMarker(f));
+      })
+      .catch(err => console.error('Failed to load households:', err));
+  }
+
+  function addHouseholdMarker(feature) {
+    const coords = feature.geometry.coordinates;
+    const props = feature.properties;
+
+    // Custom marker element
+    const el = document.createElement('div');
+    el.className = 'household-marker';
+    el.innerHTML = '<i class="fas fa-house-user"></i>';
+
+    const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat(coords)
+      .setPopup(new maplibregl.Popup({ offset: 25, closeButton: true, maxWidth: '280px' }).setHTML(`
+        <div class="popup-inner">
+          <div class="popup-header">
+            <h3><i class="fas fa-building" style="margin-right:6px"></i>Household ${props.household_no}</h3>
+          </div>
+          <div class="popup-body">
+            <div class="popup-stat">
+              <i class="icon-head fas fa-user-tie"></i>
+              <div>
+                <div class="popup-stat-label">Head of Household</div>
+                <div class="popup-stat-value" style="font-size:13px;font-weight:700">${props.head}</div>
+              </div>
+            </div>
+            <div class="popup-stat">
+              <i class="icon-households fas fa-map-pin"></i>
+              <div>
+                <div class="popup-stat-label">Purok</div>
+                <div class="popup-stat-value">${props.purok}</div>
+              </div>
+            </div>
+            <div class="popup-stat">
+              <i class="icon-residents fas fa-users"></i>
+              <div>
+                <div class="popup-stat-label">Residents</div>
+                <div class="popup-stat-value">${props.residents}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `))
+      .addTo(map);
+
+    activeMarkers.push(marker);
+  }
+
+  // ── Search ──────────────────────────────────────
+  const searchInput = document.getElementById('searchInput');
+  const searchResults = document.getElementById('searchResults');
+  let debounceTimer;
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = searchInput.value.trim().toLowerCase();
+    if (!q) { searchResults.classList.remove('show'); return; }
+
+    // Filter households by number or head of household
+    const householdMatches = householdData.filter(f => 
+      f.properties.household_no.toLowerCase().includes(q) || 
+      f.properties.head.toLowerCase().includes(q)
+    );
+    
+    let html = householdMatches.map(f => `
+      <div class="search-result-item" data-lng="${f.geometry.coordinates[0]}" data-lat="${f.geometry.coordinates[1]}">
+        <div><i class="fas fa-house-user" style="color:var(--primary);margin-right:6px"></i><strong>Household ${f.properties.household_no}</strong></div>
+        <div class="result-type">Head: ${f.properties.head} • ${f.properties.purok}</div>
+      </div>
+    `).join('');
+
+    if (html) {
+      searchResults.innerHTML = html;
+      searchResults.classList.add('show');
+      bindResultClicks();
+    } else {
+      searchResults.innerHTML = '<div class="search-result-item" style="color:var(--text-muted)"><i class="fas fa-info-circle"></i> No households found</div>';
+      searchResults.classList.add('show');
+    }
+  });
+
+  function bindResultClicks() {
+    searchResults.querySelectorAll('.search-result-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const lng = parseFloat(item.dataset.lng);
+        const lat = parseFloat(item.dataset.lat);
+        map.flyTo({ center: [lng, lat], zoom: 18, duration: 1200 });
+        searchResults.classList.remove('show');
+        searchInput.value = item.querySelector('strong').textContent.trim();
+      });
+    });
+  }
+
+  // Close search results when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('mapSearch').contains(e.target)) {
+      searchResults.classList.remove('show');
+    }
+  });
+});
+</script>
+{% endblock %}

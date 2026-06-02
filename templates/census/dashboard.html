@@ -3,45 +3,252 @@
 {% block title %}Census - Barangay Management System{% endblock %}
 
 {% block content %}
+<style>
+  /* Premium Dashboard Styling */
+  .page-header {
+    margin-bottom: 2rem;
+  }
+  .page-title h1 {
+    font-weight: 700;
+    font-size: 2rem;
+    color: var(--text-dark, #1e293b);
+    margin-bottom: 0.5rem;
+  }
+  .page-title span {
+    color: var(--text-muted, #64748b);
+    font-size: 1rem;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: #ffffff;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 4px; height: 100%;
+    background: var(--accent-color, #4f46e5);
+  }
+
+  .stat-card.c-blue::before { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .stat-card.c-green::before { background: linear-gradient(135deg, #10b981, #059669); }
+  .stat-card.c-purple::before { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+  .stat-card.c-orange::before { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  .stat-card.c-red::before { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  .stat-card.c-teal::before { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+
+  .stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-right: 1.25rem;
+    color: white;
+  }
+
+  .stat-card.c-blue .stat-icon { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .stat-card.c-green .stat-icon { background: linear-gradient(135deg, #10b981, #059669); }
+  .stat-card.c-purple .stat-icon { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+  .stat-card.c-orange .stat-icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  .stat-card.c-red .stat-icon { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  .stat-card.c-teal .stat-icon { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+
+  .stat-info {
+    display: flex;
+    flex-direction: column;
+  }
+  .stat-info .value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    line-height: 1.2;
+  }
+  .stat-info .label {
+    font-size: 0.875rem;
+    color: #64748b;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 0.25rem;
+  }
+
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  @media (max-width: 992px) {
+    .charts-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .premium-card {
+    background: #ffffff;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+  }
+
+  .premium-card-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    background: #fafafa;
+  }
+  .premium-card-header h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .premium-card-body {
+    padding: 1.5rem;
+  }
+
+  /* Beautiful Table */
+  .custom-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .custom-table th {
+    background-color: #f8fafc;
+    color: #64748b;
+    font-weight: 600;
+    text-align: left;
+    padding: 1rem 1.5rem;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .custom-table td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    font-weight: 500;
+  }
+  .custom-table tr:last-child td {
+    border-bottom: none;
+  }
+  .custom-table tr:hover td {
+    background-color: #f8fafc;
+  }
+
+  .progress-bar-bg {
+    background-color: #e2e8f0;
+    border-radius: 9999px;
+    height: 8px;
+    width: 100%;
+    overflow: hidden;
+    margin-top: 0.5rem;
+  }
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    border-radius: 9999px;
+  }
+
+  .demographics-summary {
+    display: flex;
+    justify-content: space-around;
+    padding: 1rem 0;
+  }
+  .demo-circle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .demo-circle .icon-wrapper {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    margin-bottom: 0.75rem;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+  .demo-circle.male .icon-wrapper { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+  .demo-circle.female .icon-wrapper { background: linear-gradient(135deg, #ec4899, #db2777); }
+  .demo-circle.fourps .icon-wrapper { background: linear-gradient(135deg, #10b981, #059669); }
+  
+  .demo-circle .val { font-size: 1.5rem; font-weight: 700; color: #1e293b; }
+  .demo-circle .lbl { font-size: 0.875rem; color: #64748b; font-weight: 500; }
+
+</style>
+
 <div class="page-header">
   <div class="page-title">
     <h1>Barangay Census & Demographics</h1>
-    <span>Statistical overview of the population</span>
+    <span>Comprehensive statistical overview of the population and households</span>
   </div>
 </div>
 
 <div class="stats-grid">
-  <div class="stat-card">
-    <div class="stat-icon icon-blue">
-      <i class="fas fa-users"></i>
-    </div>
+  <div class="stat-card c-blue">
+    <div class="stat-icon"><i class="fas fa-users"></i></div>
     <div class="stat-info">
       <span class="value">{{ total_population }}</span>
       <span class="label">Total Population</span>
     </div>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon icon-green">
-      <i class="fas fa-vote-yea"></i>
+  <div class="stat-card c-purple">
+    <div class="stat-icon"><i class="fas fa-home"></i></div>
+    <div class="stat-info">
+      <span class="value">{{ total_households }}</span>
+      <span class="label">Total Households</span>
     </div>
+  </div>
+  <div class="stat-card c-teal">
+    <div class="stat-icon"><i class="fas fa-chart-pie"></i></div>
+    <div class="stat-info">
+      <span class="value">{{ avg_household_size }}</span>
+      <span class="label">Avg. Family Size</span>
+    </div>
+  </div>
+  <div class="stat-card c-green">
+    <div class="stat-icon"><i class="fas fa-vote-yea"></i></div>
     <div class="stat-info">
       <span class="value">{{ voters }}</span>
       <span class="label">Registered Voters</span>
     </div>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon icon-yellow">
-      <i class="fas fa-blind"></i>
-    </div>
+  <div class="stat-card c-orange">
+    <div class="stat-icon"><i class="fas fa-blind"></i></div>
     <div class="stat-info">
       <span class="value">{{ senior }}</span>
       <span class="label">Senior Citizens</span>
     </div>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon icon-red">
-      <i class="fas fa-wheelchair"></i>
-    </div>
+  <div class="stat-card c-red">
+    <div class="stat-icon"><i class="fas fa-wheelchair"></i></div>
     <div class="stat-info">
       <span class="value">{{ pwd }}</span>
       <span class="label">PWDs</span>
@@ -50,89 +257,182 @@
 </div>
 
 <div class="charts-grid">
-  <div class="card">
-    <div class="card-header">
-      <h3>Age Distribution</h3>
+  <!-- Age Distribution Chart -->
+  <div class="premium-card">
+    <div class="premium-card-header">
+      <h3>Population by Age Group</h3>
     </div>
-    <div class="card-body" style="padding: 20px;">
+    <div class="premium-card-body" style="height: 350px;">
       <canvas id="ageChart"></canvas>
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-header">
-      <h3>Purok Distribution</h3>
+  <!-- Gender & Sector Breakdown -->
+  <div class="premium-card">
+    <div class="premium-card-header">
+      <h3>Gender Distribution</h3>
     </div>
-    <div class="table-responsive">
-      <table>
-        <thead>
-          <tr>
-            <th>Purok/Zone</th>
-            <th>Population</th>
-            <th>Percentage</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in purok_stats %}
-          <tr>
-            <td>{{ p.purok|default:"Undeclared" }}</td>
-            <td>{{ p.count }}</td>
-            <td>
-              {% widthratio p.count total_population 100 %}%
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="premium-card-body" style="height: 350px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+      <div style="height: 220px; width: 100%; position: relative;">
+        <canvas id="genderChart"></canvas>
+      </div>
+      <div class="demographics-summary" style="width: 100%; margin-top: 20px;">
+        <div class="demo-circle male">
+          <div class="val">{{ male_count }}</div>
+          <div class="lbl">Male</div>
+        </div>
+        <div class="demo-circle female">
+          <div class="val">{{ female_count }}</div>
+          <div class="lbl">Female</div>
+        </div>
+        <div class="demo-circle fourps">
+          <div class="val">{{ fourps }}</div>
+          <div class="lbl">4Ps Member</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="card" style="margin-top: 30px;">
-  <div class="card-header">
-    <h3>Gender & Sector Breakdown</h3>
+<div class="premium-card">
+  <div class="premium-card-header">
+    <h3>Purok Distribution</h3>
   </div>
-  <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr); padding: 20px;">
-    <div class="stat-info">
-      <span class="label">Male</span>
-      <span class="value" style="color: #4f46e5;">{{ male_count }}</span>
-    </div>
-    <div class="stat-info">
-      <span class="label">Female</span>
-      <span class="value" style="color: #ec4899;">{{ female_count }}</span>
-    </div>
-    <div class="stat-info">
-      <span class="label">4Ps Members</span>
-      <span class="value">{{ fourps }}</span>
-    </div>
+  <div class="table-responsive">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>Purok / Zone Name</th>
+          <th>Total Population</th>
+          <th style="width: 40%;">Percentage Share</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in purok_stats %}
+        <tr>
+          <td>
+            <div style="display: flex; align-items: center;">
+              <i class="fas fa-map-marker-alt" style="color: #64748b; margin-right: 10px;"></i>
+              {{ p.purok|default:"Undeclared" }}
+            </div>
+          </td>
+          <td><strong>{{ p.count }}</strong> residents</td>
+          <td>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-weight: 600; color: #3b82f6;">{% widthratio p.count total_population 100 %}%</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" style="width: {% widthratio p.count total_population 100 %}%;"></div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 </div>
 
 {% block extra_js %}
+<!-- Include Chart.js if not globally available, assuming it is since it was in the old template -->
 <script>
+  // Setup standard chart defaults for premium look
+  Chart.defaults.font.family = "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+  Chart.defaults.color = '#64748b';
+
+  // Age Group Bar Chart
   const ageCtx = document.getElementById('ageChart').getContext('2d');
+  
+  // Create gradient for bars
+  let ageGradient = ageCtx.createLinearGradient(0, 0, 0, 400);
+  ageGradient.addColorStop(0, 'rgba(99, 102, 241, 0.8)'); // Indigo
+  ageGradient.addColorStop(1, 'rgba(168, 85, 247, 0.8)'); // Purple
+
   new Chart(ageCtx, {
     type: 'bar',
     data: {
-      labels: {{ age_group_labels| safe }},
-    datasets: [{
-      label: 'Population Count',
-      data: {{ age_group_values| safe }},
-    backgroundColor: 'rgba(79, 70, 229, 0.6)',
-    borderColor: '#4f46e5',
-    borderWidth: 1
+      labels: {{ age_group_labels|safe }},
+      datasets: [{
+        label: 'Population',
+        data: {{ age_group_values|safe }},
+        backgroundColor: ageGradient,
+        borderRadius: 6,
+        borderSkipped: false,
+        barPercentage: 0.6
       }]
     },
     options: {
-    responsive: true,
-    scales: {
-      y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } },
-      x: { grid: { display: false } }
-    },
-    plugins: {
-      legend: { display: false }
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          padding: 12,
+          titleFont: { size: 13, weight: 'bold' },
+          bodyFont: { size: 14 },
+          displayColors: false,
+          callbacks: {
+            label: function(context) {
+              return context.parsed.y + ' Residents';
+            }
+          }
+        }
+      },
+      scales: {
+        y: { 
+          beginAtZero: true, 
+          grid: { color: '#f1f5f9', drawBorder: false },
+          ticks: { font: { size: 12 } }
+        },
+        x: { 
+          grid: { display: false, drawBorder: false },
+          ticks: { font: { size: 12 } }
+        }
+      }
     }
-  }
+  });
+
+  // Gender Doughnut Chart
+  const genderCtx = document.getElementById('genderChart').getContext('2d');
+  new Chart(genderCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Male', 'Female'],
+      datasets: [{
+        data: [{{ male_count }}, {{ female_count }}],
+        backgroundColor: [
+          'rgba(59, 130, 246, 0.9)', // Blue
+          'rgba(236, 72, 153, 0.9)'  // Pink
+        ],
+        hoverBackgroundColor: [
+          'rgba(37, 99, 235, 1)',
+          'rgba(219, 39, 119, 1)'
+        ],
+        borderWidth: 0,
+        hoverOffset: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: { 
+          display: false
+        },
+        tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          padding: 10,
+          callbacks: {
+            label: function(context) {
+              let total = {{ total_population }};
+              let percentage = Math.round((context.raw / total) * 100);
+              return ` ${context.label}: ${context.raw} (${percentage}%)`;
+            }
+          }
+        }
+      }
+    }
   });
 </script>
 {% endblock %}

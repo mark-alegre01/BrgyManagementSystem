@@ -62,6 +62,8 @@ MIDDLEWARE = [
     "core.middleware.AutoLogoutMiddleware",
 ]
 
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 ROOT_URLCONF = "barangay_project.urls"
 
 TEMPLATES = [
@@ -157,3 +159,16 @@ LATE_THRESHOLD_MINUTES = 30
 
 # Pagination
 ITEMS_PER_PAGE = 25
+
+# Use SQLite for testing to bypass Postgres DB creation permission errors
+import sys
+if 'test' in sys.argv or 'test_coverage' in sys.argv:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": ":memory:",
+        }
+    }
+    AUTHENTICATION_BACKENDS = [
+        'django.contrib.auth.backends.ModelBackend',
+    ]

@@ -5,6 +5,10 @@ from datetime import date
 class Purok(models.Model):
     """Purok/zone lookup table for normalized queries."""
     name = models.CharField(max_length=100, unique=True)
+    
+    # Geo coordinates for mapping
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -27,6 +31,10 @@ class Household(models.Model):
         blank=True,
         related_name='households',
     )
+    # Geo coordinates for mapping
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -92,6 +100,17 @@ class Resident(models.Model):
     )
 
     # Household
+    HOUSEHOLD_RELATIONSHIP_CHOICES = [
+        ("head", "Head"),
+        ("spouse", "Spouse"),
+        ("child", "Child"),
+        ("parent", "Parent"),
+        ("sibling", "Sibling"),
+        ("grandchild", "Grandchild"),
+        ("grandparent", "Grandparent"),
+        ("other", "Other Relative"),
+    ]
+
     household = models.ForeignKey(
         Household,
         on_delete=models.SET_NULL,
@@ -100,6 +119,21 @@ class Resident(models.Model):
         related_name="members",
     )
     is_household_head = models.BooleanField(default=False)
+    household_relationship = models.CharField(
+        max_length=20, 
+        choices=HOUSEHOLD_RELATIONSHIP_CHOICES, 
+        blank=True, 
+        null=True,
+        verbose_name="Relationship to Head"
+    )
+    parent_member = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='children_members',
+        help_text="Custom parent relationship for interactive family tree"
+    )
 
     # PhilSys Integration
     philSys_number = models.CharField(

@@ -462,10 +462,14 @@ def household_add(request):
         messages.error(request, "You do not have permission to perform this action.")
         return redirect('core:dashboard')
     if request.method == 'POST':
+        lat = request.POST.get('latitude')
+        lng = request.POST.get('longitude')
         household = Household(
             household_no=request.POST.get('household_no'),
             address=request.POST.get('address'),
             purok_id=request.POST.get('purok') or None,
+            latitude=float(lat) if lat else None,
+            longitude=float(lng) if lng else None,
         )
         household.save()
         messages.success(request, f'Household #{household.household_no} added.')
@@ -475,16 +479,102 @@ def household_add(request):
 
 
 @login_required
+def household_edit(request, pk):
+    """Edit a household – admin/staff only."""
+    if is_resident_role(request):
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('core:dashboard')
+    household = get_object_or_404(Household, pk=pk)
+    if request.method == 'POST':
+        household.household_no = request.POST.get('household_no')
+        household.address = request.POST.get('address')
+        household.purok_id = request.POST.get('purok') or None
+        
+        lat = request.POST.get('latitude')
+        lng = request.POST.get('longitude')
+        household.latitude = float(lat) if lat else None
+        household.longitude = float(lng) if lng else None
+        
+        household.save()
+        messages.success(request, f'Household #{household.household_no} updated.')
+        return redirect('residents:household_list')
+    puroks = Purok.objects.all()
+    return render(request, 'residents/household_form.html', {
+        'household': household,
+        'puroks': puroks,
+        'editing': True,
+    })
+
+
+@login_required
 def household_view(request, pk):
     """View household details – admin/staff only."""
     if is_resident_role(request):
         messages.error(request, "You do not have permission to access this area.")
         return redirect('core:dashboard')
     household = get_object_or_404(Household, pk=pk)
-    members = household.members.all().distinct()
+    members = household.members.all().order_by('-is_household_head', 'birthdate')
+    available_residents = Resident.objects.filter(household__isnull=True, is_active=True).order_by('last_name', 'first_name')
     return render(request, 'residents/household_view.html', {
         'household': household,
         'members': members,
+        'available_residents': available_residents,
+    })
+
+
+@login_required
+def purok_map_api(request):
+    """Return all Puroks with coordinates as GeoJSON."""
+    puroks = Purok.objects.filter(latitude__isnull=False, longitude__isnull=False)
+    features = []
+    
+    for p in puroks:
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [p.longitude, p.latitude]
+            },
+            "properties": {
+                "id": p.pk,
+                "name": p.name,
+                "households": p.households.count(),
+                "residents": p.residents.count(),
+            }
+        })
+        
+    return JsonResponse({
+        "type": "FeatureCollection",
+        "features": features
+    })
+
+@login_required
+def household_map_api(request):
+    """Return all Households with coordinates as GeoJSON for mapping."""
+    households = Household.objects.filter(
+        latitude__isnull=False, longitude__isnull=False
+    ).select_related('purok').prefetch_related('members')
+    features = []
+    
+    for h in households:
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [h.longitude, h.latitude]
+            },
+            "properties": {
+                "id": h.pk,
+                "household_no": h.household_no,
+                "head": h.head.full_name if h.head else "Not Assigned",
+                "purok": h.purok.name if h.purok else "N/A",
+                "residents": h.member_count,
+            }
+        })
+        
+    return JsonResponse({
+        "type": "FeatureCollection",
+        "features": features
     })
 
 @login_required
@@ -721,3 +811,66 @@ def get_resident_by_fingerprint(request):
             'name': resident.full_name
         })
     return JsonResponse({'status': 'error', 'message': 'Not found'}, status=404)
+
+@login_required
+def household_add_member(request, pk):
+    """Add an existing resident to a household with a relationship tag."""
+    if is_resident_role(request):
+        messages.error(request, "You do not have permission to perform this action.")
+        return redirect('core:dashboard')
+    
+    household = get_object_or_404(Household, pk=pk)
+    
+    if request.method == 'POST':
+        resident_id = request.POST.get('resident_id')
+        relationship = request.POST.get('relationship')
+        
+        if resident_id and relationship:
+            resident = get_object_or_404(Resident, pk=resident_id)
+            resident.household = household
+            resident.household_relationship = relationship
+            
+            if relationship == 'head':
+                # clear previous head if necessary? Optional for now.
+                resident.is_household_head = True
+            else:
+                resident.is_household_head = False
+            
+            resident.save()
+            messages.success(request, f'{resident.full_name} has been added to the household as {relationship.capitalize()}.')
+        else:
+            messages.error(request, 'Please select a resident and a relationship.')
+            
+    return redirect('residents:household_view', pk=pk)
+
+@login_required
+@csrf_exempt
+def household_update_tree(request, pk):
+    """Update the interactive family tree structure."""
+    if not (request.user.is_superuser or (hasattr(request.user, 'profile') and request.user.profile.role in ['captain', 'secretary', 'treasurer', 'admin'])):
+        return JsonResponse({'status': 'error', 'message': 'Permission denied'}, status=403)
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            connections = data.get('connections', [])
+            
+            with transaction.atomic():
+                household = get_object_or_404(Household, pk=pk)
+                # Clear existing parent connections for all members to reset
+                household.members.update(parent_member=None)
+                
+                # Apply new connections
+                for conn in connections:
+                    child_id = conn.get('child_id')
+                    parent_id = conn.get('parent_id')
+                    if child_id and parent_id:
+                        child = Resident.objects.filter(pk=child_id, household=household).first()
+                        parent = Resident.objects.filter(pk=parent_id, household=household).first()
+                        if child and parent:
+                            child.parent_member = parent
+                            child.save()
+            return JsonResponse({'status': 'success'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=405)

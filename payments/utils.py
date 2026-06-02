@@ -2,17 +2,13 @@ from decimal import Decimal
 from django.utils import timezone
 from .models import Payment, OfficialReceipt
 
-def calculate_certificate_fee(resident, cert_type):
+def calculate_certificate_fee(resident, cert_type, cert_request=None):
     """
     Calculates the fee for a certificate request based on the resident's status.
     Auto-detects if the resident qualifies for a waiver.
     """
-    # Fee Waivers for vulnerable sectors
-    if (resident.is_indigent or 
-        resident.is_pwd or 
-        resident.is_senior_citizen or 
-        resident.is_4ps_member or 
-        resident.is_solo_parent):
+    # Fee Waiver for First Time Jobseekers (RA 11261)
+    if cert_request and cert_request.is_first_time_jobseeker:
         return Decimal('0.00'), True  # (Amount, IsWaived)
 
     # Standard Rates (matching certifications/views.py)
@@ -23,12 +19,45 @@ def calculate_certificate_fee(resident, cert_type):
         'good_moral': Decimal('50.00'),
         'business_permit': Decimal('500.00'),
         'comelec': Decimal('50.00'),
-        'cedula': Decimal('0.00'),  # Cedula has dynamic sizing usually, but for requests we can start at 0
+        'cedula': Decimal('0.00'),  # Base rate
         'late_registration': Decimal('50.00'),
     }
     
     fee = rates.get(cert_type, Decimal('50.00'))
-    # Only auto-waive if fee is 0 AND it's not a Cedula (which has a dynamic price)
+    
+    if cert_type == 'cedula' and cert_request:
+        is_indiv = cert_request.taxpayer_type == 'individual'
+        basic = Decimal('5.00') if is_indiv else Decimal('500.00')
+        cap = Decimal('5000.00') if is_indiv else Decimal('10000.00')
+        
+        def to_d(val):
+            if val is None: return Decimal('0.00')
+            try: return Decimal(str(val))
+            except: return Decimal('0.00')
+
+        raw_prop = to_d(cert_request.raw_taxable_property)
+        raw_bus = to_d(cert_request.raw_taxable_business)
+        raw_inc = to_d(cert_request.raw_taxable_income)
+        
+        vProp = Decimal('0.00')
+        vBus = Decimal('0.00')
+        vInc = Decimal('0.00')
+        
+        if is_indiv:
+            if raw_prop: vProp = (raw_prop / Decimal('1000')).quantize(Decimal('0.01'))
+            if raw_bus: vBus = (raw_bus / Decimal('1000')).quantize(Decimal('0.01'))
+            if raw_inc: vInc = (raw_inc / Decimal('1000')).quantize(Decimal('0.01'))
+        else:
+            if raw_prop: vProp = ((raw_prop / Decimal('5000')) * Decimal('2')).quantize(Decimal('0.01'))
+            if raw_bus: vBus = ((raw_bus / Decimal('5000')) * Decimal('2')).quantize(Decimal('0.01'))
+                
+        additional = vProp + vBus + vInc
+        if additional > cap:
+            additional = cap
+            
+        fee = basic + additional
+
+    # Only auto-waive if fee is 0 AND it's not a Cedula
     is_waived = (fee == Decimal('0.00') and cert_type != 'cedula')
     return fee, is_waived
 

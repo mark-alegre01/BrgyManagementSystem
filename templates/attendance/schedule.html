@@ -93,6 +93,8 @@
 {% endblock %}
 
 {% block content %}
+{% url 'attendance:dashboard' as attendance_dashboard_url %}
+{% include 'components/back_button.html' with back_url=attendance_dashboard_url back_label='Back' %}
 <div class="schedule-header">
   <div>
     <h2>Work Scheduling</h2>

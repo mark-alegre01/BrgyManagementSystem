@@ -140,8 +140,8 @@ def resident_choose_payment(request, request_id):
     if request.method == 'POST':
         method = request.POST.get('method')
         
-        # Calculate fee
-        amount, is_waived = calculate_certificate_fee(cert_request.resident, cert_request.cert_type)
+        # Calculate fee (pass cert_request for accurate Cedula computation)
+        amount, is_waived = calculate_certificate_fee(cert_request.resident, cert_request.cert_type, cert_request)
         
         # Create or Get Payment
         payment = cert_request.payment
@@ -149,6 +149,10 @@ def resident_choose_payment(request, request_id):
             payment = Payment.objects.create(amount=amount)
             cert_request.payment = payment
             cert_request.save()
+        else:
+            # Always sync the amount in case admin rates changed
+            payment.amount = amount
+            payment.save()
         
         payment.method = method
         if is_waived:
@@ -167,16 +171,21 @@ def resident_choose_payment(request, request_id):
         if is_waived:
             messages.success(request, "Your fee has been automatically waived. Your request is now ready for processing.")
         else:
-            messages.success(request, f"Payment method '{payment.get_method_display()}' selected.")
+            messages.success(request, f"Payment method '{payment.get_method_display()}' selected. Please proceed as instructed.")
             
         return redirect('certifications:my_requests')
 
-    amount, is_waived = calculate_certificate_fee(cert_request.resident, cert_request.cert_type)
+    amount, is_waived = calculate_certificate_fee(cert_request.resident, cert_request.cert_type, cert_request)
+    
+    # Get the same rate the admin uses for this cert type
+    from certifications.views import get_certificate_rate
+    standard_rate = get_certificate_rate(cert_request.cert_type)
     
     return render(request, 'payments/select_payment.html', {
         'cert_request': cert_request,
         'amount': amount,
-        'is_waived': is_waived
+        'standard_rate': standard_rate,
+        'is_waived': is_waived,
     })
 
 @login_required

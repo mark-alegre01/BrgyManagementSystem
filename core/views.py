@@ -171,6 +171,12 @@ def dashboard(request):
     return render(request, template, context)
 
 
+@login_required
+def barangay_map(request):
+    """Render the MapLibre GL JS Barangay Map for Puroks."""
+    return render(request, 'core/barangay_map.html')
+
+
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.db.models import Q
