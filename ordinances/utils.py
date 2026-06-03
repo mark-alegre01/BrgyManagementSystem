@@ -34,10 +34,16 @@ def extract_ordinance_fields(text):
     fields['ordinance_number'] = num_match.group(1).strip() if num_match else ''
 
     # Extract Title
-    title_match = re.search(
-        r'(an ordinance[^\.]+\.)', text, re.IGNORECASE
-    )
-    fields['title'] = title_match.group(1).strip() if title_match else ''
+    title_match = re.search(r'([\"\']\s*an ordinance.*?[\"\'])', text, re.IGNORECASE | re.DOTALL)
+    if not title_match:
+        title_match = re.search(r'(an ordinance.*?)(?:\n\s*\n|be it ordained|sponsored by|authored by)', text, re.IGNORECASE | re.DOTALL)
+    
+    if title_match:
+        title = title_match.group(1).strip()
+        title = re.sub(r'\n+', ' ', title)
+        fields['title'] = re.sub(r'\s+', ' ', title)
+    else:
+        fields['title'] = ''
 
     # Extract Date
     months = r'(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'
@@ -142,8 +148,13 @@ def parse_ordinance_pdf(pdf_path):
                 clip = page.get_pixmap(matrix=mat)
                 img = Image.open(io.BytesIO(clip.tobytes()))
 
-                # Run Tesseract OCR
-                text = pytesseract.image_to_string(img, lang='eng')
+                # Run Tesseract OCR with a fallback
+                try:
+                    text = pytesseract.image_to_string(img, lang='eng')
+                except Exception as ocr_e:
+                    print(f"OCR failed for page {page_num}: {ocr_e}")
+                    # Keep whatever little text PyMuPDF found
+                    pass
 
             full_text += text + "\n"
 
