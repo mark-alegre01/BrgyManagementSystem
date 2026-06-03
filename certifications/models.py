@@ -299,3 +299,45 @@ class CertificateRequest(models.Model):
         ordering = ['-created_at']
         verbose_name = 'Certificate Request'
         verbose_name_plural = 'Certificate Requests'
+
+
+class FirstTimeJobseekerRoster(models.Model):
+    """Registry of residents who have availed the RA 11261 benefit (First Time Jobseeker)."""
+    resident = models.OneToOneField('residents.Resident', on_delete=models.CASCADE, related_name='ra11261_roster')
+    certificate_request = models.ForeignKey(CertificateRequest, on_delete=models.CASCADE, related_name='ra11261_availments')
+    certification_date = models.DateField(auto_now_add=True)
+    expiry_date = models.DateField()
+    availed = models.BooleanField(default=True)
+    added_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.resident.full_name} (Expires: {self.expiry_date})"
+
+    class Meta:
+        ordering = ['-certification_date']
+
+
+class RA11261Application(models.Model):
+    """Application submitted by resident to avail the RA 11261 benefit."""
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('FOR_REVIEW', 'For Review'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+    ]
+
+    resident = models.ForeignKey('residents.Resident', on_delete=models.CASCADE, related_name='ra11261_applications')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    declaration_confirmed = models.BooleanField()
+    uploaded_docs = models.FileField(upload_to='ra11261_docs/')
+    rejection_reason = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Application by {self.resident.full_name} - {self.status}"
+
+    class Meta:
+        ordering = ['-created_at']

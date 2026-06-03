@@ -1,0 +1,315 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+  .admin-header {
+    margin-bottom: 2rem;
+  }
+  .admin-header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+  }
+  .admin-header p {
+    color: #64748b;
+    margin-top: 0.5rem;
+  }
+  .filter-bar {
+    background: white;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .search-input {
+    padding: 0.5rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    width: 300px;
+  }
+  .status-select {
+    padding: 0.5rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+  }
+  .data-table {
+    width: 100%;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    overflow: hidden;
+  }
+  .data-table th {
+    background: #f8fafc;
+    padding: 1rem 1.5rem;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .data-table td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+  }
+  .data-table tr:hover {
+    background: #f8fafc;
+  }
+  .status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .status-PENDING { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+  .status-FOR_REVIEW { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+  .status-APPROVED { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+  .status-REJECTED { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .modal-overlay.active {
+    display: flex;
+    opacity: 1;
+  }
+  .modal-card {
+    background: white;
+    width: 100%;
+    max-width: 600px;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+    transform: scale(0.95);
+    transition: transform 0.2s ease;
+    overflow: hidden;
+  }
+  .modal-overlay.active .modal-card {
+    transform: scale(1);
+  }
+  .modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+  }
+  .modal-body {
+    padding: 1.5rem;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  .info-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+  .btn-action {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-approve { background: #059669; color: white; }
+  .btn-approve:hover { background: #047857; }
+  .btn-reject { background: white; color: #dc2626; border: 1px solid #fca5a5; }
+  .btn-reject:hover { background: #fef2f2; }
+</style>
+
+<div class="container-fluid py-4">
+  <div class="admin-header">
+    <h1>Application Reviews</h1>
+    <p>Review and manage RA 11261 applications from residents.</p>
+  </div>
+
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} shadow-sm rounded mb-4">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+
+  <form method="GET" class="filter-bar">
+    <input type="text" name="search" class="search-input" placeholder="Search resident name..." value="{{ search }}">
+    <div style="display: flex; gap: 1rem; align-items: center;">
+      <select name="status" class="status-select" onchange="this.form.submit()">
+        <option value="ALL" {% if status_filter == 'ALL' %}selected{% endif %}>All Statuses</option>
+        <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>Pending</option>
+        <option value="FOR_REVIEW" {% if status_filter == 'FOR_REVIEW' %}selected{% endif %}>For Review</option>
+        <option value="APPROVED" {% if status_filter == 'APPROVED' %}selected{% endif %}>Approved</option>
+        <option value="REJECTED" {% if status_filter == 'REJECTED' %}selected{% endif %}>Rejected</option>
+      </select>
+      <button type="submit" class="btn btn-primary" style="background: var(--primary); border: none;">Filter</button>
+    </div>
+  </form>
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Resident</th>
+        <th>Submitted</th>
+        <th>Status</th>
+        <th class="text-end">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for app in applications %}
+      <tr>
+        <td>
+          <div style="font-weight: 700; color: #1e293b;">{{ app.resident.full_name }}</div>
+          <div style="font-size: 0.75rem; color: #64748b;">{{ app.resident.household.purok.name|default:"No Purok" }}</div>
+        </td>
+        <td>{{ app.created_at|date:"M d, Y g:i A" }}</td>
+        <td><span class="status-badge status-{{ app.status }}">{{ app.status|replace:"_"," " }}</span></td>
+        <td class="text-end">
+          <button type="button" class="btn btn-sm btn-outline-primary" style="font-weight: 600;" 
+                  onclick="openModal('{{ app.id }}', '{{ app.resident.full_name|escapejs }}', '{{ app.status }}', '{% if app.uploaded_docs %}{{ app.uploaded_docs.url }}{% endif %}', '{{ app.rejection_reason|escapejs }}')">
+            {% if app.status == 'FOR_REVIEW' %}Review{% else %}View{% endif %}
+          </button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" class="text-center py-5 text-muted">No applications found.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Modal -->
+<div id="reviewModal" class="modal-overlay">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h2 style="font-size: 1.25rem; font-weight: 700; margin: 0;">Application Review</h2>
+      <button onclick="closeModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8;">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="info-box">
+        <p style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Resident</p>
+        <p id="modalResidentName" style="font-weight: 600; color: #0f172a; margin: 0;"></p>
+      </div>
+
+      <div class="info-box">
+        <p style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #64748b; margin-bottom: 0.25rem;">Supporting Document</p>
+        <a id="modalDocLink" href="#" target="_blank" style="display: flex; align-items: center; gap: 0.5rem; color: var(--primary); font-weight: 600; text-decoration: none;">
+          <i class="fas fa-file-pdf"></i> View Uploaded Document
+        </a>
+      </div>
+
+      <div id="rejectionBox" class="info-box" style="background: #fef2f2; border-color: #fecaca; display: none;">
+        <p style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #b91c1c; margin-bottom: 0.25rem;">Rejection Reason</p>
+        <p id="modalRejectionReason" style="color: #991b1b; margin: 0;"></p>
+      </div>
+
+      <div id="approvedBox" class="info-box" style="background: #ecfdf5; border-color: #a7f3d0; display: none; justify-content: space-between; align-items: center;">
+        <div>
+          <p style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #047857; margin-bottom: 0.25rem;">Status</p>
+          <p style="color: #065f46; margin: 0; font-weight: 500;">Approved & Certificate Generated</p>
+        </div>
+        <a id="modalPdfLink" href="#" target="_blank" class="btn btn-sm" style="background: #059669; color: white; font-weight: 600;">Download PDF</a>
+      </div>
+
+      <form id="reviewForm" method="POST" action="" style="display: none; margin-top: 1.5rem;">
+        {% csrf_token %}
+        <input type="hidden" name="status" id="formStatus">
+        <div id="rejectionInputWrapper" style="display: none; margin-bottom: 1rem;">
+          <label style="font-size: 0.875rem; font-weight: 600;">Reason for Rejection</label>
+          <textarea name="rejection_reason" id="rejectionInput" class="form-control" rows="3" style="border-radius: 8px;"></textarea>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+          <button type="button" onclick="submitReview('APPROVED')" class="btn-action btn-approve" style="flex: 1;">Approve</button>
+          <button type="button" onclick="submitReview('REJECTED')" class="btn-action btn-reject" style="flex: 1;">Reject</button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const modal = document.getElementById('reviewModal');
+  const form = document.getElementById('reviewForm');
+  
+  function openModal(id, resident, status, docUrl, rejReason) {
+    document.getElementById('modalResidentName').innerText = resident;
+    
+    const docLink = document.getElementById('modalDocLink');
+    if (docUrl) {
+      docLink.href = docUrl;
+      docLink.style.display = 'flex';
+    } else {
+      docLink.style.display = 'none';
+    }
+
+    const rejBox = document.getElementById('rejectionBox');
+    if (status === 'REJECTED' && rejReason) {
+      document.getElementById('modalRejectionReason').innerText = rejReason;
+      rejBox.style.display = 'block';
+    } else {
+      rejBox.style.display = 'none';
+    }
+
+    const appBox = document.getElementById('approvedBox');
+    if (status === 'APPROVED') {
+      document.getElementById('modalPdfLink').href = `/certifications/ra11261/certification/${id}/pdf/`;
+      appBox.style.display = 'flex';
+    } else {
+      appBox.style.display = 'none';
+    }
+
+    if (status === 'FOR_REVIEW') {
+      form.action = `/certifications/ra11261/admin/applications/${id}/review/`;
+      form.style.display = 'block';
+      document.getElementById('rejectionInputWrapper').style.display = 'none';
+      document.getElementById('rejectionInput').value = '';
+    } else {
+      form.style.display = 'none';
+    }
+
+    modal.classList.add('active');
+  }
+
+  function closeModal() {
+    modal.classList.remove('active');
+  }
+
+  function submitReview(status) {
+    if (status === 'REJECTED') {
+      const wrapper = document.getElementById('rejectionInputWrapper');
+      if (wrapper.style.display === 'none') {
+        wrapper.style.display = 'block';
+        return; // wait for input
+      }
+      if (!document.getElementById('rejectionInput').value.trim()) {
+        alert("Please enter a rejection reason.");
+        return;
+      }
+    }
+    document.getElementById('formStatus').value = status;
+    form.submit();
+  }
+</script>
+{% endblock %}

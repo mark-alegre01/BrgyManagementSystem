@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+  .admin-header {
+    margin-bottom: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .admin-header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+  }
+  .admin-header p {
+    color: #64748b;
+    margin-top: 0.5rem;
+  }
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  .stat-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+  .icon-blue { background: #dbeafe; color: #2563eb; }
+  .icon-green { background: #d1fae5; color: #059669; }
+  .icon-orange { background: #ffedd5; color: #ea580c; }
+  
+  .stat-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.05em;
+  }
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: 900;
+    color: #0f172a;
+    line-height: 1;
+    margin-top: 0.25rem;
+  }
+  
+  .filter-bar {
+    background: #f8fafc;
+    padding: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+  }
+  .search-input {
+    padding: 0.5rem 1rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    width: 350px;
+  }
+  
+  .data-table-wrapper {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+  }
+  .data-table {
+    width: 100%;
+  }
+  .data-table th {
+    background: #f8fafc;
+    padding: 1rem 1.5rem;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .data-table td {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+  }
+  .data-table tr:hover {
+    background: #f8fafc;
+  }
+  .status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .status-ACTIVE { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+  .status-EXPIRED { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+  .btn-export {
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background 0.2s;
+  }
+  .btn-export:hover {
+    background: #064e3b;
+    color: white;
+  }
+</style>
+
+<div class="container-fluid py-4">
+  <div class="admin-header">
+    <div>
+      <h1>RA 11261 Official Roster</h1>
+      <p>Registry of all residents who availed the First Time Jobseeker benefit.</p>
+    </div>
+    <a href="{% url 'certifications:ra11261_export_csv' %}" class="btn-export">
+      <i class="fas fa-download"></i> Export CSV
+    </a>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon icon-blue"><i class="fas fa-users"></i></div>
+      <div>
+        <div class="stat-label">Total Availed</div>
+        <div class="stat-value">{{ total_availed }}</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon icon-green"><i class="fas fa-shield-check"></i></div>
+      <div>
+        <div class="stat-label">Active Certifications</div>
+        <div class="stat-value">{{ active_count }}</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon icon-orange"><i class="fas fa-exclamation-triangle"></i></div>
+      <div>
+        <div class="stat-label">Expired</div>
+        <div class="stat-value">{{ expired_count }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="data-table-wrapper">
+    <form method="GET" class="filter-bar">
+      <input type="text" name="search" class="search-input" placeholder="Search resident name in roster..." value="{{ search }}">
+      <button type="submit" class="btn btn-primary ms-2" style="background: var(--primary); border: none;">Search</button>
+    </form>
+
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Resident</th>
+            <th>Certification Date</th>
+            <th>Expiry Date</th>
+            <th>Status</th>
+            <th class="text-end">Added By</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% load ra11261_tags %}
+          {% for r in roster %}
+          <tr>
+            <td>
+              <div style="font-weight: 700; color: #1e293b;">{{ r.resident.full_name }}</div>
+            </td>
+            <td>{{ r.certification_date|date:"M d, Y" }}</td>
+            <td>{{ r.expiry_date|date:"M d, Y" }}</td>
+            <td>
+              {% if r|is_expired %}
+                <span class="status-badge status-EXPIRED">Expired</span>
+              {% else %}
+                <span class="status-badge status-ACTIVE">Active</span>
+              {% endif %}
+            </td>
+            <td class="text-end text-muted" style="font-size: 0.875rem;">
+              Admin #{{ r.added_by.username|default:"System" }}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="text-center py-5 text-muted">No residents found in the roster.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

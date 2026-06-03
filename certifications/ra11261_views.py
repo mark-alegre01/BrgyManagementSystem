@@ -1,0 +1,272 @@
+import csv
+from datetime import date, timedelta
+from django.utils import timezone
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+import io
+
+from residents.models import Resident
+from payments.models import Payment, OfficialReceipt
+from certifications.models import CertificateRequest, FirstTimeJobseekerRoster, RA11261Application, Certificate
+
+def ra11261_apply(request):
+    """Resident submits application via a Django form."""
+    if request.method == 'POST':
+        resident_id = request.POST.get('resident')
+        declaration = request.POST.get('declaration_confirmed')
+        docs = request.FILES.get('uploaded_docs')
+
+        if not resident_id or not declaration or not docs:
+            messages.error(request, "Please fill in all required fields and upload the document.")
+            return redirect('certifications:ra11261_apply')
+
+        try:
+            resident = Resident.objects.get(id=resident_id)
+        except Resident.DoesNotExist:
+            messages.error(request, "Resident not found.")
+            return redirect('certifications:ra11261_apply')
+
+        application = RA11261Application(
+            resident=resident,
+            declaration_confirmed=(declaration == 'on' or declaration == 'true'),
+            uploaded_docs=docs
+        )
+
+        # Auto-validation Step 1: Check existing availment
+        if FirstTimeJobseekerRoster.objects.filter(resident=resident).exists():
+            application.status = 'REJECTED'
+            application.rejection_reason = "Already availed RA 11261 benefit"
+            application.save()
+            messages.error(request, f"Application Auto-Rejected: {application.rejection_reason}")
+            return redirect('certifications:ra11261_apply')
+
+        # Auto-validation Step 2: Check residency requirement (180 days)
+        if resident.residency_start_date:
+            days_resident = (date.today() - resident.residency_start_date).days
+            if days_resident < 180:
+                application.status = 'REJECTED'
+                application.rejection_reason = "Residency requirement not met (minimum 6 months)"
+                application.save()
+                messages.error(request, f"Application Auto-Rejected: {application.rejection_reason}")
+                return redirect('certifications:ra11261_apply')
+
+        # Passed auto-checks
+        application.status = 'FOR_REVIEW'
+        application.save()
+        messages.success(request, "Application submitted successfully. It is now FOR REVIEW.")
+        return redirect('certifications:ra11261_apply')
+
+    return render(request, 'certifications/ra11261_apply.html')
+
+
+@login_required
+def ra11261_admin_list(request):
+    """Admin views list of applications."""
+    status_filter = request.GET.get('status', 'ALL')
+    search = request.GET.get('search', '')
+
+    applications = RA11261Application.objects.select_related('resident').all()
+
+    if status_filter != 'ALL':
+        applications = applications.filter(status=status_filter)
+    
+    if search:
+        applications = applications.filter(resident__first_name__icontains=search) | \
+                       applications.filter(resident__last_name__icontains=search)
+
+    context = {
+        'applications': applications,
+        'status_filter': status_filter,
+        'search': search,
+    }
+    return render(request, 'certifications/ra11261_admin_list.html', context)
+
+
+@login_required
+def ra11261_admin_review(request, pk):
+    """Admin approves or rejects the application via POST."""
+    if request.method == 'POST':
+        application = get_object_or_404(RA11261Application, pk=pk)
+        new_status = request.POST.get('status')
+        rejection_reason = request.POST.get('rejection_reason', '')
+
+        if new_status not in ['APPROVED', 'REJECTED']:
+            messages.error(request, "Invalid status.")
+            return redirect('certifications:ra11261_admin_list')
+
+        if new_status == 'APPROVED':
+            if FirstTimeJobseekerRoster.objects.filter(resident=application.resident).exists():
+                messages.error(request, "Resident already has an active or expired roster record.")
+                return redirect('certifications:ra11261_admin_list')
+
+            # Issue Certificate Request & waive fee
+            cert_req = CertificateRequest.objects.filter(resident=application.resident, is_first_time_jobseeker=True, status='pending').first()
+            if not cert_req:
+                cert_req = CertificateRequest.objects.create(
+                    resident=application.resident,
+                    cert_type='clearance', 
+                    purpose='First Time Jobseeker (RA 11261)',
+                    is_first_time_jobseeker=True,
+                    status='issued',
+                    processed_by=request.user,
+                    processed_at=timezone.now()
+                )
+            else:
+                cert_req.status = 'issued'
+                cert_req.processed_by = request.user
+                cert_req.processed_at = timezone.now()
+                cert_req.save()
+
+            if not cert_req.payment:
+                payment = Payment.objects.create(amount=0, status='paid', payment_method='cash', processed_by=request.user)
+                cert_req.payment = payment
+                cert_req.save()
+            else:
+                payment = cert_req.payment
+                payment.amount = 0
+                payment.status = 'paid'
+                payment.save()
+
+            if not hasattr(payment, 'official_receipt'):
+                OfficialReceipt.objects.create(payment=payment, or_number="EXEMPT-RA11261", issued_by=request.user)
+            else:
+                receipt = payment.official_receipt
+                receipt.or_number = "EXEMPT-RA11261"
+                receipt.save()
+
+            cert_date = date.today()
+            expiry_date = cert_date + timedelta(days=365)
+            
+            FirstTimeJobseekerRoster.objects.create(
+                resident=application.resident,
+                certificate_request=cert_req,
+                certification_date=cert_date,
+                expiry_date=expiry_date,
+                added_by=request.user
+            )
+
+            Certificate.objects.get_or_create(
+                resident=application.resident,
+                certificate_request=cert_req,
+                defaults={'issued_by': request.user, 'status': 'issued'}
+            )
+            messages.success(request, "Application APPROVED and Roster updated.")
+
+        elif new_status == 'REJECTED':
+            if not rejection_reason:
+                messages.error(request, "Rejection reason is required.")
+                return redirect('certifications:ra11261_admin_list')
+            messages.warning(request, "Application REJECTED.")
+
+        application.status = new_status
+        application.rejection_reason = rejection_reason if new_status == 'REJECTED' else None
+        application.save()
+
+    return redirect('certifications:ra11261_admin_list')
+
+
+@login_required
+def ra11261_admin_roster(request):
+    """Admin views full roster."""
+    search = request.GET.get('search', '')
+    roster = FirstTimeJobseekerRoster.objects.select_related('resident').all()
+    
+    if search:
+        roster = roster.filter(resident__first_name__icontains=search) | \
+                 roster.filter(resident__last_name__icontains=search)
+
+    active_count = 0
+    expired_count = 0
+    today = date.today()
+    for r in roster:
+        if r.expiry_date >= today:
+            active_count += 1
+        else:
+            expired_count += 1
+
+    context = {
+        'roster': roster,
+        'search': search,
+        'total_availed': roster.count(),
+        'active_count': active_count,
+        'expired_count': expired_count,
+    }
+    return render(request, 'certifications/ra11261_admin_roster.html', context)
+
+
+@login_required
+def ra11261_export_csv(request):
+    """Export roster to CSV."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="ra11261_roster.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(['Resident Name', 'Certification Date', 'Expiry Date', 'Status', 'Added By'])
+
+    roster = FirstTimeJobseekerRoster.objects.select_related('resident', 'added_by').all()
+    today = date.today()
+
+    for r in roster:
+        status_text = 'Active' if r.expiry_date >= today else 'Expired'
+        added_by = r.added_by.username if r.added_by else 'System'
+        writer.writerow([
+            r.resident.full_name,
+            r.certification_date,
+            r.expiry_date,
+            status_text,
+            added_by
+        ])
+
+    return response
+
+
+def ra11261_certification_pdf(request, pk):
+    """Generate PDF for the RA 11261 Certification."""
+    try:
+        application = RA11261Application.objects.get(pk=pk)
+        roster = FirstTimeJobseekerRoster.objects.get(resident=application.resident)
+    except (RA11261Application.DoesNotExist, FirstTimeJobseekerRoster.DoesNotExist):
+        return HttpResponse("Certification not found or not approved yet.", status=404)
+
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=letter)
+    width, height = letter
+
+    # Header
+    p.setFont("Helvetica-Bold", 16)
+    p.drawCentredString(width / 2.0, height - 50, "BARANGAY CERTIFICATION")
+    p.setFont("Helvetica", 12)
+    p.drawCentredString(width / 2.0, height - 70, "First Time Jobseekers Assistance Act (RA 11261)")
+
+    # Body
+    p.setFont("Helvetica", 12)
+    p.drawString(50, height - 120, "TO WHOM IT MAY CONCERN:")
+    
+    text = (f"This is to certify that {application.resident.full_name}, a resident of "
+            f"Barangay Sico-Sico, Gigaquit, Surigao del Norte, is a qualified "
+            f"First Time Jobseeker under RA 11261.")
+    
+    # Simple word wrap
+    p.drawString(50, height - 160, text[:80])
+    if len(text) > 80:
+        p.drawString(50, height - 180, text[80:])
+
+    p.drawString(50, height - 220, f"Issued on: {roster.certification_date.strftime('%B %d, %Y')}")
+    p.drawString(50, height - 240, f"Valid until: {roster.expiry_date.strftime('%B %d, %Y')}")
+
+    # Signatures
+    p.drawString(width - 200, height - 350, "_________________________")
+    p.drawString(width - 190, height - 370, "HON. MARITES R. MANONGAS")
+    p.drawString(width - 180, height - 385, "Punong Barangay")
+
+    p.showPage()
+    p.save()
+    
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="RA11261_{application.resident.full_name}.pdf"'
+    return response

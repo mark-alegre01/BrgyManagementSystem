@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import ra11261_views
 
 app_name = 'certifications'
 
@@ -20,4 +21,12 @@ urlpatterns = [
     path('requests/<int:pk>/fulfill/', views.fulfill_request, name='fulfill_request'),
     path('requests/<int:pk>/reject/', views.reject_request, name='reject_request'),
     path('<int:pk>/virtual/', views.virtual_certificate, name='virtual_certificate'),
+    
+    # RA 11261 URLs
+    path('ra11261/apply/', ra11261_views.ra11261_apply, name='ra11261_apply'),
+    path('ra11261/admin/applications/', ra11261_views.ra11261_admin_list, name='ra11261_admin_list'),
+    path('ra11261/admin/applications/<int:pk>/review/', ra11261_views.ra11261_admin_review, name='ra11261_admin_review'),
+    path('ra11261/admin/roster/', ra11261_views.ra11261_admin_roster, name='ra11261_admin_roster'),
+    path('ra11261/admin/roster/export/', ra11261_views.ra11261_export_csv, name='ra11261_export_csv'),
+    path('ra11261/certification/<int:pk>/pdf/', ra11261_views.ra11261_certification_pdf, name='ra11261_pdf'),
 ]

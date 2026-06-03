@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
@@ -15,6 +16,7 @@ urlpatterns = [
     path('dashboard/', core_views.dashboard, name='dashboard'),
     path('biometric-login-start/', csrf_exempt(core_views.biometric_login_start), name='biometric_login_start'),
     path('biometric-status-check/', csrf_exempt(core_views.biometric_status_check), name='biometric_status_check'),
+    
     path('', include('core.urls')),
     path('residents/', include('residents.urls')),
     path('certifications/', include('certifications.urls')),
@@ -30,3 +32,4 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

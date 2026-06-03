@@ -7,9 +7,8 @@ def calculate_certificate_fee(resident, cert_type, cert_request=None):
     Calculates the fee for a certificate request based on the resident's status.
     Auto-detects if the resident qualifies for a waiver.
     """
-    # Fee Waiver for First Time Jobseekers (RA 11261)
-    if cert_request and cert_request.is_first_time_jobseeker:
-        return Decimal('0.00'), True  # (Amount, IsWaived)
+    # Fee Waiver for First Time Jobseekers (RA 11261) is now handled strictly upon admin approval 
+    # of the RA11261Application, which will manually set the payment to 0 and issue an EXEMPT receipt.
 
     # Standard Rates (matching certifications/views.py)
     rates = {

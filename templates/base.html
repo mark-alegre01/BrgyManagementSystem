@@ -74,6 +74,10 @@
           class="nav-item {% if request.resolver_match.app_name ==  'ordinances' %}active{% endif %}">
           <i class="fas fa-gavel"></i><span>Brgy. Ordinances</span>
         </a>
+        <a href="{% url 'certifications:ra11261_apply' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'ra11261_apply' %}active{% endif %}">
+          <i class="fas fa-briefcase"></i><span>First Time Jobseeker</span>
+        </a>
       </div>
       {% endif %}
 
@@ -138,6 +142,11 @@
           {% endif %}
         </a>
 
+        <a href="{% url 'certifications:ra11261_admin_list' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'ra11261_admin_list' %}active{% endif %}">
+          <i class="fas fa-briefcase"></i><span>RA 11261 Apps</span>
+        </a>
+
         {% if s or r == 'captain' or r == 'admin' or r == 'treasurer' %}
         <a href="{% url 'attendance:dashboard' %}"
           class="nav-item {% if request.resolver_match.app_name ==  'attendance' %}active{% endif %}">
@@ -155,6 +164,10 @@
         <a href="{% url 'ordinances:list' %}"
           class="nav-item {% if request.resolver_match.app_name ==  'ordinances' %}active{% endif %}">
           <i class="fas fa-gavel"></i><span>Ordinances</span>
+        </a>
+        <a href="{% url 'certifications:ra11261_admin_roster' %}"
+          class="nav-item {% if request.resolver_match.url_name == 'ra11261_admin_roster' %}active{% endif %}">
+          <i class="fas fa-clipboard-list"></i><span>RA 11261 Roster</span>
         </a>
 
         {% if s or r == 'captain' or r == 'admin' %}
