@@ -122,20 +122,32 @@ def ra11261_admin_review(request, pk):
                 cert_req.save()
 
             if not cert_req.payment:
-                payment = Payment.objects.create(amount=0, status='paid', payment_method='cash', processed_by=request.user)
+                payment = Payment.objects.create(amount=0, status='paid', method='waived', verified_by=request.user, waive_reason='RA 11261 Benefit Waived')
                 cert_req.payment = payment
                 cert_req.save()
             else:
                 payment = cert_req.payment
                 payment.amount = 0
                 payment.status = 'paid'
+                payment.method = 'waived'
+                payment.waive_reason = 'RA 11261 Benefit Waived'
                 payment.save()
 
-            if not hasattr(payment, 'official_receipt'):
-                OfficialReceipt.objects.create(payment=payment, or_number="EXEMPT-RA11261", issued_by=request.user)
+            if not payment.official_receipt:
+                receipt = OfficialReceipt.objects.create(
+                    or_number=f"EXEMPT-RA11261-{cert_req.id}", 
+                    resident=application.resident,
+                    amount=0, 
+                    particulars="RA 11261 Benefit Waived", 
+                    issued_by=request.user
+                )
+                payment.official_receipt = receipt
+                payment.save()
             else:
                 receipt = payment.official_receipt
-                receipt.or_number = "EXEMPT-RA11261"
+                receipt.or_number = f"EXEMPT-RA11261-{cert_req.id}"
+                receipt.amount = 0
+                receipt.particulars = "RA 11261 Benefit Waived"
                 receipt.save()
 
             cert_date = date.today()
@@ -235,11 +247,19 @@ def ra11261_admin_roster_add(request):
             processed_at=timezone.now()
         )
 
-        payment = Payment.objects.create(amount=0, status='paid', payment_method='cash', processed_by=request.user)
+        payment = Payment.objects.create(amount=0, status='paid', method='waived', verified_by=request.user, waive_reason='RA 11261 Benefit Waived (Walk-In)')
         cert_req.payment = payment
         cert_req.save()
 
-        OfficialReceipt.objects.create(payment=payment, or_number="EXEMPT-RA11261", issued_by=request.user)
+        receipt = OfficialReceipt.objects.create(
+            or_number=f"EXEMPT-RA11261-{cert_req.id}", 
+            resident=resident,
+            amount=0, 
+            particulars="RA 11261 Benefit Waived (Walk-In)", 
+            issued_by=request.user
+        )
+        payment.official_receipt = receipt
+        payment.save()
 
         cert_date = date.today()
         expiry_date = cert_date + timedelta(days=365)
