@@ -182,7 +182,7 @@
           <div style="font-size: 0.75rem; color: #64748b;">{{ app.resident.household.purok.name|default:"No Purok" }}</div>
         </td>
         <td>{{ app.created_at|date:"M d, Y g:i A" }}</td>
-        <td><span class="status-badge status-{{ app.status }}">{{ app.status|replace:"_"," " }}</span></td>
+        <td><span class="status-badge status-{{ app.status }}">{{ app.status }}</span></td>
         <td class="text-end">
           <button type="button" class="btn btn-sm btn-outline-primary" style="font-weight: 600;" 
                   onclick="openModal('{{ app.id }}', '{{ app.resident.full_name|escapejs }}', '{{ app.status }}', '{% if app.uploaded_docs %}{{ app.uploaded_docs.url }}{% endif %}', '{{ app.rejection_reason|escapejs }}')">
