@@ -370,12 +370,12 @@ def ra11261_certification_pdf(request, pk):
     bagong_pilipinas_path = os.path.join(django_settings.BASE_DIR, 'static/images/bagong_pilipinas.png')
     gigaquit_logo_path = os.path.join(django_settings.BASE_DIR, 'static/images/gigaquit_logo.png')
 
-    logo_w = 0.85 * inch
-    logo_h = 0.85 * inch
+    logo_w = 0.8 * inch
+    logo_h = 0.8 * inch
 
-    img_sico = Image(sico_logo_path, width=logo_w, height=logo_h, kind='proportional') if os.path.exists(sico_logo_path) else Spacer(logo_w, logo_h)
-    img_bagong = Image(bagong_pilipinas_path, width=1.3*inch, height=0.85*inch, kind='proportional') if os.path.exists(bagong_pilipinas_path) else Spacer(1.3*inch, logo_h)
-    img_gigaquit = Image(gigaquit_logo_path, width=logo_w, height=logo_h, kind='proportional') if os.path.exists(gigaquit_logo_path) else Spacer(logo_w, logo_h)
+    img_sico = Image(sico_logo_path, width=logo_w, height=logo_h, kind='bound') if os.path.exists(sico_logo_path) else Spacer(logo_w, logo_h)
+    img_bagong = Image(bagong_pilipinas_path, width=1.0*inch, height=0.7*inch, kind='bound') if os.path.exists(bagong_pilipinas_path) else Spacer(1.0*inch, logo_h)
+    img_gigaquit = Image(gigaquit_logo_path, width=logo_w, height=logo_h, kind='bound') if os.path.exists(gigaquit_logo_path) else Spacer(logo_w, logo_h)
 
     brgy_name = getattr(django_settings, 'BARANGAY_NAME', 'Sico-Sico')
     municipality = getattr(django_settings, 'BARANGAY_MUNICIPALITY', 'Gigaquit')
@@ -390,7 +390,7 @@ def ra11261_certification_pdf(request, pk):
         Paragraph(header_brgy_title, styles['CertHeaderBrgy']),
     ]
 
-    col_widths = [1.0*inch, 1.0*inch, 3.5*inch, 1.0*inch, 1.0*inch]
+    col_widths = [1.1*inch, 1.2*inch, 3.0*inch, 1.1*inch, 1.1*inch]
     header_table_data = [[img_sico, img_bagong, center_text, img_gigaquit, '']]
 
     header_table = Table(header_table_data, colWidths=col_widths)
@@ -399,8 +399,10 @@ def ra11261_certification_pdf(request, pk):
         ('ALIGN', (0,0), (1,0), 'CENTER'),
         ('ALIGN', (2,0), (2,0), 'CENTER'),
         ('ALIGN', (3,0), (3,0), 'CENTER'),
-        ('LEFTPADDING', (0,0), (-1,-1), 0),
-        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('LEFTPADDING', (0,0), (-1,-1), 2),
+        ('RIGHTPADDING', (0,0), (-1,-1), 2),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
     ]))
 
     elements.append(header_table)
