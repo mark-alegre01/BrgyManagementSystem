@@ -5,8 +5,6 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
 import io
 
 from residents.models import Resident
@@ -317,7 +315,19 @@ def ra11261_export_csv(request):
 
 
 def ra11261_certification_pdf(request, pk):
-    """Generate PDF for the RA 11261 Certification."""
+    """Generate PDF for the RA 11261 Certification — matching the standard certificate layout."""
+    import os
+    from functools import partial
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.units import inch
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+    from reportlab.lib import colors
+    from django.conf import settings as django_settings
+    from certifications.utils import draw_watermark
+    from officials.models import Official
+
     try:
         application = RA11261Application.objects.get(pk=pk)
         roster = FirstTimeJobseekerRoster.objects.get(resident=application.resident)
@@ -325,40 +335,151 @@ def ra11261_certification_pdf(request, pk):
         return HttpResponse("Certification not found or not approved yet.", status=404)
 
     buffer = io.BytesIO()
-    p = canvas.Canvas(buffer, pagesize=letter)
-    width, height = letter
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            topMargin=0.3 * inch, bottomMargin=0.3 * inch,
+                            leftMargin=0.5 * inch, rightMargin=0.5 * inch)
 
-    # Header
-    p.setFont("Helvetica-Bold", 16)
-    p.drawCentredString(width / 2.0, height - 50, "BARANGAY CERTIFICATION")
-    p.setFont("Helvetica", 12)
-    p.drawCentredString(width / 2.0, height - 70, "First Time Jobseekers Assistance Act (RA 11261)")
+    styles = getSampleStyleSheet()
 
-    # Body
-    p.setFont("Helvetica", 12)
-    p.drawString(50, height - 120, "TO WHOM IT MAY CONCERN:")
-    
-    text = (f"This is to certify that {application.resident.full_name}, a resident of "
-            f"Barangay Sico-Sico, Gigaquit, Surigao del Norte, is a qualified "
-            f"First Time Jobseeker under RA 11261.")
-    
-    # Simple word wrap
-    p.drawString(50, height - 160, text[:80])
-    if len(text) > 80:
-        p.drawString(50, height - 180, text[80:])
+    # Custom Styles (same as generate_certificate_pdf)
+    styles.add(ParagraphStyle(name='CertHeaderLabel', fontSize=10, alignment=TA_CENTER,
+                               fontName='Helvetica', leading=12))
+    styles.add(ParagraphStyle(name='CertHeaderBrgy', fontSize=12, alignment=TA_CENTER,
+                               fontName='Helvetica-Bold', leading=14))
+    styles.add(ParagraphStyle(name='CertOffice', fontSize=16, alignment=TA_CENTER,
+                               spaceBefore=20, spaceAfter=10, fontName='Times-Bold'))
+    styles.add(ParagraphStyle(name='CertTitleLarge', fontSize=22, alignment=TA_CENTER,
+                               spaceAfter=25, fontName='Helvetica-Bold', leading=26))
+    styles.add(ParagraphStyle(name='CertSubTitle', fontSize=13, alignment=TA_CENTER,
+                               spaceAfter=20, fontName='Helvetica-Oblique', leading=16))
+    styles.add(ParagraphStyle(name='CertToWhom', fontSize=14, alignment=TA_LEFT,
+                               spaceAfter=15, fontName='Helvetica-Bold'))
+    styles.add(ParagraphStyle(name='CertBody', fontSize=12, alignment=TA_JUSTIFY,
+                               spaceAfter=12, fontName='Helvetica', leading=18))
+    styles.add(ParagraphStyle(name='CertSignName', fontSize=14, alignment=TA_CENTER,
+                               fontName='Helvetica-Bold'))
+    styles.add(ParagraphStyle(name='CertSignPos', fontSize=11, alignment=TA_CENTER,
+                               fontName='Helvetica'))
+    styles.add(ParagraphStyle(name='CertWarning', fontSize=10, alignment=TA_CENTER,
+                               textColor=colors.red, fontName='Helvetica-BoldOblique'))
 
-    p.drawString(50, height - 220, f"Issued on: {roster.certification_date.strftime('%B %d, %Y')}")
-    p.drawString(50, height - 240, f"Valid until: {roster.expiry_date.strftime('%B %d, %Y')}")
+    elements = []
 
-    # Signatures
-    p.drawString(width - 200, height - 350, "_________________________")
-    p.drawString(width - 190, height - 370, "HON. MARITES R. MANONGAS")
-    p.drawString(width - 180, height - 385, "Punong Barangay")
+    # ── HEADER (same as other certificates) ──────────────────────────
+    sico_logo_path = os.path.join(django_settings.BASE_DIR, 'static/images/sico_sico_logo.jpg')
+    bagong_pilipinas_path = os.path.join(django_settings.BASE_DIR, 'static/images/bagong_pilipinas.png')
+    gigaquit_logo_path = os.path.join(django_settings.BASE_DIR, 'static/images/gigaquit_logo.png')
 
-    p.showPage()
-    p.save()
-    
+    logo_w = 0.85 * inch
+    logo_h = 0.85 * inch
+
+    img_sico = Image(sico_logo_path, width=logo_w, height=logo_h, kind='proportional') if os.path.exists(sico_logo_path) else Spacer(logo_w, logo_h)
+    img_bagong = Image(bagong_pilipinas_path, width=1.3*inch, height=0.85*inch, kind='proportional') if os.path.exists(bagong_pilipinas_path) else Spacer(1.3*inch, logo_h)
+    img_gigaquit = Image(gigaquit_logo_path, width=logo_w, height=logo_h, kind='proportional') if os.path.exists(gigaquit_logo_path) else Spacer(logo_w, logo_h)
+
+    brgy_name = getattr(django_settings, 'BARANGAY_NAME', 'Sico-Sico')
+    municipality = getattr(django_settings, 'BARANGAY_MUNICIPALITY', 'Gigaquit')
+    province = getattr(django_settings, 'BARANGAY_PROVINCE', 'Surigao del Norte')
+
+    header_brgy_title = brgy_name.upper() if "BARANGAY" in brgy_name.upper() else f"BARANGAY {brgy_name.upper()}"
+
+    center_text = [
+        Paragraph('REPUBLIC OF THE PHILIPPINES', styles['CertHeaderLabel']),
+        Paragraph(f'Province of {province}', styles['CertHeaderLabel']),
+        Paragraph(f'Municipality of {municipality}', styles['CertHeaderLabel']),
+        Paragraph(header_brgy_title, styles['CertHeaderBrgy']),
+    ]
+
+    col_widths = [1.0*inch, 1.0*inch, 3.5*inch, 1.0*inch, 1.0*inch]
+    header_table_data = [[img_sico, img_bagong, center_text, img_gigaquit, '']]
+
+    header_table = Table(header_table_data, colWidths=col_widths)
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (0,0), (1,0), 'CENTER'),
+        ('ALIGN', (2,0), (2,0), 'CENTER'),
+        ('ALIGN', (3,0), (3,0), 'CENTER'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+    ]))
+
+    elements.append(header_table)
+    elements.append(Paragraph('OFFICE OF THE SANGGUNIANG BARANGAY', styles['CertOffice']))
+    elements.append(Paragraph('BARANGAY CERTIFICATION', styles['CertTitleLarge']))
+    elements.append(Paragraph('First Time Jobseekers Assistance Act (RA 11261)', styles['CertSubTitle']))
+
+    # ── BODY ─────────────────────────────────────────────────────────
+    resident = application.resident
+    display_brgy = brgy_name if "BARANGAY" in brgy_name.upper() else f"Barangay {brgy_name}"
+
+    elements.append(Paragraph('TO WHOM IT MAY CONCERN;', styles['CertToWhom']))
+
+    body_text = (
+        f"This is to certify that <b>{resident.full_name.upper()}</b>, "
+        f"{resident.age} years old, {resident.get_civil_status_display()}, Filipino, "
+        f"a resident of {display_brgy}, {municipality}, {province}, "
+        f"is a qualified <b>First Time Jobseeker</b> under Republic Act No. 11261, "
+        f"otherwise known as the \"First Time Jobseekers Assistance Act\"."
+    )
+    elements.append(Paragraph(body_text, styles['CertBody']))
+
+    benefit_text = (
+        "The above-named person has not previously availed of the benefits under RA 11261 "
+        "and is hereby granted exemption from the payment of fees and charges for the "
+        "issuance of this Barangay Certification."
+    )
+    elements.append(Paragraph(benefit_text, styles['CertBody']))
+
+    conclusion_text = (
+        "This certification is issued upon the request of the above-named person "
+        "in compliance with RA 11261 for employment purposes."
+    )
+    elements.append(Paragraph(conclusion_text, styles['CertBody']))
+
+    # ── ISSUED DATE ──────────────────────────────────────────────────
+    def get_ordinal(n):
+        if 11 <= (n % 100) <= 13:
+            return f"{n}th"
+        return f"{n}{['th', 'st', 'nd', 'rd', 'th'][min(n % 10, 4)]}"
+
+    cert_date = roster.certification_date
+    issued_date_text = (
+        f"Given this <b>{get_ordinal(cert_date.day)}</b> day of "
+        f"<b>{cert_date.strftime('%B')}, {cert_date.year}</b>, "
+        f"at the Office of Punong Barangay of {display_brgy}, {municipality}, Surigao del Norte."
+    )
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph(issued_date_text, styles['CertBody']))
+
+    validity_text = f"<b>Valid until: {roster.expiry_date.strftime('%B %d, %Y')}</b>"
+    elements.append(Paragraph(validity_text, styles['CertBody']))
+
+    elements.append(Spacer(1, 40))
+
+    # ── CAPTAIN SIGNATURE ────────────────────────────────────────────
+    captain = Official.objects.filter(position='captain', status='active').first()
+    captain_name = f"HON. {captain.resident.full_name.upper()}" if captain else getattr(django_settings, 'BARANGAY_CAPTAIN', 'NO ACTIVE CAPTAIN')
+    sig_content = [
+        Paragraph(captain_name, styles['CertSignName']),
+        Paragraph('Punong Barangay', styles['CertSignPos'])
+    ]
+    sig_table = Table([['', sig_content]], colWidths=[3.5*inch, 4*inch])
+    sig_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN', (1,0), (1,0), 'CENTER'),
+    ]))
+    elements.append(sig_table)
+
+    # ── WARNING ──────────────────────────────────────────────────────
+    elements.append(Spacer(1, 20))
+    elements.append(Paragraph('\u201cNOT VALID WITHOUT SEAL\u201d', styles['CertWarning']))
+
+    # ── BUILD PDF ────────────────────────────────────────────────────
+    watermark_func = partial(draw_watermark, is_resident=False)
+    doc.build(elements, onFirstPage=watermark_func, onLaterPages=watermark_func)
     buffer.seek(0)
+
     response = HttpResponse(buffer, content_type='application/pdf')
-    response['Content-Disposition'] = f'attachment; filename="RA11261_{application.resident.full_name}.pdf"'
+    response['Content-Disposition'] = f'inline; filename="RA11261_{resident.full_name}.pdf"'
     return response
+
