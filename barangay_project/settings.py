@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "appointments",
     "payments",
     "biometrics",
+    "documents",
 ]
 
 MIDDLEWARE = [

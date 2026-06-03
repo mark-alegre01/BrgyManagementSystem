@@ -1,0 +1,955 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} | Documents{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Aesthetic Workspace Design */
+    .workspace-container {
+        background-color: #f3f4f6;
+        min-height: calc(100vh - 80px);
+        padding: 2rem 1rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .workspace-header {
+        width: 100%;
+        max-width: 900px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        gap: 1rem;
+    }
+
+    .workspace-meta {
+        display: flex;
+        gap: 1rem;
+        flex: 1;
+    }
+
+    .doc-title-input {
+        flex: 2;
+        font-size: 1.5rem;
+        font-weight: 700;
+        border: 1px solid transparent;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        background: transparent;
+        transition: all 0.2s;
+        color: #1f2937;
+    }
+
+    .doc-title-input:hover, .doc-title-input:focus {
+        background: white;
+        border-color: #d1d5db;
+        outline: none;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .doc-type-select {
+        flex: 1;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        border: 1px solid #d1d5db;
+        background: white;
+        font-weight: 500;
+        color: #4b5563;
+        outline: none;
+    }
+
+    .workspace-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .btn-workspace {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    .btn-save { background: #3b82f6; color: white; }
+    .btn-save:hover { background: #2563eb; }
+    
+    .btn-pdf { background: #ef4444; color: white; }
+    .btn-pdf:hover { background: #dc2626; }
+    
+    .btn-print { background: #10b981; color: white; }
+    .btn-print:hover { background: #059669; }
+
+    /* Toolbar Styling */
+    .tiptap-toolbar {
+        width: 100%;
+        max-width: 900px;
+        background: white;
+        padding: 0.75rem;
+        border-radius: 12px 12px 0 0;
+        border: 1px solid #e5e7eb;
+        border-bottom: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    }
+
+    .toolbar-btn {
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #4b5563;
+        cursor: pointer;
+        transition: all 0.15s;
+        font-size: 13px;
+    }
+
+    .toolbar-btn:hover {
+        background: #f3f4f6;
+        color: #111827;
+    }
+
+    .toolbar-btn.is-active {
+        background: #e0e7ff;
+        color: #4f46e5;
+        border-color: #c7d2fe;
+    }
+
+    .toolbar-divider {
+        width: 1px;
+        background: #e5e7eb;
+        margin: 0 0.25rem;
+    }
+
+    /* A4 Paper Editor Container */
+    .editor-wrapper {
+        width: 100%;
+        max-width: 900px;
+        border: 1px solid #e5e7eb;
+        border-radius: 0 0 12px 12px;
+        background: white;
+        overflow: hidden;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+    }
+
+    /* A4 Size emulation */
+    .ProseMirror {
+        position: relative; /* Critical for absolute dragging */
+        min-height: 297mm; /* A4 height approx */
+        width: 210mm;      /* A4 width */
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 96px;     /* 1 inch margins approx */
+        background: white;
+        outline: none;
+        font-size: 11pt;   /* Standard doc font size */
+        line-height: 1.5;
+        color: #000;
+        box-sizing: border-box;
+    }
+
+    .ProseMirror p { margin-bottom: 1em; }
+    .ProseMirror h1, .ProseMirror h2, .ProseMirror h3 { margin-top: 1.5em; margin-bottom: 0.5em; }
+    
+    .ProseMirror table {
+        border-collapse: collapse;
+        table-layout: fixed;
+        width: 100%;
+        margin: 0;
+        overflow: hidden;
+    }
+    
+    .ProseMirror td, .ProseMirror th {
+        min-width: 1em;
+        border: 1px solid #ced4da;
+        padding: 3px 5px;
+        vertical-align: top;
+        box-sizing: border-box;
+        position: relative;
+    }
+    
+    .ProseMirror th {
+        font-weight: bold;
+        text-align: left;
+        background-color: #f1f3f5;
+    }
+
+    .ProseMirror img {
+        max-width: 100%;
+        height: auto;
+        display: inline-block;
+        cursor: grab;
+        -webkit-user-drag: element;
+        -webkit-user-select: none;
+        user-select: none;
+    }
+    .ProseMirror img:active {
+        cursor: grabbing;
+    }
+
+    .ProseMirror img.ProseMirror-selectednode {
+        outline: 3px solid #10b981;
+    }
+
+    /* For print/pdf */
+    @media print {
+        body * { visibility: hidden; }
+        #document-paper, #document-paper * {
+            visibility: visible;
+        }
+        #document-paper {
+            position: absolute;
+            left: 0;
+            top: 0;
+            padding: 0;
+            width: 100%;
+        }
+        .ProseMirror { padding: 0; }
+        .image-float-toolbar { display: none !important; }
+        #global-rotate-handle { display: none !important; }
+    }
+
+    /* ----- Image Float Toolbar (appears on click) ----- */
+    .image-float-toolbar {
+        position: absolute;
+        display: none;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 4px;
+        gap: 2px;
+        z-index: 100;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        flex-direction: row;
+        align-items: center;
+    }
+    .image-float-toolbar.visible {
+        display: flex;
+    }
+    .image-float-toolbar button {
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #4b5563;
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.15s;
+    }
+    .image-float-toolbar button:hover {
+        background: #ecfdf5;
+        color: #10b981;
+    }
+    .image-float-toolbar button.active {
+        background: #d1fae5;
+        color: #059669;
+        border-color: #a7f3d0;
+    }
+    .image-float-toolbar .ift-divider {
+        width: 1px;
+        height: 20px;
+        background: #e5e7eb;
+        margin: 0 2px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="workspace-container">
+    <div class="workspace-header">
+        <div class="workspace-meta">
+            <input type="text" id="docTitle" class="doc-title-input" placeholder="Untitled Document" value="{{ form.title.value|default:'' }}">
+            <select id="docType" class="doc-type-select">
+                {% for value, label in document_types %}
+                <option value="{{ value }}" {% if form.document_type.value == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="workspace-actions">
+            <button id="btnSave" class="btn-workspace btn-save"><i class="fas fa-save"></i> Save</button>
+            {% if form.instance.pk %}
+            <a href="{% url 'documents:pdf' form.instance.pk %}" class="btn-workspace btn-pdf" style="text-decoration: none;"><i class="fas fa-file-pdf"></i> Save as PDF</a>
+            {% else %}
+            <button id="btnPdfUnsaved" class="btn-workspace btn-pdf" onclick="alert('Please save the document first before exporting to PDF.');"><i class="fas fa-file-pdf"></i> Save as PDF</button>
+            {% endif %}
+            <button id="btnPrint" class="btn-workspace btn-print"><i class="fas fa-print"></i> Print</button>
+        </div>
+    </div>
+
+    <div class="tiptap-toolbar" id="toolbar">
+        <button class="toolbar-btn" data-action="undo" title="Undo"><i class="fas fa-undo"></i></button>
+        <button class="toolbar-btn" data-action="redo" title="Redo"><i class="fas fa-redo"></i></button>
+        <div class="toolbar-divider"></div>
+        
+        <button class="toolbar-btn" data-action="bold" title="Bold"><i class="fas fa-bold"></i></button>
+        <button class="toolbar-btn" data-action="italic" title="Italic"><i class="fas fa-italic"></i></button>
+        <button class="toolbar-btn" data-action="underline" title="Underline"><i class="fas fa-underline"></i></button>
+        <button class="toolbar-btn" data-action="strike" title="Strikethrough"><i class="fas fa-strikethrough"></i></button>
+        <div class="toolbar-divider"></div>
+
+        <button class="toolbar-btn" data-action="h1" title="Heading 1"><i class="fas fa-heading"></i>1</button>
+        <button class="toolbar-btn" data-action="h2" title="Heading 2"><i class="fas fa-heading"></i>2</button>
+        <button class="toolbar-btn" data-action="h3" title="Heading 3"><i class="fas fa-heading"></i>3</button>
+        <div class="toolbar-divider"></div>
+
+        <button class="toolbar-btn" data-action="align-left" title="Align Left"><i class="fas fa-align-left"></i></button>
+        <button class="toolbar-btn" data-action="align-center" title="Align Center"><i class="fas fa-align-center"></i></button>
+        <button class="toolbar-btn" data-action="align-right" title="Align Right"><i class="fas fa-align-right"></i></button>
+        <button class="toolbar-btn" data-action="align-justify" title="Justify"><i class="fas fa-align-justify"></i></button>
+        <div class="toolbar-divider"></div>
+
+        <button class="toolbar-btn" data-action="bullet-list" title="Bullet List"><i class="fas fa-list-ul"></i></button>
+        <button class="toolbar-btn" data-action="ordered-list" title="Numbered List"><i class="fas fa-list-ol"></i></button>
+        <div class="toolbar-divider"></div>
+
+        <button class="toolbar-btn" data-action="table" title="Insert Table"><i class="fas fa-table"></i></button>
+        <input type="file" id="imageUpload" accept="image/*" style="display:none;">
+        <button class="toolbar-btn" id="btnInsertImage" title="Insert Image"><i class="fas fa-image"></i></button>
+        <div class="toolbar-divider"></div>
+        
+        <input type="color" id="textColor" value="#000000" style="width: 32px; height: 32px; padding: 0; border: none; border-radius: 6px; cursor: pointer; background: transparent;">
+    </div>
+
+    <div class="editor-wrapper">
+        <div id="document-paper"></div>
+    </div>
+
+    <!-- Image Float Toolbar (positioned dynamically near the selected image) -->
+    <div class="image-float-toolbar" id="imageFloatToolbar">
+        <button id="iftAlignLeft" title="Float Left"><i class="fas fa-align-left"></i></button>
+        <button id="iftAlignCenter" title="No Wrap (inline)"><i class="fas fa-align-center"></i></button>
+        <button id="iftAlignRight" title="Float Right"><i class="fas fa-align-right"></i></button>
+        <div class="ift-divider"></div>
+        <button id="iftRotLeft" title="Rotate Left 90°"><i class="fas fa-undo"></i></button>
+        <button id="iftRotRight" title="Rotate Right 90°"><i class="fas fa-redo"></i></button>
+        <div class="ift-divider"></div>
+        <button id="iftWrapToggle" title="Toggle Text Wrap"><i class="fas fa-text-width"></i></button>
+        <div class="ift-divider"></div>
+        <button id="iftDelete" title="Delete Image" style="color: #ef4444;"><i class="fas fa-trash"></i></button>
+    </div>
+
+    <!-- Global Rotate Handle -->
+    <div id="global-rotate-handle" style="display: none; position: absolute; width: 24px; height: 24px; background: white; border: 2px solid #10b981; border-radius: 50%; color: #10b981; cursor: grab; justify-content: center; align-items: center; z-index: 50; box-shadow: 0 2px 4px rgba(0,0,0,0.15);">
+        <i class="fas fa-sync-alt" style="font-size: 10px;"></i>
+        <div id="rotate-tooltip" style="display: none; position: absolute; top: -30px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; pointer-events: none;">0°</div>
+    </div>
+
+    <!-- Hidden form for saving -->
+    <form id="docForm" method="POST" style="display: none;">
+        {% csrf_token %}
+        <input type="hidden" name="title" id="formTitle">
+        <input type="hidden" name="document_type" id="formDocType">
+        <textarea name="content" id="formContent">{{ form.content.value|default:'' }}</textarea>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- TipTap ES Modules -->
+<script type="importmap">
+    {
+      "imports": {
+        "@tiptap/core": "https://esm.sh/@tiptap/core@2.2.4",
+        "@tiptap/starter-kit": "https://esm.sh/@tiptap/starter-kit@2.2.4",
+        "@tiptap/extension-underline": "https://esm.sh/@tiptap/extension-underline@2.2.4",
+        "@tiptap/extension-text-align": "https://esm.sh/@tiptap/extension-text-align@2.2.4",
+        "@tiptap/extension-color": "https://esm.sh/@tiptap/extension-color@2.2.4",
+        "@tiptap/extension-text-style": "https://esm.sh/@tiptap/extension-text-style@2.2.4",
+        "@tiptap/extension-table": "https://esm.sh/@tiptap/extension-table@2.2.4",
+        "@tiptap/extension-table-row": "https://esm.sh/@tiptap/extension-table-row@2.2.4",
+        "@tiptap/extension-table-cell": "https://esm.sh/@tiptap/extension-table-cell@2.2.4",
+        "@tiptap/extension-table-header": "https://esm.sh/@tiptap/extension-table-header@2.2.4",
+        "@tiptap/extension-image": "https://esm.sh/@tiptap/extension-image@2.2.4",
+        "@tiptap/pm/": "https://esm.sh/@tiptap/pm@2.2.4/"
+      }
+    }
+</script>
+
+<script type="module">
+    import { Editor } from '@tiptap/core'
+    import StarterKit from '@tiptap/starter-kit'
+    import Underline from '@tiptap/extension-underline'
+    import TextAlign from '@tiptap/extension-text-align'
+    import Color from '@tiptap/extension-color'
+    import TextStyle from '@tiptap/extension-text-style'
+    import Table from '@tiptap/extension-table'
+    import TableRow from '@tiptap/extension-table-row'
+    import TableCell from '@tiptap/extension-table-cell'
+    import TableHeader from '@tiptap/extension-table-header'
+    import Image from '@tiptap/extension-image'
+
+    // ── Custom Image Extension with rotation, float, and resize ──
+    const AdvancedImage = Image.extend({
+        name: 'image',
+        draggable: true,
+
+        addAttributes() {
+            return {
+                ...this.parent?.(),
+                width: {
+                    default: null,
+                    parseHTML: el => el.getAttribute('width') ? parseInt(el.getAttribute('width')) : (el.style.width ? parseInt(el.style.width) : null),
+                    renderHTML: attrs => attrs.width ? { width: attrs.width } : {}
+                },
+                height: {
+                    default: null,
+                    parseHTML: el => el.getAttribute('height') ? parseInt(el.getAttribute('height')) : (el.style.height ? parseInt(el.style.height) : null),
+                    renderHTML: attrs => attrs.height ? { height: attrs.height } : {}
+                },
+                'data-angle': {
+                    default: 0,
+                    parseHTML: el => parseInt(el.getAttribute('data-angle')) || 0,
+                    renderHTML: attrs => {
+                        if (!attrs['data-angle']) return {};
+                        return { 'data-angle': attrs['data-angle'] };
+                    }
+                },
+                'data-float': {
+                    default: 'none',
+                    parseHTML: el => el.getAttribute('data-float') || 'none',
+                    renderHTML: attrs => {
+                        const f = attrs['data-float'];
+                        if (!f || f === 'none') return {};
+                        return { 'data-float': f };
+                    }
+                },
+                'data-position': {
+                    default: 'inline',
+                    parseHTML: el => el.getAttribute('data-position') || 'inline',
+                    renderHTML: attrs => {
+                        if (!attrs['data-position'] || attrs['data-position'] === 'inline') return {};
+                        return { 'data-position': attrs['data-position'] };
+                    }
+                },
+                'data-x': {
+                    default: null,
+                    parseHTML: el => el.getAttribute('data-x') ? parseInt(el.getAttribute('data-x')) : null,
+                    renderHTML: attrs => attrs['data-x'] !== null ? { 'data-x': attrs['data-x'] } : {}
+                },
+                'data-y': {
+                    default: null,
+                    parseHTML: el => el.getAttribute('data-y') ? parseInt(el.getAttribute('data-y')) : null,
+                    renderHTML: attrs => attrs['data-y'] !== null ? { 'data-y': attrs['data-y'] } : {}
+                }
+            }
+        },
+
+        renderHTML({ HTMLAttributes }) {
+            // Merge transform and float styles
+            let styles = [];
+            if (HTMLAttributes['data-angle'] && HTMLAttributes['data-angle'] !== 0) {
+                styles.push(`transform: rotate(${HTMLAttributes['data-angle']}deg)`);
+            }
+            if (HTMLAttributes['data-position'] === 'absolute') {
+                styles.push('position: absolute');
+                if (HTMLAttributes['data-x'] !== null) styles.push(`left: ${HTMLAttributes['data-x']}px`);
+                if (HTMLAttributes['data-y'] !== null) styles.push(`top: ${HTMLAttributes['data-y']}px`);
+                styles.push('z-index: 10');
+            } else {
+                const f = HTMLAttributes['data-float'];
+                if (f && f !== 'none') {
+                    styles.push(`float: ${f}`, 'margin: 10px');
+                }
+            }
+
+            if (HTMLAttributes.width) {
+                styles.push(`width: ${HTMLAttributes.width}px`);
+            }
+            if (HTMLAttributes.height) {
+                styles.push(`height: ${HTMLAttributes.height}px`);
+            }
+
+            const finalAttrs = { ...HTMLAttributes, draggable: 'true' };
+            if (styles.length > 0) {
+                finalAttrs.style = styles.join('; ');
+            }
+
+            return ['img', finalAttrs];
+        }
+    });
+
+    // Initialize Editor
+    const initialContent = document.getElementById('formContent').value;
+    
+    const editor = new Editor({
+        element: document.getElementById('document-paper'),
+        extensions: [
+            StarterKit,
+            Underline,
+            TextAlign.configure({ types: ['heading', 'paragraph'] }),
+            TextStyle,
+            Color,
+            Table.configure({ resizable: true }),
+            TableRow,
+            TableHeader,
+            TableCell,
+            AdvancedImage.configure({ inline: true, allowBase64: true })
+        ],
+        content: initialContent || '<p></p>',
+        onUpdate({ editor }) {
+            updateActiveStates();
+        },
+        onSelectionUpdate({ editor }) {
+            updateActiveStates();
+            showImageToolbar();
+        }
+    });
+
+    // ── Expose editor for debugging ──
+    window._editor = editor;
+
+    // ==========================================================
+    //  IMAGE FLOAT TOOLBAR (positioned near the selected image)
+    // ==========================================================
+    const imageFloatToolbar = document.getElementById('imageFloatToolbar');
+    const rotateHandle = document.getElementById('global-rotate-handle');
+    const rotateTooltip = document.getElementById('rotate-tooltip');
+    let selectedImgNode = null; // the DOM <img> element
+    let selectedImgPos = null;  // the ProseMirror position
+
+    function showImageToolbar() {
+        if (!editor.isActive('image')) {
+            imageFloatToolbar.classList.remove('visible');
+            rotateHandle.style.display = 'none';
+            selectedImgNode = null;
+            return;
+        }
+
+        const { from } = editor.state.selection;
+        const domNode = editor.view.nodeDOM(from);
+        if (!domNode) { imageFloatToolbar.classList.remove('visible'); rotateHandle.style.display = 'none'; return; }
+
+        selectedImgNode = domNode.tagName === 'IMG' ? domNode : domNode.querySelector('img');
+        selectedImgPos = from;
+
+        if (!selectedImgNode) { imageFloatToolbar.classList.remove('visible'); rotateHandle.style.display = 'none'; return; }
+
+        const imgRect = selectedImgNode.getBoundingClientRect();
+
+        // Position float toolbar above the image
+        imageFloatToolbar.classList.add('visible');
+        imageFloatToolbar.style.top = `${imgRect.top + window.scrollY - 40}px`;
+        imageFloatToolbar.style.left = `${imgRect.left + window.scrollX + imgRect.width / 2 - imageFloatToolbar.offsetWidth / 2}px`;
+
+        // Position rotate handle at top center
+        rotateHandle.style.display = 'flex';
+        rotateHandle.style.top = `${imgRect.top + window.scrollY - 70}px`;
+        rotateHandle.style.left = `${imgRect.left + window.scrollX + imgRect.width / 2 - 12}px`;
+
+        // Update active states on float toolbar buttons
+        const curFloat = editor.getAttributes('image')['data-float'] || 'none';
+        document.getElementById('iftAlignLeft').classList.toggle('active', curFloat === 'left');
+        document.getElementById('iftAlignCenter').classList.toggle('active', curFloat === 'none');
+        document.getElementById('iftAlignRight').classList.toggle('active', curFloat === 'right');
+    }
+
+    // Re-position on scroll
+    window.addEventListener('scroll', () => { if (selectedImgNode) showImageToolbar(); });
+
+    // Click outside to hide
+    document.addEventListener('click', (e) => {
+        if (!imageFloatToolbar.contains(e.target) && !rotateHandle.contains(e.target)) {
+            // Let TipTap handle the selection; toolbar will hide via showImageToolbar if needed
+        }
+    });
+
+    // ── Float toolbar actions ──
+    function setFloat(val) {
+        editor.chain().focus().updateAttributes('image', { 'data-float': val }).run();
+        setTimeout(showImageToolbar, 50);
+    }
+    document.getElementById('iftAlignLeft').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); setFloat('left'); });
+    document.getElementById('iftAlignCenter').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); setFloat('none'); });
+    document.getElementById('iftAlignRight').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); setFloat('right'); });
+
+    function rotateImage(delta) {
+        const attrs = editor.getAttributes('image');
+        let angle = (parseInt(attrs['data-angle']) || 0) + delta;
+        if (angle < 0) angle += 360;
+        angle = angle % 360;
+        editor.chain().focus().updateAttributes('image', { 'data-angle': angle }).run();
+        setTimeout(showImageToolbar, 50);
+    }
+    document.getElementById('iftRotLeft').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); rotateImage(-90); });
+    document.getElementById('iftRotRight').addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); rotateImage(90); });
+
+    document.getElementById('iftWrapToggle').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const curFloat = editor.getAttributes('image')['data-float'] || 'none';
+        // Cycle: none -> left -> right -> none
+        const next = curFloat === 'none' ? 'left' : curFloat === 'left' ? 'right' : 'none';
+        setFloat(next);
+    });
+
+    document.getElementById('iftDelete').addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        editor.chain().focus().deleteSelection().run();
+        imageFloatToolbar.classList.remove('visible');
+        rotateHandle.style.display = 'none';
+    });
+
+    // ── Free-drag rotate handle ──
+    let isRotating = false;
+    rotateHandle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        if (!selectedImgNode) return;
+        isRotating = true;
+        rotateHandle.style.cursor = 'grabbing';
+        const rect = selectedImgNode.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        rotateTooltip.style.display = 'block';
+
+        function onMove(e) {
+            const dx = e.clientX - cx;
+            const dy = e.clientY - cy;
+            let angle = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+            if (angle < 0) angle += 360;
+            angle = Math.round(angle);
+            rotateTooltip.innerText = `${angle}°`;
+            // Live visual preview via inline style
+            selectedImgNode.style.transform = `rotate(${angle}deg)`;
+            selectedImgNode.setAttribute('data-angle', angle);
+        }
+        function onUp(e) {
+            isRotating = false;
+            rotateHandle.style.cursor = 'grab';
+            rotateTooltip.style.display = 'none';
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            // Commit to TipTap state directly
+            const finalAngle = parseInt(selectedImgNode.getAttribute('data-angle')) || 0;
+            updateImageNode(selectedImgNode, { 'data-angle': finalAngle });
+            setTimeout(showImageToolbar, 50);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+
+    // ==========================================================
+    //  INLINE RESIZE via corner drag handles (pure CSS/JS)
+    // ==========================================================
+    
+    // Helper to reliably update image attributes directly in ProseMirror state
+    function updateImageNode(imgEl, attributes) {
+        try {
+            const pos = editor.view.posAtDOM(imgEl, 0);
+            if (pos >= 0) {
+                const node = editor.state.doc.nodeAt(pos);
+                if (node && node.type.name === 'image') {
+                    editor.view.dispatch(
+                        editor.state.tr.setNodeMarkup(pos, null, {
+                            ...node.attrs,
+                            ...attributes
+                        })
+                    );
+                } else {
+                    editor.chain().setNodeSelection(pos).updateAttributes('image', attributes).run();
+                }
+            }
+        } catch (e) {
+            console.error('Failed to update image node', e);
+        }
+    }
+
+    // We add resize handles by intercepting clicks on images inside ProseMirror
+    const editorEl = document.getElementById('document-paper');
+    let resizeHandles = [];
+
+    function clearResizeHandles() {
+        resizeHandles.forEach(h => h.el.remove());
+        resizeHandles = [];
+    }
+
+    function addResizeHandles(imgEl) {
+        clearResizeHandles();
+        if (!imgEl || !imgEl.parentElement) return;
+
+        const wrapper = imgEl.closest('.ProseMirror');
+        if (!wrapper) return;
+
+        const positions = [
+            { pos: 'nw', cursor: 'nwse-resize' },
+            { pos: 'ne', cursor: 'nesw-resize' },
+            { pos: 'sw', cursor: 'nesw-resize' },
+            { pos: 'se', cursor: 'nwse-resize' }
+        ];
+
+        positions.forEach(({ pos, cursor }) => {
+            const handle = document.createElement('div');
+            handle.style.cssText = `
+                position: absolute; width: 12px; height: 12px;
+                background: #10b981; border: 2px solid white; border-radius: 50%;
+                cursor: ${cursor}; z-index: 20;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            `;
+            positionHandle(handle, imgEl, pos);
+            document.body.appendChild(handle);
+            resizeHandles.push({ el: handle, pos });
+
+            let startX, startY, startW, startH;
+            handle.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                startX = e.clientX;
+                startY = e.clientY;
+                startW = imgEl.offsetWidth;
+                startH = imgEl.offsetHeight;
+                const aspect = startW / startH;
+
+                function onMove(e) {
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+                    let newW = startW;
+                    
+                    if (pos === 'se' || pos === 'ne') {
+                        newW = startW + dx;
+                    } else if (pos === 'sw' || pos === 'nw') {
+                        newW = startW - dx;
+                    }
+                    
+                    newW = Math.max(50, newW);
+                    let newH = newW / aspect;
+                    
+                    imgEl.style.width = `${newW}px`;
+                    imgEl.style.height = `${newH}px`;
+                    imgEl.setAttribute('width', Math.round(newW));
+                    imgEl.setAttribute('height', Math.round(newH));
+                    
+                    resizeHandles.forEach(h => positionHandle(h.el, imgEl, h.pos));
+                    showImageToolbar();
+                }
+                function onUp() {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    
+                    updateImageNode(imgEl, {
+                        width: Math.round(imgEl.offsetWidth),
+                        height: Math.round(imgEl.offsetHeight)
+                    });
+                }
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        });
+    }
+
+    function positionHandle(handle, imgEl, pos) {
+        const rect = imgEl.getBoundingClientRect();
+        if (pos === 'nw') {
+            handle.style.top = `${rect.top + window.scrollY - 6}px`;
+            handle.style.left = `${rect.left + window.scrollX - 6}px`;
+        } else if (pos === 'ne') {
+            handle.style.top = `${rect.top + window.scrollY - 6}px`;
+            handle.style.left = `${rect.right + window.scrollX - 6}px`;
+        } else if (pos === 'sw') {
+            handle.style.top = `${rect.bottom + window.scrollY - 6}px`;
+            handle.style.left = `${rect.left + window.scrollX - 6}px`;
+        } else if (pos === 'se') {
+            handle.style.top = `${rect.bottom + window.scrollY - 6}px`;
+            handle.style.left = `${rect.right + window.scrollX - 6}px`;
+        }
+    }
+
+    // Prevent native drag if we are doing absolute drag
+    editorEl.addEventListener('dragstart', (e) => {
+        if (e.target.tagName === 'IMG') {
+            e.preventDefault();
+        }
+    });
+
+    // Listen for image selection and enable absolute dragging in the editor
+    editorEl.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'IMG') {
+            const imgEl = e.target;
+            setTimeout(() => addResizeHandles(imgEl), 10);
+            
+            const startX = e.clientX;
+            const startY = e.clientY;
+            
+            const paperRect = document.getElementById('document-paper').getBoundingClientRect();
+            const imgRect = imgEl.getBoundingClientRect();
+            
+            let startLeft = imgRect.left - paperRect.left;
+            let startTop = imgRect.top - paperRect.top;
+            
+            // If already absolute, use its current data-x/y to prevent jump if bounding rect differs
+            if (imgEl.getAttribute('data-position') === 'absolute') {
+                startLeft = parseInt(imgEl.getAttribute('data-x')) || startLeft;
+                startTop = parseInt(imgEl.getAttribute('data-y')) || startTop;
+            }
+
+            let hasMoved = false;
+
+            function onMove(ev) {
+                const dx = ev.clientX - startX;
+                const dy = ev.clientY - startY;
+                
+                if (!hasMoved && (Math.abs(dx) > 3 || Math.abs(dy) > 3)) {
+                    hasMoved = true;
+                    // Prepare image for absolute dragging visually
+                    imgEl.style.position = 'absolute';
+                    imgEl.style.zIndex = '10';
+                    imgEl.style.float = 'none';
+                    imgEl.style.margin = '0';
+                    clearResizeHandles();
+                    imageFloatToolbar.classList.remove('visible');
+                    rotateHandle.style.display = 'none';
+                }
+
+                if (hasMoved) {
+                    ev.preventDefault();
+                    let newLeft = startLeft + dx;
+                    let newTop = startTop + dy;
+                    imgEl.style.left = `${newLeft}px`;
+                    imgEl.style.top = `${newTop}px`;
+                }
+            }
+
+            function onUp(ev) {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                
+                if (hasMoved) {
+                    const dx = ev.clientX - startX;
+                    const dy = ev.clientY - startY;
+                    let newLeft = Math.round(startLeft + dx);
+                    let newTop = Math.round(startTop + dy);
+                    
+                    // Update the image attributes for TipTap reliably
+                    updateImageNode(imgEl, {
+                        'data-position': 'absolute',
+                        'data-x': newLeft,
+                        'data-y': newTop,
+                        'data-float': 'none'
+                    });
+                    
+                    setTimeout(() => addResizeHandles(imgEl), 50);
+                }
+            }
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        } else {
+            clearResizeHandles();
+        }
+    });
+
+    // ==========================================================
+    //  MAIN TOOLBAR ACTIONS
+    // ==========================================================
+    const updateActiveStates = () => {
+        document.querySelectorAll('#toolbar .toolbar-btn').forEach(btn => {
+            const action = btn.dataset.action;
+            if (!action) return;
+            let isActive = false;
+            
+            if (action === 'bold') isActive = editor.isActive('bold');
+            if (action === 'italic') isActive = editor.isActive('italic');
+            if (action === 'underline') isActive = editor.isActive('underline');
+            if (action === 'strike') isActive = editor.isActive('strike');
+            if (action === 'h1') isActive = editor.isActive('heading', { level: 1 });
+            if (action === 'h2') isActive = editor.isActive('heading', { level: 2 });
+            if (action === 'h3') isActive = editor.isActive('heading', { level: 3 });
+            if (action === 'align-left') isActive = editor.isActive({ textAlign: 'left' });
+            if (action === 'align-center') isActive = editor.isActive({ textAlign: 'center' });
+            if (action === 'align-right') isActive = editor.isActive({ textAlign: 'right' });
+            if (action === 'align-justify') isActive = editor.isActive({ textAlign: 'justify' });
+            if (action === 'bullet-list') isActive = editor.isActive('bulletList');
+            if (action === 'ordered-list') isActive = editor.isActive('orderedList');
+
+            if (isActive) btn.classList.add('is-active');
+            else btn.classList.remove('is-active');
+        });
+    };
+
+    document.querySelectorAll('#toolbar .toolbar-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const action = btn.dataset.action;
+            if (!action) return;
+            e.preventDefault();
+            
+            if (action === 'undo') editor.chain().focus().undo().run();
+            if (action === 'redo') editor.chain().focus().redo().run();
+            if (action === 'bold') editor.chain().focus().toggleBold().run();
+            if (action === 'italic') editor.chain().focus().toggleItalic().run();
+            if (action === 'underline') editor.chain().focus().toggleUnderline().run();
+            if (action === 'strike') editor.chain().focus().toggleStrike().run();
+            if (action === 'h1') editor.chain().focus().toggleHeading({ level: 1 }).run();
+            if (action === 'h2') editor.chain().focus().toggleHeading({ level: 2 }).run();
+            if (action === 'h3') editor.chain().focus().toggleHeading({ level: 3 }).run();
+            if (action === 'align-left') editor.chain().focus().setTextAlign('left').run();
+            if (action === 'align-center') editor.chain().focus().setTextAlign('center').run();
+            if (action === 'align-right') editor.chain().focus().setTextAlign('right').run();
+            if (action === 'align-justify') editor.chain().focus().setTextAlign('justify').run();
+            if (action === 'bullet-list') editor.chain().focus().toggleBulletList().run();
+            if (action === 'ordered-list') editor.chain().focus().toggleOrderedList().run();
+            if (action === 'table') editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+        });
+    });
+
+    // ── Image Insert Button (separate from toolbar loop) ──
+    document.getElementById('btnInsertImage').addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('imageUpload').click();
+    });
+
+    document.getElementById('imageUpload').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                editor.chain().focus().setImage({ src: ev.target.result }).run();
+            };
+            reader.readAsDataURL(file);
+            // Reset input so the same file can be re-selected
+            e.target.value = '';
+        }
+    });
+
+    document.getElementById('textColor').addEventListener('input', (e) => {
+        editor.commands.setColor(e.target.value);
+    });
+
+    // ── Save Action ──
+    document.getElementById('btnSave').addEventListener('click', () => {
+        document.getElementById('formTitle').value = document.getElementById('docTitle').value || 'Untitled Document';
+        document.getElementById('formDocType').value = document.getElementById('docType').value;
+        document.getElementById('formContent').value = editor.getHTML();
+        document.getElementById('docForm').submit();
+    });
+
+    // ── Print Action ──
+    document.getElementById('btnPrint').addEventListener('click', () => {
+        clearResizeHandles();
+        imageFloatToolbar.classList.remove('visible');
+        rotateHandle.style.display = 'none';
+        window.print();
+    });
+
+    console.log('[Document Workspace] Editor initialized successfully.');
+</script>
+{% endblock %}

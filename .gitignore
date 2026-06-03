@@ -39,3 +39,5 @@ Thumbs.db
 
 # Project caches
 .esp32_ip
+
+node_modules/

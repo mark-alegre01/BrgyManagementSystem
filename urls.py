@@ -13,6 +13,7 @@ urlpatterns = [
     path("certifications/", include("certifications.urls")),
     path("reports/", include("reports.urls")),
     path("philsys/", include("philsys.urls")),
+    path("documents/", include("documents.urls")),
     path("login/", core_views.login_view, name="login"),
     path("logout/", core_views.logout_view, name="logout"),
     path("signup/", core_views.signup_view, name="signup"),

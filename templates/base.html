@@ -118,6 +118,11 @@
       {% if s or r != 'lupon_member' and r != 'resident' %}
       <div class="nav-section">
         <span class="nav-section-title">SERVICES</span>
+        
+        <a href="{% url 'documents:list' %}"
+          class="nav-item {% if request.resolver_match.app_name == 'documents' %}active{% endif %}">
+          <i class="fas fa-file-word"></i><span>Documents</span>
+        </a>
 
         <a href="{% url 'certifications:list' %}"
           class="nav-item {% with url=request.resolver_match.url_name %}{% if request.resolver_match.app_name == 'certifications' and url == 'list' or url == 'view' or url == 'pdf' or url == 'receipt' or url == 'virtual_certificate' or url == 'issue' %}active{% endif %}{% endwith %}">
