@@ -27,6 +27,7 @@ urlpatterns = [
     path('ra11261/admin/applications/', ra11261_views.ra11261_admin_list, name='ra11261_admin_list'),
     path('ra11261/admin/applications/<int:pk>/review/', ra11261_views.ra11261_admin_review, name='ra11261_admin_review'),
     path('ra11261/admin/roster/', ra11261_views.ra11261_admin_roster, name='ra11261_admin_roster'),
+    path('ra11261/admin/roster/add/', ra11261_views.ra11261_admin_roster_add, name='ra11261_admin_roster_add'),
     path('ra11261/admin/roster/export/', ra11261_views.ra11261_export_csv, name='ra11261_export_csv'),
     path('ra11261/certification/<int:pk>/pdf/', ra11261_views.ra11261_certification_pdf, name='ra11261_pdf'),
 ]

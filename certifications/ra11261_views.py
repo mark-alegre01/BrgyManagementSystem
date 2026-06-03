@@ -188,14 +188,79 @@ def ra11261_admin_roster(request):
         else:
             expired_count += 1
 
+    # Fetch all residents who are NOT already in the roster, so admin can select them.
+    roster_resident_ids = roster.values_list('resident_id', flat=True)
+    available_residents = Resident.objects.exclude(id__in=roster_resident_ids).order_by('last_name')
+
     context = {
         'roster': roster,
         'search': search,
         'total_availed': roster.count(),
         'active_count': active_count,
         'expired_count': expired_count,
+        'available_residents': available_residents,
     }
     return render(request, 'certifications/ra11261_admin_roster.html', context)
+
+@login_required
+def ra11261_admin_roster_add(request):
+    """Admin manually adds a walk-in resident to the Roster."""
+    if request.method == 'POST':
+        resident_id = request.POST.get('resident_id')
+        if not resident_id:
+            messages.error(request, "Please select a resident.")
+            return redirect('certifications:ra11261_admin_roster')
+
+        resident = get_object_or_404(Resident, pk=resident_id)
+
+        if FirstTimeJobseekerRoster.objects.filter(resident=resident).exists():
+            messages.error(request, "Resident already exists in the RA 11261 roster.")
+            return redirect('certifications:ra11261_admin_roster')
+
+        # To keep data consistent, we create an approved RA11261Application representing the walk-in
+        application = RA11261Application.objects.create(
+            resident=resident,
+            declaration_confirmed=True, # Assumed they signed it physically
+            status='APPROVED'
+        )
+
+        # Issue Certificate Request & waive fee
+        cert_req = CertificateRequest.objects.create(
+            resident=resident,
+            cert_type='clearance', 
+            purpose='First Time Jobseeker (RA 11261) - Walk In',
+            is_first_time_jobseeker=True,
+            status='issued',
+            processed_by=request.user,
+            processed_at=timezone.now()
+        )
+
+        payment = Payment.objects.create(amount=0, status='paid', payment_method='cash', processed_by=request.user)
+        cert_req.payment = payment
+        cert_req.save()
+
+        OfficialReceipt.objects.create(payment=payment, or_number="EXEMPT-RA11261", issued_by=request.user)
+
+        cert_date = date.today()
+        expiry_date = cert_date + timedelta(days=365)
+        
+        FirstTimeJobseekerRoster.objects.create(
+            resident=resident,
+            certificate_request=cert_req,
+            certification_date=cert_date,
+            expiry_date=expiry_date,
+            added_by=request.user
+        )
+
+        Certificate.objects.create(
+            resident=resident,
+            certificate_request=cert_req,
+            issued_by=request.user,
+            status='issued'
+        )
+        messages.success(request, f"Successfully added {resident.full_name} to the RA 11261 Roster.")
+        
+    return redirect('certifications:ra11261_admin_roster')
 
 
 @login_required
