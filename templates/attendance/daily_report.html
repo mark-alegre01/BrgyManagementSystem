@@ -80,7 +80,7 @@
                     </tr>
                     {% else %}
                     {% for item in report %}
-                    <tr class="hover:bg-slate-50/50 transition-colors">
+                    <tr class="hover:bg-slate-50/50 transition-colors {% if item.status in 'unscheduled,day_off,leave' %}opacity-60 bg-slate-50/30{% endif %}">
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
                                 <div class="w-9 h-9 rounded-full bg-slate-100 overflow-hidden border border-slate-200 flex-shrink-0">
@@ -92,8 +92,13 @@
                                 </div>
                                 <div class="flex flex-col min-w-0">
                                     <span class="font-bold text-slate-800 whitespace-normal break-words leading-tight">{{ item.official.resident.full_name }}</span>
-                                    <div class="mt-0.5 pt-0.5 border-t border-slate-100 w-fit">
+                                    <div class="mt-0.5 pt-0.5 border-t border-slate-100 w-fit flex gap-2 items-center">
                                         <span class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">{{ item.official.get_position_display }}</span>
+                                        {% if item.shift_label %}
+                                        <span class="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-black tracking-widest uppercase">{{ item.shift_label }}</span>
+                                        {% else %}
+                                        <span class="text-[9px] bg-slate-50 text-slate-400 px-1.5 py-0.5 rounded font-black tracking-widest uppercase border border-slate-200">No Schedule</span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
@@ -114,6 +119,8 @@
                                         <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">On Time</span>
                                         {% endif %}
                                     </div>
+                                {% elif item.status == 'unscheduled' or item.status == 'day_off' or item.status == 'leave' %}
+                                    <span class="text-[9px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded font-black tracking-widest border border-slate-200 uppercase">—</span>
                                 {% elif date|is_absent_visible:shift_config.am_out %}
                                     <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
                                 {% endif %}
@@ -129,6 +136,8 @@
                                         </div>
                                     {% elif log and log.am_in %}
                                         <span class="text-slate-300 italic text-[10px]">---</span>
+                                    {% elif item.status == 'unscheduled' or item.status == 'day_off' or item.status == 'leave' %}
+                                        <span class="text-[9px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded font-black tracking-widest border border-slate-200 uppercase">—</span>
                                     {% elif date|is_absent_visible:shift_config.am_out %}
                                         <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
                                     {% endif %}
@@ -148,6 +157,8 @@
                                                 <span class="text-[9px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black tracking-widest border border-emerald-100 uppercase">Present</span>
                                             {% endif %}
                                         </div>
+                                    {% elif item.status == 'unscheduled' or item.status == 'day_off' or item.status == 'leave' %}
+                                        <span class="text-[9px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded font-black tracking-widest border border-slate-200 uppercase">—</span>
                                     {% elif date|is_absent_visible:shift_config.pm_out %}
                                         <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
                                     {% endif %}
@@ -164,6 +175,8 @@
                                         </div>
                                     {% elif log and log.pm_in %}
                                         <span class="text-slate-300 italic text-[10px]">---</span>
+                                    {% elif item.status == 'unscheduled' or item.status == 'day_off' or item.status == 'leave' %}
+                                        <span class="text-[9px] bg-slate-100 text-slate-400 px-2 py-0.5 rounded font-black tracking-widest border border-slate-200 uppercase">—</span>
                                     {% elif date|is_absent_visible:shift_config.pm_out %}
                                         <span class="text-[9px] bg-red-50 text-red-600 px-2 py-0.5 rounded font-black tracking-widest border border-red-100 uppercase">Absent</span>
                                     {% endif %}

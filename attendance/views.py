@@ -109,12 +109,6 @@ def clock_in_out(request):
         action = request.POST.get('action')  # 'in' or 'out'
         official = get_object_or_404(Official, pk=official_id)
 
-        log, created = AttendanceLog.objects.get_or_create(
-            official=official,
-            date=today,
-            defaults={'method': 'manual', 'status': 'present'}
-        )
-
         now = datetime.now().time()
         
         # Get custom schedule
@@ -124,6 +118,22 @@ def clock_in_out(request):
         day_names = {0:'mon', 1:'tue', 2:'wed', 3:'thu', 4:'fri', 5:'sat', 6:'sun'}
         day_code = day_names[today.weekday()]
         shift = ShiftConfiguration.objects.filter(day=day_code).first()
+
+        # Block if no schedule assigned
+        if not sched:
+            messages.warning(request, f'{official.resident.full_name} is not scheduled today. No attendance recorded.')
+            return redirect('attendance:clock')
+
+        # Block day_off or leave
+        if sched.shift_type in ['day_off', 'leave']:
+            messages.info(request, f'{official.resident.full_name} is on {sched.get_shift_type_display()} today. No attendance recorded.')
+            return redirect('attendance:clock')
+
+        log, created = AttendanceLog.objects.get_or_create(
+            official=official,
+            date=today,
+            defaults={'method': 'manual', 'status': 'present'}
+        )
 
         if action == 'in':
             if not log.am_in:
@@ -138,10 +148,7 @@ def clock_in_out(request):
                 grace = shift.grace_period if shift else 15
                 threshold_dt = datetime.combine(today, threshold) + timedelta(minutes=grace)
                 
-                # If they shouldn't be working today, we can just say present (unscheduled)
-                if sched and sched.shift_type in ['day_off', 'leave']:
-                    log.status = 'present' # or 'unscheduled'
-                elif datetime.now() > threshold_dt:
+                if datetime.now() > threshold_dt:
                     log.status = 'late'
                 else:
                     log.status = 'present'
@@ -220,18 +227,32 @@ def dtr_list(request):
     officials = Official.objects.filter(status='active').select_related('resident')
 
     dtr_summary = []
+    current_date = date.today()
+    
     for official in officials:
         logs = AttendanceLog.objects.filter(
             official=official,
             date__month=month,
             date__year=year,
         )
+        
+        # Calculate true absences: scheduled working days up to today with no attendance log
+        scheduled_dates = WorkSchedule.objects.filter(
+            official=official,
+            date__month=month,
+            date__year=year,
+            date__lte=current_date
+        ).exclude(shift_type__in=['day_off', 'leave']).values_list('date', flat=True)
+        
+        log_dates = set(logs.values_list('date', flat=True))
+        absent_count = sum(1 for d in scheduled_dates if d not in log_dates)
+
         total_hours = sum(log.hours_worked for log in logs)
         dtr_summary.append({
             'official': official,
             'present': logs.filter(status='present').count(),
             'late': logs.filter(status='late').count(),
-            'absent': logs.filter(status='absent').count(),
+            'absent': absent_count,
             'total_hours': round(total_hours, 2),
             'total_days': logs.count(),
         })
@@ -431,7 +452,19 @@ def api_biometric_verify(request):
         elif shift and shift.is_day_off:
             return JsonResponse({'status': 'info', 'message': f'Today is a Day Off for {official.resident.full_name}.'})
 
-        # Determine slot based on time and requested action
+        # ── NO SCHEDULE CHECK ── If there is no WorkSchedule at all, block the scan
+        if not sched:
+            try:
+                requests.post(f"{esp32_base_url}/error-feedback",
+                              data={'reason': 'Not Scheduled'},
+                              timeout=2,
+                              proxies={'http': None, 'https': None})
+            except Exception:
+                pass
+            return JsonResponse({
+                'status': 'not_scheduled',
+                'message': f'{official.resident.full_name} — Not Scheduled today.'
+            })
         midpoint = time(12, 30) # Default midpoint
         if shift:
             # mid-point between AM OUT and PM IN
@@ -633,6 +666,15 @@ def attendance_history_calendar(request):
             month_data[d] = {'present': 0, 'late': 0, 'absent': 0, 'date_str': curr_date.strftime('%Y-%m-%d')}
         except ValueError: break
     active_officials_count = Official.objects.filter(status='active').count()
+
+    # Build a per-day count of officials with an actual working schedule (not day_off/leave)
+    # This prevents unscheduled officials from being counted as absent
+    from django.db.models import Count as _Count
+    scheduled_counts_qs = WorkSchedule.objects.filter(
+        date__year=year, date__month=month,
+    ).exclude(shift_type__in=['day_off', 'leave']).values('date').annotate(cnt=_Count('id'))
+    scheduled_counts = {s['date'].day: s['cnt'] for s in scheduled_counts_qs}
+
     for log in logs:
         d = log['date'].day
         status = log['status']
@@ -660,7 +702,12 @@ def attendance_history_calendar(request):
             if data['is_day_off']:
                 data['absent'] = 0
             else:
-                data['absent'] = max(0, active_officials_count - (data['present'] + data['late']))
+                # Use scheduled count for this day; fall back to all active officials
+                # if no WorkSchedule data exists (e.g. dates before scheduling was adopted)
+                scheduled = scheduled_counts.get(d)
+                base = scheduled if scheduled is not None else active_officials_count
+                data['absent'] = max(0, base - (data['present'] + data['late']))
+
 
     cal = calendar.Calendar(firstweekday=6)
     month_days = cal.monthdayscalendar(year, month)
@@ -803,20 +850,46 @@ def daily_attendance_report(request, date_str):
     else:
         is_day_off = shift_config.is_day_off if shift_config else False
     
+    # Get WorkSchedule for each official on that date
+    work_schedules = WorkSchedule.objects.filter(date=query_date)
+    sched_dict = {s.official_id: s for s in work_schedules}
+    
     full_report = []
     stats = {'present': 0, 'late': 0, 'absent': 0}
 
     if not is_future:
         for official in officials:
             log = log_dict.get(official.id)
-            if log: full_report.append({'official': official, 'log': log, 'status': log.status})
-            else: full_report.append({'official': official, 'log': None, 'status': 'absent'})
-        status_order = {'present': 0, 'late': 1, 'absent': 2}
-        full_report.sort(key=lambda x: status_order.get(x['status'], 3))
+            sched = sched_dict.get(official.id)
+
+            if log:
+                status = log.status
+            elif sched:
+                if sched.shift_type == 'leave':
+                    status = 'leave'
+                elif sched.shift_type == 'day_off':
+                    status = 'day_off'
+                else:
+                    status = 'absent'
+            else:
+                # No schedule = Not scheduled, do NOT count as absent
+                status = 'unscheduled'
+
+            full_report.append({
+                'official': official,
+                'log': log,
+                'status': status,
+                'shift_label': sched.get_shift_type_display() if sched else None,
+            })
+
+        # Sort: present/late first, then absent, then leave/day_off/unscheduled
+        status_order = {'present': 0, 'late': 1, 'absent': 2, 'leave': 3, 'day_off': 4, 'unscheduled': 5}
+        full_report.sort(key=lambda x: (status_order.get(x['status'], 6), x['official'].resident.last_name))
+
         stats = {
-            'present': logs.filter(status='present').count(),
-            'late': logs.filter(status='late').count(),
-            'absent': len(full_report) - logs.count()
+            'present': sum(1 for r in full_report if r['status'] in ['present', 'late']),
+            'late': sum(1 for r in full_report if r['status'] == 'late'),
+            'absent': sum(1 for r in full_report if r['status'] == 'absent'),
         }
     
     context = {
@@ -829,6 +902,7 @@ def daily_attendance_report(request, date_str):
         'is_day_off': is_day_off
     }
     return render(request, 'attendance/daily_report.html', context)
+
 
 
 @login_required

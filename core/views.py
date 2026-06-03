@@ -724,6 +724,41 @@ def biometric_attendance_status_check(request):
                 device_time = data.get('device_time') or ''
                 device_date = data.get('device_date') or ''
 
+                # ── NOT SCHEDULED CHECK ── Block if official has no WorkSchedule today
+                from attendance.models import WorkSchedule as WS
+                from django.utils import timezone as tz
+                scan_date = tz.localdate()
+                if device_date:
+                    try:
+                        from datetime import datetime as _dt
+                        _parsed = _dt.strptime(device_date, '%Y-%m-%d').date()
+                        if _parsed.year >= 2026:
+                            scan_date = _parsed
+                    except Exception:
+                        pass
+                official_sched = WS.objects.filter(official=official_rec, date=scan_date).first()
+                if not official_sched or official_sched.shift_type in ['day_off', 'leave']:
+                    block_reason = 'Not Scheduled' if not official_sched else official_sched.get_shift_type_display()
+                    try:
+                        requests.post(
+                            f"{esp32_base_url}/error-feedback",
+                            data={'reason': 'Not Scheduled'},
+                            timeout=2,
+                            proxies={'http': None, 'https': None},
+                        )
+                    except Exception:
+                        pass
+                    target_req_id = request_id or 'global_hardware_scan'
+                    cache.set(
+                        f"biometric_attendance:{target_req_id}",
+                        {'status': 'failed', 'reason': f'{official_rec.resident.full_name} — {block_reason} today.'},
+                        timeout=30,
+                    )
+                    return JsonResponse({
+                        'status': 'not_scheduled',
+                        'reason': f'{official_rec.resident.full_name} — {block_reason} today.'
+                    })
+
                 # Hardware validation: Reject TIME OUT if no TIME IN is recorded for today
                 if attendance_mode == 'out':
                     from datetime import date, datetime

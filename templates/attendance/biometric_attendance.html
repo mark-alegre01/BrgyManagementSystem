@@ -762,6 +762,8 @@
                         // Hardware button scan completed — trigger full record flow
                         startUI();
                         recordAttendance(data.attendance_mode);
+                    } else if (data.status === 'not_scheduled') {
+                        showNotScheduled(data.reason || 'Not Scheduled today.');
                     } else if (data.status === 'failed' && !hasShownError) {
                         hasShownError = true;
                         stopScanner();
@@ -787,6 +789,10 @@
                     if (data.status === 'authenticated') { 
                         recordAttendance(data.attendance_mode); 
                     } 
+                    else if (data.status === 'not_scheduled') {
+                        stopScanner();
+                        showNotScheduled(data.reason || 'Not Scheduled today.');
+                    }
                     else if (data.status === 'failed' && !hasShownError) { 
                         hasShownError = true;
                         stopScanner();
@@ -835,6 +841,12 @@
                         window.showNotification(`Attendance recorded: ${data.name} (${data.action})`, 'success');
                     }
                 } 
+                else if (data.status === 'not_scheduled') {
+                    showNotScheduled(data.message || 'Not Scheduled today.');
+                    if (window.showNotification) {
+                        window.showNotification(data.message || 'Not Scheduled today.', 'warning');
+                    }
+                }
                 else { 
                     showError(data.message || 'Attendance recording failed.'); 
                     if (window.showNotification) {
@@ -909,6 +921,31 @@
                 }
             }, 3000);
         }
+
+        function showNotScheduled(message) {
+            stopScanner();
+            scanVisual.className = 'scan-visual';
+            scanVisual.style.borderColor = '#f59e0b';
+            scanVisual.querySelector('i').style.color = '#f59e0b';
+            statusBadge.className = 'status-badge-lg';
+            statusBadge.style.cssText = 'background:#fffbeb;color:#b45309;border:1.5px solid #fcd34d;font-size:1.05rem;padding:.75rem 1.5rem;border-radius:1.5rem;font-weight:900;display:inline-block;margin:.5rem auto;';
+            statusBadge.innerHTML = '<i class="fas fa-calendar-times mr-2"></i> Not Scheduled';
+            instructionText.className = 'h5 mb-4 font-weight-bold';
+            instructionText.style.color = '#b45309';
+            instructionText.textContent = message;
+
+            setTimeout(() => {
+                scanVisual.style.borderColor = '';
+                scanVisual.querySelector('i').style.color = '';
+                statusBadge.style.cssText = '';
+                statusBadge.className = 'status-badge-lg badge-waiting';
+                statusBadge.innerHTML = '<i class="fas fa-clock mr-2"></i> Ready to Clock In/Out';
+                instructionText.className = 'small mb-3 text-secondary';
+                instructionText.style.color = '';
+                instructionText.textContent = 'Click the button below to start the scanner';
+            }, 5000);
+        }
+
 
         // Modal Specific Event Handlers
         document.getElementById('dayStatusToggle').onchange = (e) => {
