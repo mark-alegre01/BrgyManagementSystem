@@ -161,10 +161,15 @@ def ra11261_admin_review(request, pk):
                 added_by=request.user
             )
 
+            from certifications.views import generate_control_number
             Certificate.objects.get_or_create(
                 resident=application.resident,
                 certificate_request=cert_req,
-                defaults={'issued_by': request.user, 'status': 'issued'}
+                defaults={
+                    'issued_by': request.user, 
+                    'status': 'issued',
+                    'control_number': generate_control_number(cert_req.cert_type)
+                }
             )
             messages.success(request, "Application APPROVED and Roster updated.")
 
@@ -272,11 +277,13 @@ def ra11261_admin_roster_add(request):
             added_by=request.user
         )
 
+        from certifications.views import generate_control_number
         Certificate.objects.create(
             resident=resident,
             certificate_request=cert_req,
             issued_by=request.user,
-            status='issued'
+            status='issued',
+            control_number=generate_control_number(cert_req.cert_type)
         )
         messages.success(request, f"Successfully added {resident.full_name} to the RA 11261 Roster.")
         
