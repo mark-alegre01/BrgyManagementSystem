@@ -6,10 +6,8 @@ import io
 from datetime import datetime
 
 def clean_ocr_text(text):
-    # Fix doubled characters (e.g. DDeevveelloopp → Develop)
-    text = re.sub(r'(.)\1+', r'\1', text)
-    # Remove random symbols and garbage characters
-    text = re.sub(r'[^\w\s\.\,\;\:\!\?\-\(\)\"\'\n]', ' ', text)
+    # Remove random symbols and garbage characters, but keep basic punctuation and slashes
+    text = re.sub(r'[^\w\s\.\,\;\:\!\?\-\(\)\"\'\/\n]', ' ', text)
     # Fix multiple spaces
     text = re.sub(r' +', ' ', text)
     # Fix multiple newlines
@@ -42,18 +40,46 @@ def extract_ordinance_fields(text):
     fields['title'] = title_match.group(1).strip() if title_match else ''
 
     # Extract Date
-    date_match = re.search(
-        r'((?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4})', text, re.IGNORECASE
-    )
-    if date_match:
-        try:
-            date_str = date_match.group(1).replace(',', '').strip()
-            # The clean_ocr_text might have lowercased or altered case slightly, but strptime %B is case-insensitive in Python 3
-            dt_obj = datetime.strptime(date_str, '%B %d %Y')
-            fields['date_enacted'] = dt_obj.strftime('%Y-%m-%d')
-        except Exception:
-            # Fallback to the raw string if parsing fails
-            fields['date_enacted'] = date_match.group(1)
+    months = r'(January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)'
+    raw_date = None
+    
+    m1 = re.search(fr'({months}\s+\d{{1,2}}(?:st|nd|rd|th)?[\s\,]+\d{{4}})', text, re.IGNORECASE)
+    m2 = re.search(fr'(\d{{1,2}}(?:st|nd|rd|th)?[\s\,]+{months}[\s\,]+\d{{4}})', text, re.IGNORECASE)
+    m3 = re.search(fr'(\d{{1,2}}(?:st|nd|rd|th)?\s+day\s+of\s+{months}[\s\,]+\d{{4}})', text, re.IGNORECASE)
+    m4 = re.search(r'(\d{4}[\-\/]\d{1,2}[\-\/]\d{1,2})', text)
+    m5 = re.search(r'(\d{1,2}[\-\/]\d{1,2}[\-\/]\d{4})', text)
+
+    if m1:
+        raw_date = m1.group(1)
+    elif m2:
+        raw_date = m2.group(1)
+    elif m3:
+        raw_date = re.sub(r'day of', '', m3.group(1), flags=re.IGNORECASE).strip()
+    elif m4:
+        raw_date = m4.group(1)
+    elif m5:
+        raw_date = m5.group(1)
+
+    if raw_date:
+        cleaned_date = re.sub(r'(st|nd|rd|th)', '', raw_date, flags=re.IGNORECASE)
+        cleaned_date = re.sub(r'[\s\,]+', ' ', cleaned_date).strip()
+        formats = [
+            '%B %d %Y', '%b %d %Y', 
+            '%d %B %Y', '%d %b %Y',
+            '%Y-%m-%d', '%m/%d/%Y', '%d-%m-%Y', '%Y/%m/%d'
+        ]
+        parsed = False
+        for fmt in formats:
+            try:
+                fields['date_enacted'] = datetime.strptime(cleaned_date, fmt).strftime('%Y-%m-%d')
+                parsed = True
+                break
+            except ValueError:
+                continue
+        if not parsed:
+            fields['date_enacted'] = raw_date
+    else:
+        fields['date_enacted'] = ''
 
     # Extract Signatories
     sig_match = re.search(
