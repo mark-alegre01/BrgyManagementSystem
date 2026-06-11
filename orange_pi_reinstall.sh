@@ -24,6 +24,15 @@ apt-get update
 apt-get upgrade -y
 apt-get install -y python3-venv python3-pip python3-dev libpq-dev postgresql postgresql-contrib network-manager hostapd dnsmasq iptables-persistent git curl
 
+# 1.5 Install Tailscale
+echo -e "\n[1.5/5] Installing Tailscale..."
+if ! command -v tailscale &> /dev/null; then
+    curl -fsSL https://tailscale.com/install.sh | sh
+    echo "Tailscale installed successfully."
+else
+    echo "Tailscale is already installed."
+fi
+
 # 2. Setup PostgreSQL Database
 echo -e "\n[2/5] Setting up PostgreSQL Database..."
 # Start PostgreSQL service if not running
@@ -65,5 +74,9 @@ fi
 
 echo -e "\n================================================="
 echo " SUCCESS! The system is fully reinstalled."
+echo " NOTE: To connect the Orange Pi to your Tailscale network,"
+echo "       please run the following command and authenticate:"
+echo "       sudo tailscale up"
+echo ""
 echo " Please reboot the Orange Pi now: sudo reboot"
 echo "================================================="
