@@ -281,6 +281,7 @@ echo -e "\n${YELLOW}[STEP 7] Writing correct hostapd configuration...${NC}"
 cat > /etc/hostapd/hostapd.conf <<EOF
 interface=$WIFI_IFACE
 driver=nl80211
+country_code=PH
 ssid=Barangay_System_WiFi
 hw_mode=g
 channel=6

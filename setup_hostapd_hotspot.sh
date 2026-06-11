@@ -66,6 +66,7 @@ echo "[INFO] Configuring WiFi Hotspot (hostapd)..."
 cat <<EOF > /etc/hostapd/hostapd.conf
 interface=$WIFI_IFACE
 driver=nl80211
+country_code=PH
 ssid=Barangay_System_WiFi
 hw_mode=g
 channel=6
