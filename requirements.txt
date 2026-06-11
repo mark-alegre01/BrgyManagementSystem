@@ -8,3 +8,7 @@ sqlparse==0.5.5
 requests==2.32.3
 psycopg[binary]==3.2.4
 django-axes>=6.4.0
+PyMuPDF>=1.23.0
+pytesseract>=0.3.10
+djangorestframework>=3.14.0
+pyusb>=1.2.1

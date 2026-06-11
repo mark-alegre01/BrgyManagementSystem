@@ -22,7 +22,7 @@ echo "================================================="
 echo -e "\n[1/5] Installing system dependencies..."
 apt-get update
 apt-get upgrade -y
-apt-get install -y python3-venv python3-pip python3-dev libpq-dev postgresql postgresql-contrib network-manager hostapd dnsmasq iptables-persistent git curl
+apt-get install -y python3-venv python3-pip python3-dev libpq-dev postgresql postgresql-contrib network-manager hostapd dnsmasq iptables-persistent git curl tesseract-ocr libusb-1.0-0
 
 # 1.5 Install Tailscale
 echo -e "\n[1.5/5] Installing Tailscale..."
