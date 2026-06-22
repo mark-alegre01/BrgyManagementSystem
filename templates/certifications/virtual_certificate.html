@@ -234,15 +234,20 @@
         {% endif %}
         
         <div class="certificate-header">
-            <div class="header-logos">
-                <img src="{% static 'images/sico_sico_logo.png' %}" alt="Brgy Logo" class="logo-item">
-                <div class="header-text">
+            <div class="header-logos" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <div class="left-logos" style="display: flex; gap: 15px; align-items: center; flex: 1;">
+                    <img src="{% static 'images/sico_sico_logo.png' %}" alt="Brgy Logo" class="logo-item">
+                    <img src="{% static 'images/bagong_pilipinas.png' %}" alt="Bagong Pilipinas" class="logo-item" style="width: 110px; height: 75px; object-fit: contain;">
+                </div>
+                <div class="header-text" style="flex: 1.5; text-align: center;">
                     <p>Republic of the Philippines</p>
                     <p>Province of Surigao Del Norte</p>
                     <p>Municipality of Gigaquit</p>
-                    <p>Barangay Sico-Sico</p>
+                    <p><strong>Barangay Sico-Sico</strong></p>
                 </div>
-                <img src="{% static 'images/bagong_pilipinas.png' %}" alt="Bagong Pilipinas" class="logo-item">
+                <div class="right-logos" style="display: flex; justify-content: flex-end; align-items: center; flex: 1;">
+                    <img src="{% static 'images/gigaquit_logo.png' %}" alt="Gigaquit Logo" class="logo-item">
+                </div>
             </div>
             <div class="office-title">
                 <h2>OFFICE OF THE SANGGUNIANG BARANGAY</h2>

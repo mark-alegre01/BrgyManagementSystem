@@ -19,6 +19,7 @@ def _logo(filename):
 
 SICO_LOGO    = _logo('sico_sico_logo.png')
 BAGONG_LOGO  = _logo('bagong_pilipinas.png')
+GIGAQUIT_LOGO = _logo('gigaquit_logo.png')
 HEADER_FOOTER_IMG = _logo('header-footer.png')
 
 
@@ -58,7 +59,7 @@ def draw_page_template(canvas, doc, certificate=None, is_resident=False):
     logo_size = 0.80 * inch
     logo_y = header_y + (header_h - logo_size) / 2
 
-    # Barangay logo (left)
+    # Barangay logo (left 1)
     if os.path.exists(SICO_LOGO):
         canvas.drawImage(
             SICO_LOGO,
@@ -67,10 +68,19 @@ def draw_page_template(canvas, doc, certificate=None, is_resident=False):
             mask='auto', preserveAspectRatio=True,
         )
 
-    # Bagong Pilipinas logo (right)
+    # Bagong Pilipinas logo (left 2)
     if os.path.exists(BAGONG_LOGO):
         canvas.drawImage(
             BAGONG_LOGO,
+            margin + 0.15 * inch + logo_size + 0.1 * inch, logo_y + 0.05 * inch,
+            width=logo_size * 1.25, height=logo_size * 0.85,
+            mask='auto', preserveAspectRatio=True,
+        )
+
+    # Gigaquit logo (right)
+    if os.path.exists(GIGAQUIT_LOGO):
+        canvas.drawImage(
+            GIGAQUIT_LOGO,
             page_w - margin - logo_size - 0.15 * inch, logo_y,
             width=logo_size, height=logo_size,
             mask='auto', preserveAspectRatio=True,
