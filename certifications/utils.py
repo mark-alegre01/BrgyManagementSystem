@@ -135,6 +135,72 @@ def draw_page_template(canvas, doc, certificate=None, is_resident=False):
     canvas.restoreState()
 
 
+    canvas.restoreState()
+
+
+class HeaderBannerFlowable(Flowable):
+    """Custom flowable to draw the exact header banner inline for receipts."""
+    def __init__(self):
+        Flowable.__init__(self)
+        self.width = letter[0]
+        self.height = 1.35 * inch
+
+    def draw(self):
+        canvas = self.canv
+        page_w = self.width
+        margin = 0.5 * inch
+        
+        # Shift origin left by margin to cover full width
+        canvas.saveState()
+        canvas.translate(-margin, 0)
+        
+        if os.path.exists(HEADER_FOOTER_IMG):
+            canvas.drawImage(HEADER_FOOTER_IMG, 0, 0, width=page_w, height=self.height, preserveAspectRatio=False)
+
+        logo_size = 0.80 * inch
+        logo_y = (self.height - logo_size) / 2
+
+        if os.path.exists(SICO_LOGO):
+            canvas.drawImage(SICO_LOGO, margin + 0.15 * inch, logo_y, width=logo_size, height=logo_size, mask='auto', preserveAspectRatio=True)
+
+        if os.path.exists(BAGONG_LOGO):
+            canvas.drawImage(BAGONG_LOGO, margin + 0.15 * inch + logo_size + 0.1 * inch, logo_y + 0.05 * inch, width=logo_size * 1.25, height=logo_size * 0.85, mask='auto', preserveAspectRatio=True)
+
+        if os.path.exists(GIGAQUIT_LOGO):
+            canvas.drawImage(GIGAQUIT_LOGO, page_w - margin - logo_size - 0.15 * inch, logo_y, width=logo_size, height=logo_size, mask='auto', preserveAspectRatio=True)
+
+        center_x = page_w / 2
+        header_lines = [
+            ('Republic of the Philippines', 'Times-Roman', 11),
+            ('Province of Surigao Del Norte', 'Times-Roman', 11),
+            ('Municipality of Gigaquit', 'Times-Roman', 11),
+            ('Barangay Sico-Sico', 'Times-Bold', 13),
+        ]
+        line_spacing = 14
+        text_start_y = self.height - 0.25 * inch
+        for text, font, size in header_lines:
+            canvas.setFont(font, size)
+            canvas.setFillColor(colors.black)
+            canvas.setFillAlpha(1.0)
+            canvas.drawCentredString(center_x, text_start_y, text)
+            text_start_y -= line_spacing
+            
+        canvas.restoreState()
+
+def draw_receipt_template(canvas, doc):
+    """Draws only the watermarks for the receipt page. Headers are flowables."""
+    canvas.saveState()
+    page_w, page_h = letter
+    
+    if os.path.exists(SICO_LOGO):
+        canvas.setFillAlpha(0.07)
+        wm_size = 4.0 * inch
+        canvas.drawImage(SICO_LOGO, (page_w - wm_size) / 2, page_h * 0.75 - wm_size / 2, width=wm_size, height=wm_size, mask='auto', preserveAspectRatio=True)
+        canvas.drawImage(SICO_LOGO, (page_w - wm_size) / 2, page_h * 0.25 - wm_size / 2, width=wm_size, height=wm_size, mask='auto', preserveAspectRatio=True)
+        
+    canvas.restoreState()
+
+
 # ─── Helper ──────────────────────────────────────────────────────────────────
 
 def get_ordinal(n):
@@ -572,10 +638,11 @@ def generate_cedula_pdf(certificate, is_resident=False):
 
 def generate_receipt_pdf(certificate):
     """Generate a 2-copy printable receipt (Resident & Barangay copies)."""
+    from reportlab.platypus import Flowable
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=letter,
-        topMargin=1.45 * inch, bottomMargin=0.90 * inch,
+        topMargin=0, bottomMargin=0.5 * inch,
         leftMargin=0.5 * inch, rightMargin=0.5 * inch,
     )
 
@@ -589,6 +656,8 @@ def generate_receipt_pdf(certificate):
 
     def create_receipt_elements(copy_type):
         elems = []
+        elems.append(HeaderBannerFlowable())
+        elems.append(Spacer(1, 0.1 * inch))
         elems.append(Paragraph(f'{copy_type} COPY', styles['CopyLabel']))
         elems.append(Paragraph('OFFICIAL RECEIPT', styles['ReceiptTitle']))
         data = [
@@ -622,13 +691,11 @@ def generate_receipt_pdf(certificate):
 
     all_elements = []
     all_elements.extend(create_receipt_elements('RESIDENT'))
-    all_elements.append(Spacer(1, 0.4 * inch))
+    all_elements.append(Spacer(1, 0.2 * inch))
     all_elements.append(Paragraph('-' * 130, styles['ReceiptHeader']))
-    all_elements.append(Spacer(1, 0.4 * inch))
+    all_elements.append(Spacer(1, 0.2 * inch))
     all_elements.extend(create_receipt_elements('BARANGAY'))
 
-    from functools import partial
-    page_func = partial(draw_page_template, certificate=certificate)
-    doc.build(all_elements, onFirstPage=page_func, onLaterPages=page_func)
+    doc.build(all_elements, onFirstPage=draw_receipt_template, onLaterPages=draw_receipt_template)
     buffer.seek(0)
     return buffer
