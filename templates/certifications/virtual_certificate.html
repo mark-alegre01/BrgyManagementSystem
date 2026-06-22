@@ -503,9 +503,18 @@
             </div>
             <div class="signatory">
                 <p class="signatory-name">HON. {{ captain_name|default:"NO ACTIVE CAPTAIN" }}</p>
-                <div class="signatory-title" style="margin-bottom: 30px;">Punong Barangay</div>
-                <p style="font-size: 14px; margin-top: 10px;">Not valid without official seal</p>
+                <div class="signatory-title" style="margin-bottom: 5px;">Punong Barangay</div>
             </div>
+        </div>
+
+        <!-- Footer bar: logos + seal warning -->
+        <div style="margin-top: 40px; border-top: 1.5px solid #000; padding-top: 12px;">
+            <div style="display: flex; justify-content: center; align-items: center; gap: 18px; margin-bottom: 8px;">
+                <img src="{% static 'images/logo.png' %}" alt="Brgy Logo" style="height: 48px; object-fit: contain;">
+                <img src="{% static 'images/bagong_pilipinas.png' %}" alt="Bagong Pilipinas" style="height: 38px; object-fit: contain;">
+                <img src="{% static 'images/gigaquit_logo.png' %}" alt="Gigaquit Logo" style="height: 48px; object-fit: contain;">
+            </div>
+            <p style="text-align: center; font-style: italic; font-size: 14px; margin: 0; color: #000;">Not valid without official seal</p>
         </div>
         {% endif %}
     </div>
