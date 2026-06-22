@@ -584,6 +584,10 @@ def fulfill_request(request, pk):
         
         cert_request.save()
 
+        # Recover from potential dirty data (e.g., previous crash left request pending but with a certificate)
+        if hasattr(cert_request, 'certificate'):
+            cert_request.certificate.delete()
+
         cert = Certificate.objects.create(
             control_number=control_number,
             resident=cert_request.resident,
