@@ -262,7 +262,10 @@
               </span>
             </td>
             <td>
-              <a href="{% url 'officials:edit' official.pk %}" class="btn-action" title="Edit"><i class="fas fa-edit"></i></a>
+              <div style="display: flex; gap: 4px;">
+                <a href="{% url 'officials:edit' official.pk %}" class="btn-action" title="Edit"><i class="fas fa-edit"></i></a>
+                <a href="{% url 'officials:delete' official.pk %}" class="btn-action" title="Delete" style="color: #ef4444;"><i class="fas fa-trash"></i></a>
+              </div>
             </td>
           </tr>
           {% endfor %}

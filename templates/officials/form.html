@@ -189,7 +189,12 @@
       </div>
     </div>
 
-    <div class="form-footer">
+    <div class="form-footer" style="display: flex; justify-content: {% if editing %}space-between{% else %}flex-end{% endif %}; align-items: center;">
+      {% if editing %}
+      <a href="{% url 'officials:delete' official.pk %}" class="btn btn-outline-danger" style="color: #ef4444; border: 1.5px solid #ef4444; padding: 10px 24px; border-radius: var(--radius-md); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+        <i class="fas fa-trash"></i> Remove Official
+      </a>
+      {% endif %}
       <button type="submit" class="btn btn-primary btn-lg">
         <i class="fas fa-save"></i> Save Appointment
       </button>

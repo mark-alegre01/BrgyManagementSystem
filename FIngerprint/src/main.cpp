@@ -35,7 +35,8 @@ enum SystemState {
   VERIFYING,    // Waiting for login fingerprint, blue LED blinks fast
   WAIT_REMOVE,  // Success! Wait for finger to be removed (Green ON + Blue blinking)
   FINGERPRINT_DETECTED,  // Fingerprint detected, green LED + buzzer sync
-  AUTH_FAILED          // Error feedback (Red LED + 3 beeps)
+  AUTH_FAILED,         // Error feedback (Red LED + 3 beeps)
+  SHUTDOWN             // System is shutting down
 };
 
 // ============= LCD CONFIG =============
@@ -121,6 +122,7 @@ String lastLCDLine1 = "";
 String lastLCDLine2 = "";
 bool authFailedResetPending = false; // Flag to reset the error beeper
 bool isBeeping = false; // Hardware-level lockout to prevent beep restarts
+bool isShuttingDown = false; // Hardware-level lockout to prevent repeating shutdown sequence
 
 // ============= FINGERPRINT DATA =============
 int enrollmentSlotID = 0;
@@ -170,6 +172,8 @@ void handleStandbyMode();
 void handleEnrollingMode();
 void handleDetectionMode();
 void handleFailMode();
+void handleShutdownMode();
+void handleShutdownIndicator();
 void detectFingerprint();
 void clearR307Buffer();
 void addCorsHeaders();
@@ -264,6 +268,9 @@ void loop() {
     case AUTH_FAILED:
       handleFailMode();
       break;
+    case SHUTDOWN:
+      handleShutdownMode();
+      break;
   }
   
   updateLCD();
@@ -303,6 +310,21 @@ void initializeHardware() {
   // Initialize Hardware Buttons
   pinMode(BUTTON_IN_PIN, INPUT_PULLUP);
   pinMode(BUTTON_OUT_PIN, INPUT_PULLUP);
+
+  // HARDWARE TEST FIRST: Cycle all LEDs and beep to verify wiring before I2C can freeze it
+  Serial.println("[BOOT] Starting Hardware Self-Test...");
+  setLeds(true, false, false);  delay(300);
+  setLeds(false, true, false);  delay(300);
+  setLeds(false, false, true);  delay(300);
+  setLeds(false, true, false);
+  ledcWriteTone(BUZZER_LEDC_CHANNEL, BUZZER_TONE_HZ);
+  ledcWrite(BUZZER_LEDC_CHANNEL, 128); // Max 50% duty to prevent power drop
+  delay(200);
+  ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+  ledcWrite(BUZZER_LEDC_CHANNEL, 0);
+  setLeds(false, false, false);
+  Serial.println("[BOOT] Hardware test complete.");
+  delay(100);
 
   // ---- Step 1: Hardware I2C Bus Recovery ----
   // Toggle SCL 9 times to release any slave that held SDA LOW after a power glitch.
@@ -352,21 +374,6 @@ void initializeHardware() {
 
   // Set all LEDs OFF
   setLeds(false, false, false);
-
-  // HARDWARE TEST: Cycle all LEDs and beep to verify wiring
-  Serial.println("[BOOT] Starting Hardware Self-Test...");
-  setLeds(true, false, false);  delay(300);
-  setLeds(false, true, false);  delay(300);
-  setLeds(false, false, true);  delay(300);
-  setLeds(false, true, false);
-  ledcWriteTone(BUZZER_LEDC_CHANNEL, BUZZER_TONE_HZ);
-  ledcWrite(BUZZER_LEDC_CHANNEL, 128); // Max 50% duty to prevent power drop
-  delay(200);
-  ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
-  ledcWrite(BUZZER_LEDC_CHANNEL, 0);
-  setLeds(false, false, false);
-  Serial.println("[BOOT] Hardware test complete.");
-  delay(100);
 }
 
 // Set this to 'true' if you are using a Common Anode RGB LED (where LOW turns the LED ON)
@@ -509,6 +516,12 @@ void initializeWebServer() {
     addCorsHeaders();
     server.send(204);
   });
+  server.on("/shutdown-indicator", HTTP_GET, handleShutdownIndicator);
+  server.on("/shutdown-indicator", HTTP_POST, handleShutdownIndicator);
+  server.on("/shutdown-indicator", HTTP_OPTIONS, []() {
+    addCorsHeaders();
+    server.send(204);
+  });
   server.on("/status", HTTP_GET, handleGetStatus);
   server.on("/status", HTTP_OPTIONS, []() {
     addCorsHeaders();
@@ -552,6 +565,7 @@ void handleRoot() {
     case STANDBY: html += "STANDBY"; break;
     case ENROLLING: html += "ENROLLING"; break;
     case FINGERPRINT_DETECTED: html += "FINGERPRINT DETECTED"; break;
+    case SHUTDOWN: html += "SHUTDOWN"; break;
   }
   
   html += "</p>";
@@ -848,6 +862,7 @@ void handleGetStatus() {
     case WAIT_REMOVE: stateStr = "wait_remove"; break;
     case FINGERPRINT_DETECTED: stateStr = "detected"; break;
     case AUTH_FAILED: stateStr = "auth_failed"; break;
+    case SHUTDOWN: stateStr = "shutdown"; break;
     default: stateStr = "unknown"; break;
   }
 
@@ -1005,6 +1020,55 @@ void handleFailMode() {
     currentState = STANDBY;
   }
   isBeeping = false;
+}
+
+// ============= SHUTDOWN MODE =============
+void handleShutdownIndicator() {
+  addCorsHeaders();
+  currentState = SHUTDOWN;
+  enrollmentActive = false;
+  isShuttingDown = false; // Allow the beep sequence to play again if triggered multiple times
+  lastErrorMessage = "System shutting down...";
+  
+  // Force LCD update by invalidating cache
+  lastLCDLine1 = "";
+  lastLCDLine2 = "";
+  lastLCDUpdateTime = 0; 
+  updateLCD();
+  
+  server.send(200, "application/json", "{\"status\":\"success\",\"message\":\"Shutdown indicator triggered\"}");
+}
+
+void handleShutdownMode() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  Serial.println("\n[SYSTEM] ========== STARTING SHUTDOWN FEEDBACK ==========");
+  
+  // Beep sequence for shutdown (Using exactly BUZZER_TONE_HZ to guarantee hardware response)
+  for (int i = 0; i < 3; i++) {
+    ledcWriteTone(BUZZER_LEDC_CHANNEL, BUZZER_TONE_HZ); 
+    ledcWrite(BUZZER_LEDC_CHANNEL, 128);
+    setLeds(true, true, false); 
+    delay(300);
+    ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+    ledcWrite(BUZZER_LEDC_CHANNEL, 0);
+    setLeds(false, false, false);
+    delay(300);
+  }
+  
+  // Final long beep
+  ledcWriteTone(BUZZER_LEDC_CHANNEL, BUZZER_TONE_HZ); 
+  ledcWrite(BUZZER_LEDC_CHANNEL, 128);
+  setLeds(true, false, false); 
+  delay(1500);
+  ledcWriteTone(BUZZER_LEDC_CHANNEL, 0);
+  ledcWrite(BUZZER_LEDC_CHANNEL, 0);
+  setLeds(false, false, false);
+  
+  Serial.println("[SYSTEM] ============== SHUTDOWN SEQUENCE COMPLETE ==============");
+  
+  // We stay in SHUTDOWN state so the LCD keeps showing the message
 }
 
 // ============= UPDATE SYSTEM STATE =============
@@ -1792,6 +1856,11 @@ void updateLCD() {
       } else {
         line2 = "Try Again...";
       }
+      break;
+
+    case SHUTDOWN:
+      line1 = "SYSTEM SHUTDOWN";
+      line2 = "Powering Off...";
       break;
   }
 
