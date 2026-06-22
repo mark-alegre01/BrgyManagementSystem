@@ -227,6 +227,10 @@ def certificate_issue(request):
                 'mother_name': request.POST.get('mother_name', ''),
             }
         )
+        
+        # Recover from potential dirty data (e.g., previous crash left request pending but with a certificate)
+        if hasattr(cert_req, 'certificate'):
+            cert_req.certificate.delete()
 
         cert = Certificate(
             control_number=control_number,
