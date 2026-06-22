@@ -142,34 +142,38 @@ class HeaderBannerFlowable(Flowable):
     """Custom flowable to draw the exact header banner inline for receipts."""
     def __init__(self):
         Flowable.__init__(self)
-        self.width = letter[0]
         self.height = 1.35 * inch
+
+    def wrap(self, availWidth, availHeight):
+        self.availWidth = availWidth
+        return (availWidth, self.height)
 
     def draw(self):
         canvas = self.canv
-        page_w = self.width
         margin = 0.5 * inch
+        page_w = letter[0]
         
-        # Shift origin left by margin to cover full width
-        canvas.saveState()
-        canvas.translate(-margin, 0)
-        
+        # Origin (0,0) is at the frame's left margin.
+        # Draw background image starting at absolute left edge of page (-margin)
         if os.path.exists(HEADER_FOOTER_IMG):
-            canvas.drawImage(HEADER_FOOTER_IMG, 0, 0, width=page_w, height=self.height, preserveAspectRatio=False)
+            canvas.drawImage(HEADER_FOOTER_IMG, -margin, 0, width=page_w, height=self.height, preserveAspectRatio=False)
 
         logo_size = 0.80 * inch
         logo_y = (self.height - logo_size) / 2
 
+        # Left 1 (Sico)
         if os.path.exists(SICO_LOGO):
-            canvas.drawImage(SICO_LOGO, margin + 0.15 * inch, logo_y, width=logo_size, height=logo_size, mask='auto', preserveAspectRatio=True)
+            canvas.drawImage(SICO_LOGO, 0.15 * inch, logo_y, width=logo_size, height=logo_size, mask='auto', preserveAspectRatio=True)
 
+        # Left 2 (Bagong Pilipinas)
         if os.path.exists(BAGONG_LOGO):
-            canvas.drawImage(BAGONG_LOGO, margin + 0.15 * inch + logo_size + 0.1 * inch, logo_y + 0.05 * inch, width=logo_size * 1.25, height=logo_size * 0.85, mask='auto', preserveAspectRatio=True)
+            canvas.drawImage(BAGONG_LOGO, 0.15 * inch + logo_size + 0.1 * inch, logo_y + 0.05 * inch, width=logo_size * 1.25, height=logo_size * 0.85, mask='auto', preserveAspectRatio=True)
 
+        # Right (Gigaquit)
         if os.path.exists(GIGAQUIT_LOGO):
-            canvas.drawImage(GIGAQUIT_LOGO, page_w - margin - logo_size - 0.15 * inch, logo_y, width=logo_size, height=logo_size, mask='auto', preserveAspectRatio=True)
+            canvas.drawImage(GIGAQUIT_LOGO, page_w - 2 * margin - logo_size - 0.15 * inch, logo_y, width=logo_size, height=logo_size, mask='auto', preserveAspectRatio=True)
 
-        center_x = page_w / 2
+        center_x = page_w / 2 - margin
         header_lines = [
             ('Republic of the Philippines', 'Times-Roman', 11),
             ('Province of Surigao Del Norte', 'Times-Roman', 11),
@@ -185,8 +189,6 @@ class HeaderBannerFlowable(Flowable):
             canvas.drawCentredString(center_x, text_start_y, text)
             text_start_y -= line_spacing
             
-        canvas.restoreState()
-
 def draw_receipt_template(canvas, doc):
     """Draws only the watermarks for the receipt page. Headers are flowables."""
     canvas.saveState()
@@ -194,9 +196,9 @@ def draw_receipt_template(canvas, doc):
     
     if os.path.exists(SICO_LOGO):
         canvas.setFillAlpha(0.07)
-        wm_size = 4.0 * inch
-        canvas.drawImage(SICO_LOGO, (page_w - wm_size) / 2, page_h * 0.75 - wm_size / 2, width=wm_size, height=wm_size, mask='auto', preserveAspectRatio=True)
-        canvas.drawImage(SICO_LOGO, (page_w - wm_size) / 2, page_h * 0.25 - wm_size / 2, width=wm_size, height=wm_size, mask='auto', preserveAspectRatio=True)
+        wm_size = 2.5 * inch
+        canvas.drawImage(SICO_LOGO, (page_w - wm_size) / 2, page_h * 0.75 - wm_size / 2 - 0.2 * inch, width=wm_size, height=wm_size, mask='auto', preserveAspectRatio=True)
+        canvas.drawImage(SICO_LOGO, (page_w - wm_size) / 2, page_h * 0.25 - wm_size / 2 - 0.2 * inch, width=wm_size, height=wm_size, mask='auto', preserveAspectRatio=True)
         
     canvas.restoreState()
 
