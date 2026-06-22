@@ -229,8 +229,11 @@ def certificate_issue(request):
         )
         
         # Recover from potential dirty data (e.g., previous crash left request pending but with a certificate)
-        if hasattr(cert_req, 'certificate'):
-            cert_req.certificate.delete()
+        if hasattr(cert_req, 'issued_certificate'):
+            try:
+                cert_req.issued_certificate.delete()
+            except Exception:
+                pass
 
         cert = Certificate(
             control_number=control_number,
@@ -585,8 +588,11 @@ def fulfill_request(request, pk):
         cert_request.save()
 
         # Recover from potential dirty data (e.g., previous crash left request pending but with a certificate)
-        if hasattr(cert_request, 'certificate'):
-            cert_request.certificate.delete()
+        if hasattr(cert_request, 'issued_certificate'):
+            try:
+                cert_request.issued_certificate.delete()
+            except Exception:
+                pass
 
         cert = Certificate.objects.create(
             control_number=control_number,
