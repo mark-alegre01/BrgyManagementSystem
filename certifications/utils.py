@@ -17,87 +17,17 @@ def _logo(filename):
     return os.path.join(settings.BASE_DIR, f'static/images/{filename}')
 
 
-SICO_LOGO    = _logo('logo.png')
+SICO_LOGO    = _logo('sico_sico_logo.png')
 BAGONG_LOGO  = _logo('bagong_pilipinas.png')
-GIGAQUIT_LOGO = _logo('gigaquit_logo.png')
-
-
-def _draw_wave_banner(canvas, x, y, width, height, flip=False):
-    """
-    Draw a decorative pink/magenta gradient wave banner.
-    flip=True mirrors the wave vertically (for footer).
-    """
-    canvas.saveState()
-
-    # Base gradient: light pink to white
-    steps = 20
-    for i in range(steps):
-        ratio = i / steps
-        r = 1.0
-        g = 0.85 - 0.35 * ratio
-        b = 0.88 - 0.30 * ratio
-        canvas.setFillColorRGB(r, g, b)
-        strip_h = height / steps
-        if flip:
-            strip_y = y + i * strip_h
-        else:
-            strip_y = y + height - (i + 1) * strip_h
-        canvas.rect(x, strip_y, width, strip_h + 0.5, fill=1, stroke=0)
-
-    # Wave curves overlay (semi-transparent magenta)
-    import math
-    canvas.setLineWidth(0)
-
-    wave_configs = [
-        (0.30, (0.85, 0.15, 0.45)),  # deep magenta, 30% opacity
-        (0.20, (0.90, 0.25, 0.55)),  # medium pink, 20% opacity
-        (0.15, (0.95, 0.40, 0.65)),  # light pink, 15% opacity
-    ]
-
-    for alpha, (wr, wg, wb) in wave_configs:
-        canvas.setFillColorRGB(wr, wg, wb)
-        canvas.setFillAlpha(alpha)
-
-        p = canvas.beginPath()
-        segments = 60
-        amplitude = height * 0.4
-        freq = 2.5
-
-        if flip:
-            base_y = y + height * 0.3
-            p.moveTo(x, y)
-            for s in range(segments + 1):
-                sx = x + (width * s / segments)
-                sy = base_y + amplitude * math.sin(freq * math.pi * s / segments)
-                p.lineTo(sx, sy)
-            p.lineTo(x + width, y)
-            p.lineTo(x, y)
-        else:
-            base_y = y + height * 0.7
-            p.moveTo(x, y + height)
-            for s in range(segments + 1):
-                sx = x + (width * s / segments)
-                sy = base_y - amplitude * math.sin(freq * math.pi * s / segments)
-                p.lineTo(sx, sy)
-            p.lineTo(x + width, y + height)
-            p.lineTo(x, y + height)
-
-        p.close()
-        canvas.drawPath(p, fill=1, stroke=0)
-
-        # Shift for next wave layer
-        amplitude *= 0.75
-        freq += 0.5
-
-    canvas.restoreState()
+HEADER_FOOTER_IMG = _logo('header-footer.png')
 
 
 def draw_page_template(canvas, doc, certificate=None, is_resident=False):
     """
     Draws on EVERY page:
       - Watermark (faded logo at center)
-      - Header: pink wave banner + logos + text
-      - Footer: pink wave banner + 'Not valid without official seal'
+      - Header: header-footer.png + logos + text
+      - Footer: header-footer.png (flipped) + 'Not valid without official seal'
     """
     canvas.saveState()
     page_w, page_h = letter
@@ -120,8 +50,9 @@ def draw_page_template(canvas, doc, certificate=None, is_resident=False):
     header_h = 1.35 * inch
     header_y = page_h - header_h
 
-    # Draw the pink wave banner
-    _draw_wave_banner(canvas, 0, header_y, page_w, header_h, flip=False)
+    # Draw the header-footer image
+    if os.path.exists(HEADER_FOOTER_IMG):
+        canvas.drawImage(HEADER_FOOTER_IMG, 0, header_y, width=page_w, height=header_h, preserveAspectRatio=False)
 
     # Logos on top of banner
     logo_size = 0.80 * inch
@@ -136,21 +67,10 @@ def draw_page_template(canvas, doc, certificate=None, is_resident=False):
             mask='auto', preserveAspectRatio=True,
         )
 
-    # Bagong Pilipinas logo (second from left) - use equal width/height to avoid flat look
-    bp_size = 0.80 * inch
+    # Bagong Pilipinas logo (right)
     if os.path.exists(BAGONG_LOGO):
         canvas.drawImage(
             BAGONG_LOGO,
-            margin + logo_size + 0.35 * inch,
-            logo_y,
-            width=bp_size, height=bp_size,
-            mask='auto', preserveAspectRatio=True,
-        )
-
-    # Gigaquit logo (right)
-    if os.path.exists(GIGAQUIT_LOGO):
-        canvas.drawImage(
-            GIGAQUIT_LOGO,
             page_w - margin - logo_size - 0.15 * inch, logo_y,
             width=logo_size, height=logo_size,
             mask='auto', preserveAspectRatio=True,
@@ -177,8 +97,13 @@ def draw_page_template(canvas, doc, certificate=None, is_resident=False):
     footer_h = 0.65 * inch
     footer_y = 0
 
-    # Draw the pink wave banner (flipped)
-    _draw_wave_banner(canvas, 0, footer_y, page_w, footer_h, flip=True)
+    # Draw the header-footer image (flipped vertically)
+    if os.path.exists(HEADER_FOOTER_IMG):
+        canvas.saveState()
+        canvas.translate(0, footer_h)
+        canvas.scale(1, -1)
+        canvas.drawImage(HEADER_FOOTER_IMG, 0, 0, width=page_w, height=footer_h, preserveAspectRatio=False)
+        canvas.restoreState()
 
     # "Not valid without official seal" in red italic
     canvas.setFillAlpha(1.0)

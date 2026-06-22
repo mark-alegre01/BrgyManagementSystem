@@ -325,7 +325,7 @@ def ra11261_certification_pdf(request, pk):
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
     from reportlab.lib import colors
     from django.conf import settings as django_settings
-    from certifications.utils import draw_watermark
+    from certifications.utils import draw_page_template
     from officials.models import Official
 
     try:
@@ -336,8 +336,8 @@ def ra11261_certification_pdf(request, pk):
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter,
-                            topMargin=0.3 * inch, bottomMargin=0.3 * inch,
-                            leftMargin=0.5 * inch, rightMargin=0.5 * inch)
+                            topMargin=1.45 * inch, bottomMargin=0.90 * inch,
+                            leftMargin=0.75 * inch, rightMargin=0.75 * inch)
 
     styles = getSampleStyleSheet()
 
@@ -365,47 +365,8 @@ def ra11261_certification_pdf(request, pk):
 
     elements = []
 
-    # ── HEADER (same as other certificates) ──────────────────────────
-    sico_logo_path = os.path.join(django_settings.BASE_DIR, 'static/images/sico_sico_logo.jpg')
-    bagong_pilipinas_path = os.path.join(django_settings.BASE_DIR, 'static/images/bagong_pilipinas.png')
-    gigaquit_logo_path = os.path.join(django_settings.BASE_DIR, 'static/images/gigaquit_logo.png')
-
-    logo_w = 0.8 * inch
-    logo_h = 0.8 * inch
-
-    img_sico = Image(sico_logo_path, width=logo_w, height=logo_h, kind='bound') if os.path.exists(sico_logo_path) else Spacer(logo_w, logo_h)
-    img_bagong = Image(bagong_pilipinas_path, width=1.0*inch, height=0.7*inch, kind='bound') if os.path.exists(bagong_pilipinas_path) else Spacer(1.0*inch, logo_h)
-    img_gigaquit = Image(gigaquit_logo_path, width=logo_w, height=logo_h, kind='bound') if os.path.exists(gigaquit_logo_path) else Spacer(logo_w, logo_h)
-
-    brgy_name = getattr(django_settings, 'BARANGAY_NAME', 'Sico-Sico')
-    municipality = getattr(django_settings, 'BARANGAY_MUNICIPALITY', 'Gigaquit')
-    province = getattr(django_settings, 'BARANGAY_PROVINCE', 'Surigao del Norte')
-
-    header_brgy_title = brgy_name.upper() if "BARANGAY" in brgy_name.upper() else f"BARANGAY {brgy_name.upper()}"
-
-    center_text = [
-        Paragraph('REPUBLIC OF THE PHILIPPINES', styles['CertHeaderLabel']),
-        Paragraph(f'Province of {province}', styles['CertHeaderLabel']),
-        Paragraph(f'Municipality of {municipality}', styles['CertHeaderLabel']),
-        Paragraph(header_brgy_title, styles['CertHeaderBrgy']),
-    ]
-
-    col_widths = [1.1*inch, 1.2*inch, 3.0*inch, 1.1*inch, 1.1*inch]
-    header_table_data = [[img_sico, img_bagong, center_text, img_gigaquit, '']]
-
-    header_table = Table(header_table_data, colWidths=col_widths)
-    header_table.setStyle(TableStyle([
-        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('ALIGN', (0,0), (1,0), 'CENTER'),
-        ('ALIGN', (2,0), (2,0), 'CENTER'),
-        ('ALIGN', (3,0), (3,0), 'CENTER'),
-        ('LEFTPADDING', (0,0), (-1,-1), 2),
-        ('RIGHTPADDING', (0,0), (-1,-1), 2),
-        ('TOPPADDING', (0,0), (-1,-1), 2),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-    ]))
-
-    elements.append(header_table)
+    # ── HEADER (Unified via draw_page_template) ───────────────────────
+    # The header logos and text are drawn by draw_page_template on each page.
     elements.append(Paragraph('OFFICE OF THE SANGGUNIANG BARANGAY', styles['CertOffice']))
     elements.append(Paragraph('BARANGAY CERTIFICATION', styles['CertTitleLarge']))
     elements.append(Paragraph('First Time Jobseekers Assistance Act (RA 11261)', styles['CertSubTitle']))
@@ -477,8 +438,8 @@ def ra11261_certification_pdf(request, pk):
     elements.append(Paragraph('\u201cNOT VALID WITHOUT SEAL\u201d', styles['CertWarning']))
 
     # ── BUILD PDF ────────────────────────────────────────────────────
-    watermark_func = partial(draw_watermark, is_resident=False)
-    doc.build(elements, onFirstPage=watermark_func, onLaterPages=watermark_func)
+    page_func = partial(draw_page_template, certificate=None, is_resident=False)
+    doc.build(elements, onFirstPage=page_func, onLaterPages=page_func)
     buffer.seek(0)
 
     response = HttpResponse(buffer, content_type='application/pdf')
