@@ -70,7 +70,7 @@ class Payment(models.Model):
     gcash_ref_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="GCash Reference Number")
     
     # Link to OR if paid via Cash/GCash
-    official_receipt = models.OneToOneField(OfficialReceipt, on_delete=models.SET_NULL, null=True, blank=True, related_name="payment_record")
+    official_receipt = models.ForeignKey(OfficialReceipt, on_delete=models.SET_NULL, null=True, blank=True, related_name="payment_records")
     
     # Waiver details
     waive_reason = models.TextField(blank=True, null=True)
