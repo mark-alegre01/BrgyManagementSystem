@@ -134,10 +134,6 @@ def draw_page_template(canvas, doc, certificate=None, is_resident=False):
 
     canvas.restoreState()
 
-
-    canvas.restoreState()
-
-
 class HeaderBannerFlowable(Flowable):
     """Custom flowable to draw the exact header banner inline for receipts."""
     def __init__(self):
