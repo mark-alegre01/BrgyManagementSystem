@@ -507,10 +507,19 @@ def official_add(request):
                 term_start=request.POST.get('term_start'),
                 term_end=request.POST.get('term_end') or None,
                 salary=request.POST.get('salary', 0) or 0,
-                employee_id=request.POST.get('employee_id', ''),
+                employee_id=request.POST.get('employee_id') or None,
                 status='active',
             )
-            official.save()
+            try:
+                official.save()
+            except Exception as e:
+                from django.core.exceptions import ValidationError
+                if isinstance(e, ValidationError):
+                    for field, err_msgs in e.message_dict.items():
+                        messages.error(request, f"{field.title()}: {', '.join(err_msgs)}")
+                else:
+                    messages.error(request, f"Error saving official: {e}")
+                return redirect('officials:list')
 
             from core.models import Role, UserProfile
             role_obj = Role.objects.filter(name=position).first()
@@ -599,9 +608,18 @@ def official_edit(request, pk):
         official.term_start = request.POST.get('term_start')
         official.term_end = request.POST.get('term_end') or None
         official.salary = request.POST.get('salary', 0) or 0
-        official.employee_id = request.POST.get('employee_id', '')
+        official.employee_id = request.POST.get('employee_id') or None
         official.status = request.POST.get('status', 'active')
-        official.save()
+        try:
+            official.save()
+        except Exception as e:
+            from django.core.exceptions import ValidationError
+            if isinstance(e, ValidationError):
+                for field, err_msgs in e.message_dict.items():
+                    messages.error(request, f"{field.title()}: {', '.join(err_msgs)}")
+            else:
+                messages.error(request, f"Error updating official: {e}")
+            return redirect('officials:list')
         messages.success(request, f'{official.resident.full_name} updated.')
         return redirect('officials:list')
 
