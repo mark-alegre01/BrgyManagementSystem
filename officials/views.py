@@ -746,10 +746,10 @@ def onboard_approve(request, token):
         
     role = request.user.profile.role if hasattr(request.user, 'profile') else 'admin'
     
-    if role in ('captain', 'admin'):
+    if role in ('captain', 'admin', 'secretary', 'treasurer'):
         invite.captain_approved = True
         log_onboarding(invite, request.user, "Captain Approved", request)
-    if role in ('secretary', 'admin'):
+    if role in ('secretary', 'admin', 'captain', 'treasurer'):
         invite.secretary_approved = True
         log_onboarding(invite, request.user, "Secretary Approved", request)
         

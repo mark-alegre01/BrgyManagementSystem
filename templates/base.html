@@ -102,7 +102,7 @@
         </a>
         {% endif %}
 
-        {% if s or r == 'captain' or r == 'admin' or r == 'secretary' %}
+        {% if s or r == 'captain' or r == 'admin' or r == 'secretary' or r == 'treasurer' %}
         <a href="{% url 'residents:household_list' %}"
           class="nav-item {% if request.resolver_match.url_name ==  'household_list' %}active{% endif %}">
           <i class="fas fa-home"></i><span>Households</span>
@@ -147,7 +147,7 @@
           <i class="fas fa-briefcase"></i><span>RA 11261 Apps</span>
         </a>
 
-        {% if s or r == 'captain' or r == 'admin' or r == 'treasurer' %}
+        {% if s or r == 'captain' or r == 'admin' or r == 'secretary' or r == 'treasurer' %}
         <a href="{% url 'attendance:dashboard' %}"
           class="nav-item {% if request.resolver_match.app_name ==  'attendance' %}active{% endif %}">
           <i class="fas fa-fingerprint"></i><span>Attendance &amp; DTR</span>
@@ -157,7 +157,7 @@
       {% endif %}
 
       <!-- RECORDS -->
-      {% if s or r == 'captain' or r == 'admin' or r == 'secretary' or r == 'kagawad' or r == 'lupon_member' %}
+      {% if s or r == 'captain' or r == 'admin' or r == 'secretary' or r == 'treasurer' or r == 'kagawad' or r == 'lupon_member' %}
       <div class="nav-section">
         <span class="nav-section-title">RECORDS</span>
 
@@ -170,7 +170,7 @@
           <i class="fas fa-clipboard-list"></i><span>RA 11261 Roster</span>
         </a>
 
-        {% if s or r == 'captain' or r == 'admin' %}
+        {% if s or r == 'captain' or r == 'admin' or r == 'secretary' or r == 'treasurer' %}
         <a href="{% url 'census:dashboard' %}"
           class="nav-item {% if request.resolver_match.app_name ==  'census' %}active{% endif %}">
           <i class="fas fa-chart-pie"></i><span>Census</span>

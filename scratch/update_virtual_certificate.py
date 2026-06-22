@@ -1,0 +1,521 @@
+import os
+
+file_path = r'C:\Users\Mark Anthony Alegre\Documents\BrgyManagementSystem\templates\certifications\virtual_certificate.html'
+
+html_content = """{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Virtual Certificate - {{ certificate.control_number }}{% endblock %}
+
+{% block breadcrumb %}
+<span>Brgy. Sico Sico Management System / Certifications / Virtual Certificate</span>
+{% endblock %}
+
+{% block content %}
+{% url 'certifications:list' as back_url %}
+{% include 'components/back_button.html' with back_url=back_url back_label='Back' %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman:wght@400;700&display=swap');
+
+    .certificate-viewer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 40px 20px;
+        background: #f1f5f9;
+        min-height: calc(100vh - 120px);
+    }
+
+    .certificate-container {
+        width: 100%;
+        max-width: 850px;
+        background: #fff;
+        padding: 60px 80px;
+        position: relative;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e2e8f0;
+        margin-bottom: 40px;
+        overflow: hidden;
+        font-family: 'Times New Roman', Times, serif;
+    }
+
+    /* Watermark */
+    .certificate-container::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 600px;
+        height: 600px;
+        transform: translate(-50%, -50%);
+        background-image: url("{% static 'images/logo.png' %}");
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        opacity: 0.08;
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .certificate-header {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+        margin-bottom: 40px;
+    }
+
+    .header-logos {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .logo-item {
+        height: 100px;
+        width: auto;
+        max-width: 120px;
+        object-fit: contain;
+    }
+
+    .header-text {
+        flex-grow: 1;
+        text-align: center;
+    }
+
+    .header-text p {
+        margin: 0;
+        font-size: 16px;
+        color: #000;
+        line-height: 1.3;
+    }
+
+    .office-title {
+        text-align: center;
+        margin: 30px 0 20px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .office-title h2 {
+        font-size: 20px;
+        font-weight: 700;
+        margin: 0;
+        color: #000;
+    }
+
+    .cert-type-title {
+        text-align: center;
+        margin-bottom: 30px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .cert-type-title h1 {
+        font-size: 26px;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin: 0;
+        color: #000;
+    }
+
+    .to-whom {
+        font-weight: 700;
+        font-size: 18px;
+        margin-bottom: 25px;
+        position: relative;
+        z-index: 1;
+        text-transform: uppercase;
+    }
+
+    .certificate-content {
+        font-size: 18px;
+        line-height: 1.6;
+        color: #000;
+        text-align: justify;
+        position: relative;
+        z-index: 1;
+    }
+
+    .certificate-content p {
+        margin-bottom: 25px;
+    }
+
+    .bold-name {
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .certificate-footer {
+        margin-top: 80px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        position: relative;
+        z-index: 1;
+    }
+
+    .signatory {
+        text-align: center;
+        width: 350px;
+    }
+
+    .signatory-name {
+        font-weight: 700;
+        font-size: 18px;
+        text-transform: uppercase;
+        margin-bottom: 0;
+    }
+
+    .signatory-title {
+        font-size: 16px;
+        padding-top: 5px;
+    }
+
+    .actions-bar {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        width: 100%;
+        max-width: 850px;
+    }
+
+    @media print {
+        {% if user_role == 'resident' %}
+        body { display: none !important; }
+        {% else %}
+        .top-navbar, .sidebar, .actions-bar, .breadcrumb, .sidebar-overlay, .menu-toggle { display: none !important; }
+        .main-content { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+        .certificate-viewer { padding: 0; background: #fff; }
+        .certificate-container { box-shadow: none; border: none; margin: 0; padding: 0; }
+        body { background: white !important; }
+        {% endif %}
+    }
+
+    /* Resident Watermark */
+    .not-valid-watermark {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-45deg);
+        font-size: 60px;
+        font-weight: 900;
+        color: rgba(220, 38, 38, 0.15);
+        z-index: 2;
+        pointer-events: none;
+        white-space: nowrap;
+        text-transform: uppercase;
+        border: 10px solid rgba(220, 38, 38, 0.15);
+        padding: 10px 30px;
+        font-family: 'Inter', sans-serif;
+    }
+</style>
+
+<div class="certificate-viewer">
+    <div class="actions-bar">
+        {% if user_role != 'resident' %}
+        <button onclick="window.print()" class="btn btn-primary">
+            <i class="fas fa-print"></i> Print Certificate
+        </button>
+        {% endif %}
+        <a href="{% url 'certifications:pdf' certificate.pk %}" class="btn btn-outline" target="_blank">
+            <i class="fas fa-file-pdf"></i> Official PDF
+        </a>
+    </div>
+
+    <div class="certificate-container">
+        {% if user_role == 'resident' %}
+        <div class="not-valid-watermark" style="display: none;"></div>
+        {% endif %}
+        
+        <div class="certificate-header">
+            <div class="header-logos">
+                <img src="{% static 'images/logo.png' %}" alt="Brgy Logo" class="logo-item" style="height: 100px;">
+                <div class="header-text">
+                    <p>Republic of the Philippines</p>
+                    <p>Province of Surigao Del Norte</p>
+                    <p>Municipality of Gigaquit</p>
+                    <p>Barangay Sico-Sico</p>
+                </div>
+                <img src="{% static 'images/gigaquit_logo.png' %}" alt="Municipality Logo" class="logo-item" style="height: 100px;">
+            </div>
+            <div class="office-title">
+                <h2>OFFICE OF THE SANGGUNIANG BARANGAY</h2>
+            </div>
+        </div>
+
+        {% if certificate.cert_type == 'cedula' and certificate.cedula_details %}
+        <!-- CEDULA LAYOUT -->
+        <div class="office-title" style="margin-top: 0;">
+            <h2 style="font-size: 18px;">COMMUNITY TAX CERTIFICATE</h2>
+            <p style="font-weight: 700; margin: 5px 0 0;">{{ certificate.cedula_details.get_taxpayer_type_display|upper }}</p>
+        </div>
+
+        <style>
+            .cedula-table { width: 100%; border-collapse: collapse; margin-top: 15px; border: 1.5px solid #000; font-family: 'Inter', sans-serif; }
+            .cedula-table td { border: 1px solid #000; padding: 6px 10px; vertical-align: top; }
+            .c-label { font-size: 9px; font-weight: 800; text-transform: uppercase; display: block; margin-bottom: 3px; }
+            .c-value { font-size: 13px; font-weight: 600; }
+            .c-money { text-align: right; font-weight: 700; font-family: 'Courier New', Courier, monospace; }
+            .c-bg { background: #f8fafc; }
+        </style>
+
+        <div class="table-responsive" style="border: none;">
+        <table class="cedula-table">
+            <tr>
+                <td style="width: 15%;">
+                    <span class="c-label">YEAR</span>
+                    <span class="c-value">{{ certificate.date_issued|date:"Y" }}</span>
+                </td>
+                <td style="width: 60%;">
+                    <span class="c-label">PLACE OF ISSUE (City/Mun/Prov)</span>
+                    <span class="c-value">{{ certificate.cedula_details.place_of_issue|default:"Sico-Sico, Gigaquit, SDN" }}</span>
+                </td>
+                <td style="width: 25%;">
+                    <span class="c-label">DATE ISSUED</span>
+                    <span class="c-value">{{ certificate.date_issued|date:"M d, Y" }}</span>
+                </td>
+            </tr>
+        </table>
+
+        <table class="cedula-table" style="border-top: none;">
+            <tr>
+                <td style="width: 75%;">
+                    <span class="c-label">NAME (Surname, First Name, Middle Name) / COMPANY NAME</span>
+                    <span class="c-value" style="font-size: 16px;">{{ certificate.resident.full_name|upper }}</span>
+                </td>
+                <td style="width: 25%;">
+                    <span class="c-label">CTC NUMBER</span>
+                    <span class="c-value" style="color: #dc2626;">{{ certificate.cedula_details.ctc_number }}</span>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <span class="c-label">ADDRESS</span>
+                    <span class="c-value">{{ certificate.resident.address }}</span>
+                </td>
+            </tr>
+        </table>
+
+        {% if certificate.cedula_details.taxpayer_type == 'individual' %}
+        <table class="cedula-table" style="border-top: none;">
+            <tr>
+                <td style="width: 25%;"><span class="c-label">CITIZENSHIP</span><span class="c-value">{{ certificate.resident.nationality }}</span></td>
+                <td style="width: 25%;"><span class="c-label">CIVIL STATUS</span><span class="c-value">{{ certificate.resident.get_civil_status_display }}</span></td>
+                <td style="width: 25%;"><span class="c-label">GENDER</span><span class="c-value">{{ certificate.resident.get_gender_display }}</span></td>
+                <td style="width: 25%;"><span class="c-label">BIRTH DATE</span><span class="c-value">{{ certificate.resident.birthdate|date:"M d, Y" }}</span></td>
+            </tr>
+            <tr>
+                <td><span class="c-label">HEIGHT</span><span class="c-value">{{ certificate.cedula_details.height|default:"--" }} cm</span></td>
+                <td><span class="c-label">WEIGHT</span><span class="c-value">{{ certificate.cedula_details.weight|default:"--" }} kg</span></td>
+                <td colspan="2"><span class="c-label">PROFESSION / OCCUPATION</span><span class="c-value">{{ certificate.resident.occupation|default:"--" }}</span></td>
+            </tr>
+        </table>
+        {% endif %}
+
+        <table class="cedula-table" style="margin-top: 20px;">
+            <tr class="c-bg">
+                <td style="width: 50%;"><span class="c-label">COMMUNITY TAX DUE</span></td>
+                <td style="width: 30%;"><span class="c-label">TAXABLE AMOUNT</span></td>
+                <td style="width: 20%;"><span class="c-label">AMOUNT</span></td>
+            </tr>
+            <tr>
+                <td>1. BASIC COMMUNITY TAX (₱5.00)</td>
+                <td>--</td>
+                <td class="c-money">{{ certificate.cedula_details.basic_tax|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td>2. ADDITIONAL COMMUNITY TAX</td>
+                <td>--</td>
+                <td>--</td>
+            </tr>
+            <tr>
+                <td style="padding-left: 25px;">(a) Real Property (₱1.00 per ₱1,000)</td>
+                <td class="c-money">{{ certificate.cedula_details.raw_taxable_property|floatformat:2 }}</td>
+                <td class="c-money">{{ certificate.cedula_details.additional_tax_property|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td style="padding-left: 25px;">(b) Business Receipts (₱1.00 per ₱1,000)</td>
+                <td class="c-money">{{ certificate.cedula_details.raw_taxable_business|floatformat:2 }}</td>
+                <td class="c-money">{{ certificate.cedula_details.additional_tax_business|floatformat:2 }}</td>
+            </tr>
+            <tr>
+                <td style="padding-left: 25px;">(c) Annual Income (₱1.00 per ₱1,000)</td>
+                <td class="c-money">{{ certificate.cedula_details.raw_taxable_income|floatformat:2 }}</td>
+                <td class="c-money">{{ certificate.cedula_details.additional_tax_income|floatformat:2 }}</td>
+            </tr>
+            <tr class="c-bg">
+                <td colspan="2" style="text-align: right;"><span class="c-label">TOTAL AMOUNT PAID</span></td>
+                <td class="c-money" style="font-size: 16px;">₱{{ certificate.cedula_details.total_amount|floatformat:2 }}</td>
+            </tr>
+        </table>
+        </div>
+
+        <div style="margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div style="text-align: center; width: 250px;">
+                <div style="border-bottom: 1px solid #000; height: 30px;"></div>
+                <span class="c-label" style="margin-top: 5px;">Taxpayer Signature</span>
+            </div>
+            <div class="signatory" style="margin-top: 0; font-family: 'Times New Roman', Times, serif;">
+                <p class="signatory-name" style="font-size: 16px;">HON. {{ captain_name|upper }}</p>
+                <div class="signatory-title" style="font-size: 14px;">Punong Barangay</div>
+            </div>
+        </div>
+
+        {% elif certificate.cert_type == 'indigency' %}
+        <!-- INDIGENCY -->
+        <div class="cert-type-title">
+            <h1>CERTIFICATE OF INDIGENCY</h1>
+        </div>
+        <div class="to-whom">
+            TO WHOM IT MAY CONCERN:
+        </div>
+        <div class="certificate-content">
+            <p style="text-indent: 40px;">
+                This is to certify that <strong>{{ certificate.resident.full_name|upper }}</strong>, of legal age, {{ certificate.resident.get_civil_status_display|lower }}, Filipino citizen, and a resident of {{ certificate.resident.address|default:"Purok 3 Barangay Sico-Sico, Gigaquit, Surigao del Norte" }}.
+            </p>
+            <p style="text-indent: 40px;">
+                Further certifies, that the said person is one among the list of INDIGENT in this barangay per records kept in this office.
+            </p>
+            <p style="text-indent: 40px;">
+                This certification is being issued upon the request of the above-named person for whatever legal purpose it may serve.
+            </p>
+            <p style="text-indent: 40px;">
+                Given & issued this <strong>{{ certificate.date_issued|date:"jS" }}</strong> day of <strong>{{ certificate.date_issued|date:"F Y" }}</strong>, at Barangay Sico-Sico, Gigaquit, Surigao del Norte, Philippines.
+            </p>
+        </div>
+
+        {% elif certificate.cert_type == 'clearance' %}
+        <!-- BARANGAY CLEARANCE -->
+        <div class="cert-type-title">
+            <h1>BARANGAY CLEARANCE</h1>
+        </div>
+        <div class="to-whom">
+            TO WHOM IT MAY CONCERN:
+        </div>
+        <div class="certificate-content">
+            <p>This Certification is hereby granted to:</p>
+            <table style="width: 100%; font-size: 18px; margin: 10px 0 25px 40px; border-collapse: collapse;">
+                <tr><td style="width: 160px; padding: 2px 0;">Full Name</td><td>: <strong>{{ certificate.resident.full_name|title }}</strong></td></tr>
+                <tr><td style="padding: 2px 0;">Address</td><td>: {{ certificate.resident.address|default:"Brgy. Sico-Sico, Gigaquit, Surigao del Norte" }}</td></tr>
+                <tr><td style="padding: 2px 0;">Birthday</td><td>: {{ certificate.resident.birthdate|date:"F d, Y" }}</td></tr>
+                <tr><td style="padding: 2px 0;">Place of birth</td><td>: {{ certificate.resident.birthplace|default:"Gigaquit, Surigao del Norte" }}</td></tr>
+                <tr><td style="padding: 2px 0;">Civil Status</td><td>: {{ certificate.resident.get_civil_status_display|title }}</td></tr>
+                <tr><td style="padding: 2px 0;">Gender</td><td>: {{ certificate.resident.get_gender_display|title }}</td></tr>
+                <tr><td style="padding: 2px 0;">Age</td><td>: {{ certificate.resident.age|default:"--" }}</td></tr>
+            </table>
+            <p style="text-indent: 40px;">
+                The above name person is known to be of Good Moral Character and integrity , a law abiding citizen in the community no derogatory records, no pending case filed in this office as of this date as far as records is concern.
+            </p>
+            <p style="text-indent: 40px;">
+                This certification is being issued upon the request of the above-named person for whatever legal purpose it may serve his/her best.
+            </p>
+            <p style="text-indent: 40px;">
+                Done this <strong>{{ certificate.date_issued|date:"jS" }}</strong> day of <strong>{{ certificate.date_issued|date:"F Y" }}</strong> at the office of Punong Barangay of Barangay Sico- sico, Gigaquit, Surigao del Norte.
+            </p>
+        </div>
+
+        {% elif certificate.cert_type == 'business_permit' %}
+        <!-- BUSINESS PERMIT -->
+        <div class="cert-type-title">
+            <h1>BARANGAY BUSINESS CLEARANCE</h1>
+        </div>
+        <div class="to-whom">
+            TO WHOM IT MAY CONCERN:
+        </div>
+        <div class="certificate-content">
+            <p style="text-indent: 40px;">Pursuant to existing ordinance of this barangay, CLEARANCE is granted to</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="font-weight: bold; font-size: 20px; text-decoration: none; margin: 0;">{{ certificate.resident.full_name|upper }}</p>
+                <p style="margin: 0; font-size: 16px;">Name of Applicant</p>
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="font-weight: bold; font-size: 20px; text-decoration: none; margin: 0;">{{ certificate.business_name|upper }}</p>
+                <p style="margin: 0; font-size: 16px;">Business Name</p>
+            </div>
+            <div style="text-align: center; margin: 30px 0;">
+                <p style="font-weight: bold; font-size: 18px; text-decoration: none; margin: 0;">{{ certificate.business_address|default:"Ladgaron, Claver, Surigao del Norte" }}</p>
+                <p style="margin: 0; font-size: 16px;">Business Address</p>
+            </div>
+            <p style="text-indent: 40px;">
+                Applicant is hereby advised to follow strictly existing ordinance in relation with the conduct of his/her business. Violation of the same is a ground for the revocation of this clearance.
+            </p>
+            <p style="text-indent: 40px;">
+                Clearance is valid up to {{ certificate.date_issued|date:"F d" }}, {{ certificate.date_issued.year|add:1 }} unless revoked due to a valid reason.
+            </p>
+            <p style="text-indent: 40px;">
+                WITNESS MY HAND AND SEAL this <strong>{{ certificate.date_issued|date:"jS" }}</strong> day of <strong>{{ certificate.date_issued|date:"F Y" }}</strong>, at Barangay Sico-Sico, Gigaquit, Surigao del Norte, Philippines.
+            </p>
+        </div>
+
+        {% elif certificate.cert_type == 'residency' %}
+        <!-- RESIDENCY -->
+        <div class="cert-type-title">
+            <h1>CERTIFICATE OF RESIDENCY</h1>
+        </div>
+        <div class="to-whom">
+            TO WHOM IT MAY CONCERN:
+        </div>
+        <div class="certificate-content">
+            <p style="text-indent: 40px;">
+                This is to certify that <strong>{{ certificate.resident.full_name|upper }}</strong>, of legal age, {{ certificate.resident.get_civil_status_display|lower }}, Filipino citizen, and a resident of {{ certificate.resident.address|default:"Purok 3, Barangay Sico-Sico, Gigaquit, Surigao del Norte" }}.
+            </p>
+            <p style="text-indent: 40px;">
+                Further certifies, that the person named above is a resident of this barangay, living with his/her family up to the present, and is a member of our community.
+            </p>
+            <p style="text-indent: 40px;">
+                This certification is being issued upon the request of the above-named person for <strong>{{ certificate.purpose|default:"bank account opening purposes" }}</strong>.
+            </p>
+            <p style="text-indent: 40px;">
+                Given & issued this <strong>{{ certificate.date_issued|date:"jS" }}</strong> day of <strong>{{ certificate.date_issued|date:"F Y" }}</strong>, at Barangay Sico-Sico, Gigaquit, Surigao del Norte, Philippines.
+            </p>
+        </div>
+
+        {% else %}
+        <!-- GENERAL CERTIFICATION -->
+        <div class="cert-type-title">
+            <h1>BARANGAY CERTIFICATION</h1>
+        </div>
+        <div class="to-whom">
+            TO WHOM IT MAY CONCERN:
+        </div>
+        <div class="certificate-content">
+            <p style="text-indent: 40px;">
+                This is to certify that <strong>{{ certificate.resident.full_name|upper }}</strong>, of legal age, {{ certificate.resident.get_gender_display|lower }}, Filipino citizen, is a bonafide resident at {{ certificate.resident.address|default:"Purok 3 Barangay Sico-Sico, Gigaquit, Surigao del Norte" }}. A law abiding citizen, possesses a GOOD MORAL CHARACTER and has no derogatory records filed in this office.
+            </p>
+            <p style="text-indent: 40px;">
+                Further certifies, that the said person was born on {{ certificate.resident.birthdate|date:"F d, Y" }} at {{ certificate.resident.birthplace|default:"--" }}.
+            </p>
+            <p style="text-indent: 40px;">
+                This certification is being issued upon the request of the above-named person for whatever legal purpose it may serve.
+            </p>
+            <p style="text-indent: 40px;">
+                Issued this <strong>{{ certificate.date_issued|date:"jS" }}</strong> day of <strong>{{ certificate.date_issued|date:"F Y" }}</strong>, at Barangay Sico-Sico, Gigaquit, Surigao del Norte, Philippines.
+            </p>
+        </div>
+        {% endif %}
+
+        {% if certificate.cert_type != 'cedula' %}
+        <div class="certificate-footer">
+            <div class="clearance-details" style="text-align: left; align-self: flex-end; margin-bottom: 20px;">
+                {% if certificate.cert_type == 'clearance' %}
+                <p style="margin: 0;">OR No. {{ certificate.or_number|default:"__________" }}</p>
+                <p style="margin: 0;">Issued on: {{ certificate.date_issued|date:"F d, Y" }}</p>
+                <p style="margin: 0;">Issued at: Sico-Sico, Gigaquit, SDN</p>
+                {% endif %}
+            </div>
+            <div class="signatory">
+                <p class="signatory-name">HON. {{ captain_name|default:"NO ACTIVE CAPTAIN" }}</p>
+                <div class="signatory-title" style="margin-bottom: 30px;">Punong Barangay</div>
+                <p style="font-size: 14px; margin-top: 10px;">Not valid without official seal</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}"""
+
+with open(file_path, 'w', encoding='utf-8') as f:
+    f.write(html_content)
+
+print(f"Updated {file_path}")

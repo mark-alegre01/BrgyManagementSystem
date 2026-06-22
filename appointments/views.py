@@ -47,7 +47,7 @@ def appointment_list(request):
     except AttributeError:
         role = 'resident'
 
-    if role in ('captain', 'secretary', 'admin', 'staff'):
+    if role in ('captain', 'secretary', 'treasurer', 'admin', 'staff'):
         appointments = Appointment.objects.all().order_by('-created_at')
         template = 'appointments/manage.html'
     else:
@@ -59,7 +59,7 @@ def appointment_list(request):
 
 @login_required
 def appointment_status_update(request, pk, status):
-    if request.user.profile.role not in ('captain', 'secretary', 'admin'):
+    if request.user.profile.role not in ('captain', 'secretary', 'treasurer', 'admin'):
         messages.error(request, 'Unauthorized.')
         return redirect('dashboard')
     

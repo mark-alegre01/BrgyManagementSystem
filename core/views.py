@@ -53,8 +53,8 @@ BIOMETRIC_LOGIN_ALLOWED_POSITIONS = ('captain', 'secretary', 'treasurer')
 ROLE_TEMPLATE_MAP = {
     'captain': 'core/dashboard_captain.html',
     'admin': 'core/dashboard_captain.html',
-    'secretary': 'core/dashboard_secretary.html',
-    'treasurer': 'core/dashboard_treasurer.html',
+    'secretary': 'core/dashboard_captain.html',
+    'treasurer': 'core/dashboard_captain.html',
     'kagawad': 'core/dashboard_kagawad.html',
     'sk_chairman': 'core/dashboard_sk.html',
     'sk_chairperson': 'core/dashboard_sk.html',  # alias
@@ -127,15 +127,10 @@ def dashboard(request):
     }
 
     # Role-specific extra context
-    if role in ('captain', 'admin'):
+    if role in ('captain', 'admin', 'secretary', 'treasurer'):
         context['recent_officials'] = Official.objects.select_related('resident').order_by('-created_at')[:5]
         context['recent_ordinances'] = Ordinance.objects.order_by('-date_enacted')[:5]
-
-    elif role == 'secretary':
         context['pending_certs'] = Certificate.objects.filter(date_issued=today).count()
-        context['recent_ordinances'] = Ordinance.objects.order_by('-date_enacted')[:5]
-
-    elif role == 'treasurer':
         context['attendance_logs'] = AttendanceLog.objects.select_related('official__resident').filter(date=today)[:10]
 
     elif role == 'kagawad':

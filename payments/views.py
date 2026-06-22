@@ -10,7 +10,7 @@ from decimal import Decimal
 
 def is_secretary_or_higher(user):
     try:
-        return user.is_superuser or (hasattr(user, 'profile') and user.profile.role in ['captain', 'secretary', 'admin'])
+        return user.is_superuser or (hasattr(user, 'profile') and user.profile.role in ['captain', 'secretary', 'treasurer', 'admin'])
     except:
         return False
 
