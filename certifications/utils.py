@@ -6,7 +6,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, Flowable
 from reportlab.lib import colors
 from django.conf import settings
 
@@ -638,7 +638,6 @@ def generate_cedula_pdf(certificate, is_resident=False):
 
 def generate_receipt_pdf(certificate):
     """Generate a 2-copy printable receipt (Resident & Barangay copies)."""
-    from reportlab.platypus import Flowable
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=letter,
