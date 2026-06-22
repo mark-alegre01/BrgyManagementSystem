@@ -69,12 +69,14 @@ def generate_certificate_pdf(certificate, is_resident=False):
     elements = []
 
     sico_logo_path = os.path.join(settings.BASE_DIR, 'static/images/logo.png')
+    bagong_pilipinas_path = os.path.join(settings.BASE_DIR, 'static/images/bagong_pilipinas.png')
     gigaquit_logo_path = os.path.join(settings.BASE_DIR, 'static/images/gigaquit_logo.png')
 
     logo_w = 1.0 * inch
     logo_h = 1.0 * inch
 
     img_sico = Image(sico_logo_path, width=logo_w, height=logo_h, kind='bound') if os.path.exists(sico_logo_path) else Spacer(logo_w, logo_h)
+    img_bagong = Image(bagong_pilipinas_path, width=0.9*inch, height=0.7*inch, kind='bound') if os.path.exists(bagong_pilipinas_path) else Spacer(0.9*inch, 0.7*inch)
     img_gigaquit = Image(gigaquit_logo_path, width=logo_w, height=logo_h, kind='bound') if os.path.exists(gigaquit_logo_path) else Spacer(logo_w, logo_h)
     
     center_text = [
@@ -84,15 +86,13 @@ def generate_certificate_pdf(certificate, is_resident=False):
         Paragraph('Barangay Sico-Sico', styles['CertHeaderLabel']),
     ]
     
-    col_widths = [1.2*inch, 4.6*inch, 1.2*inch]
-    header_table_data = [[img_sico, center_text, img_gigaquit]]
+    col_widths = [1.1*inch, 1.0*inch, 3.8*inch, 1.1*inch]
+    header_table_data = [[img_sico, img_bagong, center_text, img_gigaquit]]
     
     header_table = Table(header_table_data, colWidths=col_widths)
     header_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('ALIGN', (0,0), (0,0), 'CENTER'),
-        ('ALIGN', (1,0), (1,0), 'CENTER'),
-        ('ALIGN', (2,0), (2,0), 'CENTER'),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
     ]))
     
     cert_titles_map = {
@@ -377,8 +377,23 @@ def generate_receipt_pdf(certificate):
         brgy_name = getattr(settings, 'BARANGAY_NAME', 'Sico-Sico')
         municipality = getattr(settings, 'BARANGAY_MUNICIPALITY', 'Gigaquit')
         province = getattr(settings, 'BARANGAY_PROVINCE', 'Surigao del Norte')
-        elements.append(Paragraph('REPUBLIC OF THE PHILIPPINES', styles['ReceiptHeader']))
-        elements.append(Paragraph(f'Barangay {brgy_name.upper()}, {municipality}, {province}', styles['ReceiptHeader']))
+        
+        # Receipt logos header
+        r_sico_path = os.path.join(settings.BASE_DIR, 'static/images/logo.png')
+        r_bagong_path = os.path.join(settings.BASE_DIR, 'static/images/bagong_pilipinas.png')
+        r_gigaquit_path = os.path.join(settings.BASE_DIR, 'static/images/gigaquit_logo.png')
+        r_sico = Image(r_sico_path, width=0.6*inch, height=0.6*inch, kind='bound') if os.path.exists(r_sico_path) else Spacer(0.6*inch, 0.6*inch)
+        r_bagong = Image(r_bagong_path, width=0.55*inch, height=0.45*inch, kind='bound') if os.path.exists(r_bagong_path) else Spacer(0.55*inch, 0.45*inch)
+        r_gigaquit = Image(r_gigaquit_path, width=0.6*inch, height=0.6*inch, kind='bound') if os.path.exists(r_gigaquit_path) else Spacer(0.6*inch, 0.6*inch)
+        receipt_center_text = [
+            Paragraph('REPUBLIC OF THE PHILIPPINES', styles['ReceiptHeader']),
+            Paragraph(f'Province of Surigao del Norte', styles['CertHeaderLabel']),
+            Paragraph(f'Municipality of Gigaquit', styles['CertHeaderLabel']),
+            Paragraph(f'Barangay {brgy_name.upper()}', styles['ReceiptHeader']),
+        ]
+        logo_row = Table([[r_sico, r_bagong, receipt_center_text, r_gigaquit]], colWidths=[0.8*inch, 0.75*inch, 4.9*inch, 0.8*inch])
+        logo_row.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,0), (-1,-1), 'CENTER')]))
+        elements.append(logo_row)
         elements.append(Paragraph('OFFICIAL RECEIPT', styles['ReceiptTitle']))
         data = [
             [Paragraph('Control Number:', styles['ReceiptLabel']), Paragraph(certificate.control_number, styles['ReceiptValue'])],
