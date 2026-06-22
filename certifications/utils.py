@@ -22,18 +22,86 @@ BAGONG_LOGO  = _logo('bagong_pilipinas.png')
 GIGAQUIT_LOGO = _logo('gigaquit_logo.png')
 
 
-# ─── Canvas Page Template (Header + Footer + Watermark) ──────────────────────
+def _draw_wave_banner(canvas, x, y, width, height, flip=False):
+    """
+    Draw a decorative pink/magenta gradient wave banner.
+    flip=True mirrors the wave vertically (for footer).
+    """
+    canvas.saveState()
+
+    # Base gradient: light pink to white
+    steps = 20
+    for i in range(steps):
+        ratio = i / steps
+        r = 1.0
+        g = 0.85 - 0.35 * ratio
+        b = 0.88 - 0.30 * ratio
+        canvas.setFillColorRGB(r, g, b)
+        strip_h = height / steps
+        if flip:
+            strip_y = y + i * strip_h
+        else:
+            strip_y = y + height - (i + 1) * strip_h
+        canvas.rect(x, strip_y, width, strip_h + 0.5, fill=1, stroke=0)
+
+    # Wave curves overlay (semi-transparent magenta)
+    import math
+    canvas.setLineWidth(0)
+
+    wave_configs = [
+        (0.30, (0.85, 0.15, 0.45)),  # deep magenta, 30% opacity
+        (0.20, (0.90, 0.25, 0.55)),  # medium pink, 20% opacity
+        (0.15, (0.95, 0.40, 0.65)),  # light pink, 15% opacity
+    ]
+
+    for alpha, (wr, wg, wb) in wave_configs:
+        canvas.setFillColorRGB(wr, wg, wb)
+        canvas.setFillAlpha(alpha)
+
+        p = canvas.beginPath()
+        segments = 60
+        amplitude = height * 0.4
+        freq = 2.5
+
+        if flip:
+            base_y = y + height * 0.3
+            p.moveTo(x, y)
+            for s in range(segments + 1):
+                sx = x + (width * s / segments)
+                sy = base_y + amplitude * math.sin(freq * math.pi * s / segments)
+                p.lineTo(sx, sy)
+            p.lineTo(x + width, y)
+            p.lineTo(x, y)
+        else:
+            base_y = y + height * 0.7
+            p.moveTo(x, y + height)
+            for s in range(segments + 1):
+                sx = x + (width * s / segments)
+                sy = base_y - amplitude * math.sin(freq * math.pi * s / segments)
+                p.lineTo(sx, sy)
+            p.lineTo(x + width, y + height)
+            p.lineTo(x, y + height)
+
+        p.close()
+        canvas.drawPath(p, fill=1, stroke=0)
+
+        # Shift for next wave layer
+        amplitude *= 0.75
+        freq += 0.5
+
+    canvas.restoreState()
+
 
 def draw_page_template(canvas, doc, certificate=None, is_resident=False):
     """
     Draws on EVERY page:
       - Watermark (faded logo at center)
-      - Header: logos + Republic/Province/Municipality/Barangay text + divider line
-      - Footer: control no + date | 'Not valid without official seal' | page no + divider line
+      - Header: pink wave banner + logos + text
+      - Footer: pink wave banner + 'Not valid without official seal'
     """
     canvas.saveState()
     page_w, page_h = letter
-    margin = 0.65 * inch
+    margin = 0.5 * inch
 
     # ── Watermark ────────────────────────────────────────────────────────────
     if os.path.exists(SICO_LOGO):
@@ -47,29 +115,35 @@ def draw_page_template(canvas, doc, certificate=None, is_resident=False):
             mask='auto', preserveAspectRatio=True,
         )
 
-    # ── Header ───────────────────────────────────────────────────────────────
+    # ── Header Banner ────────────────────────────────────────────────────────
     canvas.setFillAlpha(1.0)
-    logo_h = 0.85 * inch
-    logo_top = page_h - 0.25 * inch          # logos top edge
-    logo_bottom = logo_top - logo_h           # logos bottom edge
-    header_divider_y = logo_bottom - 0.06 * inch
+    header_h = 1.35 * inch
+    header_y = page_h - header_h
+
+    # Draw the pink wave banner
+    _draw_wave_banner(canvas, 0, header_y, page_w, header_h, flip=False)
+
+    # Logos on top of banner
+    logo_size = 0.80 * inch
+    logo_y = header_y + (header_h - logo_size) / 2
 
     # Barangay logo (left)
     if os.path.exists(SICO_LOGO):
         canvas.drawImage(
-            SICO_LOGO, margin, logo_bottom,
-            width=logo_h, height=logo_h,
+            SICO_LOGO,
+            margin + 0.15 * inch, logo_y,
+            width=logo_size, height=logo_size,
             mask='auto', preserveAspectRatio=True,
         )
 
-    # Bagong Pilipinas logo (second from left)
-    bp_w, bp_h = 0.70 * inch, 0.55 * inch
+    # Bagong Pilipinas logo (second from left) - use equal width/height to avoid flat look
+    bp_size = 0.80 * inch
     if os.path.exists(BAGONG_LOGO):
         canvas.drawImage(
             BAGONG_LOGO,
-            margin + logo_h + 0.08 * inch,
-            logo_bottom + (logo_h - bp_h) / 2,
-            width=bp_w, height=bp_h,
+            margin + logo_size + 0.35 * inch,
+            logo_y,
+            width=bp_size, height=bp_size,
             mask='auto', preserveAspectRatio=True,
         )
 
@@ -77,59 +151,51 @@ def draw_page_template(canvas, doc, certificate=None, is_resident=False):
     if os.path.exists(GIGAQUIT_LOGO):
         canvas.drawImage(
             GIGAQUIT_LOGO,
-            page_w - margin - logo_h, logo_bottom,
-            width=logo_h, height=logo_h,
+            page_w - margin - logo_size - 0.15 * inch, logo_y,
+            width=logo_size, height=logo_size,
             mask='auto', preserveAspectRatio=True,
         )
 
-    # Center text block
+    # Center text on banner
     center_x = page_w / 2
     header_lines = [
-        ('Republic of the Philippines', 'Times-Roman', 10.5),
-        ('Province of Surigao Del Norte', 'Times-Roman', 10.5),
-        ('Municipality of Gigaquit', 'Times-Roman', 10.5),
-        ('Barangay Sico-Sico', 'Times-Bold', 12),
+        ('Republic of the Philippines', 'Times-Roman', 11),
+        ('Province of Surigao Del Norte', 'Times-Roman', 11),
+        ('Municipality of Gigaquit', 'Times-Roman', 11),
+        ('Barangay Sico-Sico', 'Times-Bold', 13),
     ]
-    line_spacing = 13
-    # Start from top of logo area downwards
-    text_y = logo_top - 12
+    line_spacing = 14
+    text_start_y = header_y + header_h - 0.25 * inch
     for text, font, size in header_lines:
         canvas.setFont(font, size)
         canvas.setFillColor(colors.black)
-        canvas.drawCentredString(center_x, text_y, text)
-        text_y -= line_spacing
+        canvas.setFillAlpha(1.0)
+        canvas.drawCentredString(center_x, text_start_y, text)
+        text_start_y -= line_spacing
 
-    # Header divider line
-    canvas.setStrokeColor(colors.black)
-    canvas.setLineWidth(1)
-    canvas.line(margin, header_divider_y, page_w - margin, header_divider_y)
+    # ── Footer Banner ────────────────────────────────────────────────────────
+    footer_h = 0.65 * inch
+    footer_y = 0
 
-    # ── Footer ───────────────────────────────────────────────────────────────
-    footer_divider_y = 0.62 * inch
-    canvas.setLineWidth(0.75)
-    canvas.line(margin, footer_divider_y, page_w - margin, footer_divider_y)
+    # Draw the pink wave banner (flipped)
+    _draw_wave_banner(canvas, 0, footer_y, page_w, footer_h, flip=True)
 
-    footer_y = footer_divider_y - 0.14 * inch
+    # "Not valid without official seal" in red italic
+    canvas.setFillAlpha(1.0)
+    canvas.setFont('Times-BoldItalic', 10)
+    canvas.setFillColor(colors.red)
+    canvas.drawCentredString(center_x, footer_h / 2 + 0.02 * inch, 'Not valid without official seal')
 
-    # Left: Control Number + Date
-    canvas.setFont('Times-Roman', 8)
+    # Control number & page on footer
+    canvas.setFont('Times-Roman', 7)
     canvas.setFillColor(colors.black)
     if certificate:
         try:
             ctrl = certificate.control_number
-            issued = certificate.date_issued.strftime('%B %d, %Y')
         except Exception:
-            ctrl, issued = '', ''
-        canvas.drawString(margin, footer_y, f'Control No: {ctrl}')
-        canvas.drawString(margin, footer_y - 11, f'Date Issued: {issued}')
-
-    # Center: Seal warning
-    canvas.setFont('Times-Italic', 8.5)
-    canvas.drawCentredString(center_x, footer_y, 'Not valid without official seal')
-
-    # Right: Page number
-    canvas.setFont('Times-Roman', 8)
-    canvas.drawRightString(page_w - margin, footer_y, f'Page {doc.page}')
+            ctrl = ''
+        canvas.drawString(margin + 0.1 * inch, 0.12 * inch, f'Control No: {ctrl}')
+    canvas.drawRightString(page_w - margin - 0.1 * inch, 0.12 * inch, f'Page {doc.page}')
 
     canvas.restoreState()
 

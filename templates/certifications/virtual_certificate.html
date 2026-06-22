@@ -57,20 +57,41 @@
         position: relative;
         z-index: 1;
         text-align: center;
-        margin-bottom: 40px;
+        margin: -60px -80px 30px -80px;
+        padding: 20px 80px;
+        background: linear-gradient(135deg, #fff0f5 0%, #ffd6e7 25%, #ff9ec5 50%, #d4548a 75%, #b02e6b 100%);
+        overflow: hidden;
+    }
+
+    .certificate-header::before {
+        content: '';
+        position: absolute;
+        top: -30%;
+        left: -10%;
+        width: 120%;
+        height: 160%;
+        background:
+            radial-gradient(ellipse at 20% 80%, rgba(200,30,100,0.25) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 20%, rgba(255,100,150,0.2) 0%, transparent 50%),
+            radial-gradient(ellipse at 50% 50%, rgba(180,40,100,0.15) 0%, transparent 60%);
+        z-index: 0;
+    }
+
+    .certificate-header > * {
+        position: relative;
+        z-index: 1;
     }
 
     .header-logos {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 15px;
+        margin-bottom: 10px;
     }
 
     .logo-item {
-        height: 100px;
-        width: auto;
-        max-width: 120px;
+        height: 90px;
+        width: 90px;
         object-fit: contain;
     }
 
@@ -226,15 +247,15 @@
         
         <div class="certificate-header">
             <div class="header-logos">
-                <img src="{% static 'images/logo.png' %}" alt="Brgy Logo" class="logo-item" style="height: 100px;">
-                <img src="{% static 'images/bagong_pilipinas.png' %}" alt="Bagong Pilipinas" class="logo-item" style="height: 80px;">
+                <img src="{% static 'images/logo.png' %}" alt="Brgy Logo" class="logo-item">
+                <img src="{% static 'images/bagong_pilipinas.png' %}" alt="Bagong Pilipinas" class="logo-item">
                 <div class="header-text">
                     <p>Republic of the Philippines</p>
                     <p>Province of Surigao Del Norte</p>
                     <p>Municipality of Gigaquit</p>
                     <p>Barangay Sico-Sico</p>
                 </div>
-                <img src="{% static 'images/gigaquit_logo.png' %}" alt="Municipality Logo" class="logo-item" style="height: 100px;">
+                <img src="{% static 'images/gigaquit_logo.png' %}" alt="Municipality Logo" class="logo-item">
             </div>
             <div class="office-title">
                 <h2>OFFICE OF THE SANGGUNIANG BARANGAY</h2>
@@ -507,14 +528,12 @@
             </div>
         </div>
 
-        <!-- Footer bar: logos + seal warning -->
-        <div style="margin-top: 40px; border-top: 1.5px solid #000; padding-top: 12px;">
-            <div style="display: flex; justify-content: center; align-items: center; gap: 18px; margin-bottom: 8px;">
-                <img src="{% static 'images/logo.png' %}" alt="Brgy Logo" style="height: 48px; object-fit: contain;">
-                <img src="{% static 'images/bagong_pilipinas.png' %}" alt="Bagong Pilipinas" style="height: 38px; object-fit: contain;">
-                <img src="{% static 'images/gigaquit_logo.png' %}" alt="Gigaquit Logo" style="height: 48px; object-fit: contain;">
+        <!-- Footer bar: pink wave banner with logos + seal warning -->
+        <div style="margin: 40px -80px -60px -80px; padding: 18px 80px 14px; background: linear-gradient(315deg, #fff0f5 0%, #ffd6e7 25%, #ff9ec5 50%, #d4548a 75%, #b02e6b 100%); position: relative; overflow: hidden;">
+            <div style="position: absolute; top: -30%; left: -10%; width: 120%; height: 160%; background: radial-gradient(ellipse at 80% 80%, rgba(200,30,100,0.25) 0%, transparent 50%), radial-gradient(ellipse at 20% 20%, rgba(255,100,150,0.2) 0%, transparent 50%); z-index: 0;"></div>
+            <div style="position: relative; z-index: 1; text-align: center;">
+                <p style="font-style: italic; font-weight: 700; font-size: 14px; margin: 0; color: #dc2626;">Not valid without official seal</p>
             </div>
-            <p style="text-align: center; font-style: italic; font-size: 14px; margin: 0; color: #000;">Not valid without official seal</p>
         </div>
         {% endif %}
     </div>
