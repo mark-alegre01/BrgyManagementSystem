@@ -34,7 +34,12 @@ def generate_control_number(cert_type):
         created_at__year=year
     ).count() + 1
     
-    return f"{prefix}-{count:03d}-{year}"
+    control_number = f"{prefix}-{count:03d}-{year}"
+    while Certificate.objects.filter(control_number=control_number).exists():
+        count += 1
+        control_number = f"{prefix}-{count:03d}-{year}"
+        
+    return control_number
 
 
 def generate_or_number():
@@ -77,7 +82,12 @@ def generate_ctc_number():
         # But let's assume the prefix is constant for the year
         prefix = last_cedula.ctc_number[:match.start()]
         number = int(number_str)
-        return f"{prefix}{number + 1:0{len(number_str)}d}"
+        
+        next_ctc = f"{prefix}{number + 1:0{len(number_str)}d}"
+        while Cedula.objects.filter(ctc_number=next_ctc).exists():
+            number += 1
+            next_ctc = f"{prefix}{number + 1:0{len(number_str)}d}"
+        return next_ctc
         
     return f"CCIC{year}001"
 
@@ -209,6 +219,8 @@ def certificate_issue(request):
                 return Decimal('0.00')
 
         control_number = request.POST.get('control_number') or generate_control_number(cert_type)
+        if Certificate.objects.filter(control_number=control_number).exists():
+            control_number = generate_control_number(cert_type)
 
         # Build or find a backing CertificateRequest so Certificate can reference it
         cert_req, _ = CertificateRequest.objects.get_or_create(
@@ -296,9 +308,13 @@ def certificate_issue(request):
 
         if cert_type == 'cedula':
             from certifications.models import Cedula
+            ctc_number = request.POST.get('ctc_number')
+            if not ctc_number or Cedula.objects.filter(ctc_number=ctc_number).exists():
+                ctc_number = generate_ctc_number()
+                
             Cedula.objects.create(
                 certificate=cert,
-                ctc_number=request.POST.get('ctc_number'),
+                ctc_number=ctc_number,
                 taxpayer_type=request.POST.get('taxpayer_type', 'individual'),
                 place_of_issue=request.POST.get('place_of_issue', 'Sico-Sico, Gigaquit'),
                 height=request.POST.get('height', ''),
@@ -571,6 +587,8 @@ def fulfill_request(request, pk):
                 return Decimal('0.00')
 
         control_number = request.POST.get('control_number') or generate_control_number(cert_request.cert_type)
+        if Certificate.objects.filter(control_number=control_number).exists():
+            control_number = generate_control_number(cert_request.cert_type)
 
         # Update cert_request with potentially modified details from sender
         cert_request.purpose = request.POST.get('purpose', cert_request.purpose)
@@ -613,6 +631,9 @@ def fulfill_request(request, pk):
         if cert.cert_type == 'cedula':
             from certifications.models import Cedula
             ctc_number = request.POST.get('ctc_number', '')
+            if not ctc_number or Cedula.objects.filter(ctc_number=ctc_number).exists():
+                ctc_number = generate_ctc_number()
+                
             Cedula.objects.create(
                 certificate=cert,
                 ctc_number=ctc_number,
